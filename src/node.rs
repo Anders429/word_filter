@@ -72,7 +72,10 @@ impl<'a> Node<'a> {
 
     fn add_path(&mut self, word: &str, node_type: NodeType<'a>) {
         if word.is_empty() {
-            if matches!(self.node_type, NodeType::Standard) {
+            if match self.node_type {
+                NodeType::Standard => true,
+                _ => false,
+            } {
                 self.node_type = node_type;
             }
             return;

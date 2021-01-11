@@ -6,6 +6,7 @@ use pointer::{Pointer, PointerStatus};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::pin::Pin;
 
 #[derive(PartialEq)]
 pub enum RepeatedCharacterMatchMode {
@@ -39,7 +40,7 @@ pub struct WordFilter<'a> {
     root: Node<'a>,
     separator_root: Node<'a>,
     #[allow(dead_code)]
-    alias_map: HashMap<String, Node<'a>>,
+    alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
     options: Options,
 }
 
@@ -70,7 +71,7 @@ impl<'a> WordFilter<'a> {
         for (value, alias) in aliases {
             alias_map
                 .entry(value.to_string())
-                .or_insert_with(Node::new)
+                .or_insert_with(|| Box::pin(Node::new()))
                 .add_return(alias);
         }
         // Find merged aliases.
@@ -107,7 +108,7 @@ impl<'a> WordFilter<'a> {
         for (value, alias) in new_aliases {
             alias_map
                 .entry(value)
-                .or_insert_with(Node::new)
+                .or_insert_with(|| Box::pin(Node::new()))
                 .add_return(&alias);
         }
 

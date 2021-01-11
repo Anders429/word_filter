@@ -1,3 +1,12 @@
+//! Pointer type for `WordFilter`'s internal searching.
+//!
+//! `Pointer` provides an efficient way for the `WordFilter` to search its own directional graph for
+//! matches to a given string.
+//!
+//! Use of a `Pointer` allows for multiple simultaneous searches to all maintain their own context.
+//! This allows for splitting of paths at aliases, searching for separators, and searching at 
+//! different start locations within the string simultaneously. 
+
 use crate::node::{Node, NodeType};
 
 /// The current status of the `Pointer`.

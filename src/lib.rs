@@ -4,8 +4,10 @@ mod pointer;
 use node::Node;
 use pointer::{Pointer, PointerStatus};
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet, VecDeque},
-    pin::Pin,
+    ops::Deref,
+    rc::Rc,
 };
 
 #[derive(PartialEq)]
@@ -37,10 +39,8 @@ pub struct Options {
 }
 
 pub struct WordFilter<'a> {
-    root: Node<'a>,
+    root: Rc<RefCell<Node<'a>>>,
     separator_root: Node<'a>,
-    #[allow(dead_code)]
-    alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
     options: Options,
 }
 
@@ -52,14 +52,14 @@ impl<'a> WordFilter<'a> {
         aliases: &[(&'a str, &str)],
         options: Options,
     ) -> Self {
-        let mut root = Node::new();
+        let mut root = Rc::new(RefCell::new(Node::new()));
 
         for word in filtered_words {
-            root.add_match(word);
+            root.borrow_mut().add_match(word);
         }
 
         for word in exceptions {
-            root.add_exception(word);
+            root.borrow_mut().add_exception(word);
         }
 
         let mut separator_root = Node::new();
@@ -69,10 +69,11 @@ impl<'a> WordFilter<'a> {
 
         let mut alias_map = HashMap::new();
         for (value, alias) in aliases {
-            alias_map
-                .entry(value.to_string())
-                .or_insert_with(|| Box::pin(Node::new()))
-                .add_return(alias);
+                alias_map
+                    .entry(value.to_string())
+                    .or_insert_with(|| Rc::new(RefCell::new(Node::new())))
+            .borrow_mut()
+            .add_return(alias);
         }
         // Find merged aliases.
         let mut queue = VecDeque::new();
@@ -106,10 +107,11 @@ impl<'a> WordFilter<'a> {
             }
         }
         for (value, alias) in new_aliases {
-            alias_map
-                .entry(value)
-                .or_insert_with(|| Box::pin(Node::new()))
-                .add_return(&alias);
+                alias_map
+                    .entry(value)
+                    .or_insert_with(|| Rc::new(RefCell::new(Node::new())))
+            .borrow_mut()
+            .add_return(&alias);
         }
 
         // Apply aliases on each other.
@@ -119,31 +121,17 @@ impl<'a> WordFilter<'a> {
                 if value == alias_value {
                     continue;
                 }
-                let alias_node = unsafe {
-                    (alias_map[alias_value].as_ptr() as *const Node)
-                        .as_ref()
-                        .unwrap()
-                };
-                alias_map
-                    .get_mut(value)
-                    .unwrap()
-                    .add_alias(alias_value, alias_node);
+                let alias_node = alias_map[alias_value].clone();
+                Node::add_alias(alias_map.get_mut(value).unwrap(), alias_value, &alias_node);
             }
         }
         for (value, node) in &alias_map {
-            // Unsafe is needed here to allow the reference to exist but the borrow of alias_map
-            // to also be dropped. If the node is ever removed from alias_map, this will become
-            // unbounded. However, this should never happen, since no method allows modification to
-            // alias_map.
-            unsafe {
-                root.add_alias(value, (node.as_ptr() as *const Node).as_ref().unwrap());
-            }
+            Node::add_alias(&mut root, value, &node);
         }
 
         Self {
             root,
             separator_root,
-            alias_map,
             options,
         }
     }
@@ -152,29 +140,29 @@ impl<'a> WordFilter<'a> {
         &self,
         pointer: &Pointer<'a>,
         new_pointers: &mut Vec<Pointer<'a>>,
-        visited: Vec<&Node>,
+        visited: Vec<&Node<'a>>,
     ) {
         for (alias_node, return_node) in &pointer.current_node.aliases {
-            if visited.iter().any(|n| std::ptr::eq(*n, *alias_node)) {
+            if visited.iter().any(|n| std::ptr::eq(n, &alias_node.borrow().deref())) {
                 continue;
             }
             let mut return_nodes = pointer.return_nodes.clone();
-            return_nodes.push(return_node);
-            let alias_pointer = Pointer::new(alias_node, return_nodes, pointer.start, pointer.len);
+            return_nodes.push(&return_node.borrow());
+            let alias_pointer = Pointer::new(&alias_node.borrow(), return_nodes, pointer.start, pointer.len);
             let mut new_visited = visited.clone();
-            new_visited.push(alias_node);
+            new_visited.push(&alias_node.borrow());
             self.push_aliases(&alias_pointer, new_pointers, new_visited);
             new_pointers.push(alias_pointer);
         }
     }
 
-    fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
-        let mut pointers = vec![Pointer::new(&self.root, Vec::new(), 0, 0)];
+    fn find_pointers(&'a self, input: &str) -> Box<[Pointer]> {
+        let mut pointers = vec![Pointer::new(&self.root.borrow(), Vec::new(), 0, 0)];
         pointers.extend(
-            self.root
+            self.root.borrow()
                 .aliases
                 .iter()
-                .map(|(alias_node, return_node)| Pointer::new(alias_node, vec![return_node], 0, 0)),
+                .map(|(alias_node, return_node)| Pointer::new(&alias_node.borrow(), vec![&return_node.borrow()], 0, 0)),
         );
         let mut found_matches = Vec::new();
         let mut found_exceptions = Vec::new();
@@ -210,9 +198,9 @@ impl<'a> WordFilter<'a> {
             }
 
             // Add root again.
-            new_pointers.push(Pointer::new(&self.root, Vec::new(), i + 1, 0));
-            new_pointers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
-                Pointer::new(alias_node, vec![return_node], i + 1, 0)
+            new_pointers.push(Pointer::new(&self.root.borrow(), Vec::new(), i + 1, 0));
+            new_pointers.extend(self.root.borrow().aliases.iter().map(|(alias_node, return_node)| {
+                Pointer::new(&alias_node.borrow(), vec![&return_node.borrow()], i + 1, 0)
             }));
 
             pointers = new_pointers;

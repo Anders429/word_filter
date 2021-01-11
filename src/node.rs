@@ -11,6 +11,8 @@
 //! Each node also has a NodeType, identifying what kind of Node it is.
 
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug, PartialEq)]
 pub enum NodeType<'a> {
@@ -29,12 +31,12 @@ pub enum NodeType<'a> {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub children: HashMap<char, Node<'a>>,
+    pub children: HashMap<char, Rc<RefCell<Node<'a>>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
     /// These are pairs representing `(sub_graph_node, return_node)`.
-    pub aliases: Vec<(&'a Node<'a>, &'a Node<'a>)>,
+    pub aliases: Vec<(Rc<RefCell<Node<'a>>>, Rc<RefCell<Node<'a>>>)>,
 
     /// The type of node.
     pub node_type: NodeType<'a>,
@@ -52,13 +54,6 @@ impl<'a> Node<'a> {
         }
     }
 
-    /// Converts the Node to a raw pointer.
-    ///
-    /// The caller must ensure the returned pointer is never written to.
-    pub fn as_ptr(&self) -> *const u8 {
-        self as *const Node as *const u8
-    }
-
     fn add_path(&mut self, word: &str, node_type: NodeType<'a>) {
         if word.is_empty() {
             if match self.node_type {
@@ -71,9 +66,9 @@ impl<'a> Node<'a> {
         }
 
         let mut char_indices = word.char_indices();
-        self.children
+        Rc::get_mut(self.children
             .entry(char_indices.next().map(|(_index, c)| c).unwrap())
-            .or_insert_with(Self::new)
+            .or_insert_with(|| Rc::new(RefCell::new(Self::new())))).unwrap()
             .add_path(
                 &word[char_indices
                     .next()
@@ -98,22 +93,18 @@ impl<'a> Node<'a> {
         self.add_path(word, NodeType::Return);
     }
 
-    fn find_alias_return_node(&self, value: &str) -> Option<&'a Node<'a>> {
+    fn find_alias_return_node(rc_self: &Rc<RefCell<Node<'a>>>, value: &str) -> Option<Rc<RefCell<Node<'a>>>> {
         if value.is_empty() {
-            // Unsafe is needed to return a reference while also releasing the borrow. If the Node
-            // is ever deleted, this becomes unbounded. However, this should not happen, as Nodes
-            // are only ever added to the WordFilter graph.
-            unsafe {
-                return Some((self.as_ptr() as *const Node).as_ref().unwrap());
-            }
+            return Some(rc_self.clone());
         }
 
         let mut char_indices = value.char_indices();
-        match self
+        match rc_self
             .children
             .get(&char_indices.next().map(|(_index, c)| c).unwrap())
         {
-            Some(node) => node.find_alias_return_node(
+            Some(node) => Node::find_alias_return_node(
+                node,
                 &value[char_indices
                     .next()
                     .map(|(index, _c)| index)
@@ -125,31 +116,28 @@ impl<'a> Node<'a> {
 
     /// Insert an alias pointing to `sub_graph_node` at all places where `value` exists in the
     /// graph.
-    ///
-    /// The caller must be sure that no Nodes are removed from the graph after calling this method,
-    /// as it may leave some dangling references.
-    pub fn add_alias(&mut self, value: &str, sub_graph_node: &'a Node<'a>) {
+    pub fn add_alias(rc_self: &mut Rc<RefCell<Node<'a>>>, value: &str, sub_graph_node: &Rc<RefCell<Node<'a>>>) {
         // Head recursion.
-        for child in self.children.iter_mut().map(|(_c, node)| node) {
-            child.add_alias(value, sub_graph_node);
+        for child in Rc::get_mut(rc_self).unwrap().children.iter_mut().map(|(_c, node)| node) {
+            Node::add_alias(child, value, sub_graph_node);
         }
 
-        if let Some(return_node) = self.find_alias_return_node(value) {
-            self.aliases.push((sub_graph_node, return_node));
+        if let Some(return_node) = Node::find_alias_return_node(rc_self, value) {
+            Rc::get_mut(rc_self).unwrap().aliases.push((sub_graph_node.clone(), return_node));
         }
     }
 
     #[cfg(test)]
-    pub fn search(&'a self, word: &str) -> Option<&'a Node<'a>> {
+    pub fn search(rc_self: &Rc<Node<'a>>, word: &str) -> Option<Rc<Node<'a>>> {
         if word.is_empty() {
-            return Some(self);
+            return Some(rc_self.clone());
         }
         let mut char_indices = word.char_indices();
-        match self
+        match rc_self
             .children
             .get(&char_indices.next().map(|(_index, c)| c).unwrap())
         {
-            Some(node) => node.search(
+            Some(node) => Node::search(rc_self,
                 &word[char_indices
                     .next()
                     .map(|(index, _c)| index)
@@ -163,12 +151,7 @@ impl<'a> Node<'a> {
 #[cfg(test)]
 mod tests {
     use crate::node::{Node, NodeType};
-
-    #[test]
-    fn as_ptr() {
-        let node = Node::new();
-        assert!(std::ptr::eq(&node, node.as_ptr() as *const Node));
-    }
+    use std::rc::Rc;
 
     #[test]
     fn add_match() {
@@ -176,7 +159,7 @@ mod tests {
         node.add_match("foo");
 
         assert_eq!(
-            node.search("foo").unwrap().node_type,
+            Node::search(&Rc::new(node), "foo").unwrap().node_type,
             NodeType::Match("foo")
         );
     }
@@ -187,7 +170,7 @@ mod tests {
         node.add_exception("foo");
 
         assert_eq!(
-            node.search("foo").unwrap().node_type,
+            Node::search(&Rc::new(node), "foo").unwrap().node_type,
             NodeType::Exception("foo")
         );
     }
@@ -197,27 +180,29 @@ mod tests {
         let mut node = Node::new();
         node.add_return("foo");
 
-        assert_eq!(node.search("foo").unwrap().node_type, NodeType::Return);
+        assert_eq!(Node::search(&Rc::new(node), "foo").unwrap().node_type, NodeType::Return);
     }
 
     #[test]
     fn add_alias() {
-        let mut node = Node::new();
-        node.add_match("foo");
+        let mut node = Rc::new(Node::new());
+        Rc::get_mut(&mut node).unwrap().add_match("foo");
 
-        let alias_node = Node::new();
-        node.add_alias("o", &alias_node);
+        let alias_node = Rc::new(Node::new());
+        Node::add_alias(&mut node, "o", &alias_node);
 
-        let first_node = node.search("f").unwrap();
-        let second_node = node.search("fo").unwrap();
-        let third_node = node.search("foo").unwrap();
+        let first_node = Node::search(&node, "f").unwrap();
+        let second_node = Node::search(&node, "fo").unwrap();
+        let third_node = Node::search(&node, "foo").unwrap();
         assert_eq!(first_node.aliases.len(), 1);
         assert_eq!(second_node.aliases.len(), 1);
-        let (first_node_alias, first_node_return) = first_node.aliases[0];
-        let (second_node_alias, second_node_return) = second_node.aliases[0];
-        assert!(std::ptr::eq(first_node_alias, &alias_node));
-        assert!(std::ptr::eq(first_node_return, second_node));
-        assert!(std::ptr::eq(second_node_alias, &alias_node));
-        assert!(std::ptr::eq(second_node_return, third_node));
+        let first_node_alias = first_node.aliases[0].0.clone();
+        let first_node_return = first_node.aliases[0].1.clone();
+        let second_node_alias = second_node.aliases[0].0.clone();
+        let second_node_return = second_node.aliases[0].1.clone();
+        assert!(Rc::ptr_eq(&first_node_alias, &alias_node));
+        assert!(Rc::ptr_eq(&first_node_return, &second_node));
+        assert!(Rc::ptr_eq(&second_node_alias, &alias_node));
+        assert!(Rc::ptr_eq(&second_node_return, &third_node));
     }
 }

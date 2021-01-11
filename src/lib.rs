@@ -3,10 +3,10 @@ mod pointer;
 
 use node::Node;
 use pointer::{Pointer, PointerStatus};
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::pin::Pin;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    pin::Pin,
+};
 
 #[derive(PartialEq)]
 pub enum RepeatedCharacterMatchMode {
@@ -148,7 +148,12 @@ impl<'a> WordFilter<'a> {
         }
     }
 
-    fn push_aliases(&self, pointer: &Pointer<'a>, new_pointers: &mut Vec<Pointer<'a>>, visited: Vec<&Node>) {
+    fn push_aliases(
+        &self,
+        pointer: &Pointer<'a>,
+        new_pointers: &mut Vec<Pointer<'a>>,
+        visited: Vec<&Node>,
+    ) {
         for (alias_node, return_node) in &pointer.current_node.aliases {
             if visited.iter().any(|n| std::ptr::eq(*n, *alias_node)) {
                 continue;
@@ -230,9 +235,7 @@ impl<'a> WordFilter<'a> {
                 let end = start + m.found_len.unwrap();
                 !found_exceptions
                     .iter()
-                    .any(|e| {
-                        e.start <= start && e.start + e.found_len.unwrap() >= end
-                    })
+                    .any(|e| e.start <= start && e.start + e.found_len.unwrap() >= end)
             })
             .cloned()
             .collect::<Vec<Pointer>>()
@@ -321,17 +324,11 @@ mod tests {
         assert_eq!(filter.find("foob"), Vec::new().into_boxed_slice());
         assert_eq!(filter.find("cfood"), Vec::new().into_boxed_slice());
     }
-    
+
     #[test]
     fn exceptions_and_matches() {
-        let filter = WordFilter::new(
-            &["foo"],
-            &["foobar"],
-            &[],
-            &[],
-            Options::default(),
-        );
-        
+        let filter = WordFilter::new(&["foo"], &["foobar"], &[], &[], Options::default());
+
         assert_eq!(filter.find("foobarfoo"), vec!["foo"].into_boxed_slice());
     }
 
@@ -398,7 +395,7 @@ mod tests {
 
         assert_eq!(filter.find("abr"), vec!["bar"].into_boxed_slice());
     }
-    
+
     #[test]
     fn options_repeated_characters_allowed() {
         let filter = WordFilter::new(
@@ -407,15 +404,14 @@ mod tests {
             &[],
             &[],
             Options {
-                repeated_character_match_mode:
-                    RepeatedCharacterMatchMode::AllowRepeatedCharacters,
+                repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
                 censor_mode: CensorMode::ReplaceAllWith('*'),
             },
         );
-        
+
         assert_eq!(filter.find("bbbaaaarrrr"), vec!["bar"].into_boxed_slice());
     }
-    
+
     #[test]
     fn options_repeated_characters_disallowed() {
         let filter = WordFilter::new(
@@ -429,10 +425,10 @@ mod tests {
                 censor_mode: CensorMode::ReplaceAllWith('*'),
             },
         );
-        
+
         assert_eq!(filter.find("bbbaaaarrrr"), vec![].into_boxed_slice());
     }
-    
+
     #[test]
     fn options_censor_mode() {
         let filter = WordFilter::new(
@@ -441,12 +437,11 @@ mod tests {
             &[],
             &[],
             Options {
-                repeated_character_match_mode:
-                    RepeatedCharacterMatchMode::AllowRepeatedCharacters,
+                repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
                 censor_mode: CensorMode::ReplaceAllWith('#'),
             },
         );
-        
+
         assert_eq!(filter.censor("foo"), "###");
     }
 }

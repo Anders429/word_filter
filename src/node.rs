@@ -10,7 +10,7 @@
 //!
 //! Each node also has a NodeType, identifying what kind of Node it is.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, pin::Pin};
 
 #[derive(Debug, PartialEq)]
 pub enum NodeType<'a> {
@@ -29,7 +29,7 @@ pub enum NodeType<'a> {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub children: HashMap<char, Node<'a>>,
+    pub children: HashMap<char, Pin<Box<Node<'a>>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
@@ -73,7 +73,7 @@ impl<'a> Node<'a> {
         let mut char_indices = word.char_indices();
         self.children
             .entry(char_indices.next().map(|(_index, c)| c).unwrap())
-            .or_insert_with(Self::new)
+            .or_insert_with(|| Box::pin(Self::new()))
             .add_path(
                 &word[char_indices
                     .next()

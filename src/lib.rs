@@ -254,7 +254,7 @@ impl<'a> WordFilter<'a> {
             })
             .collect::<HashSet<&str>>()
             .iter()
-            .copied()
+            .cloned()
             .collect::<Vec<&str>>()
             .into_boxed_slice()
     }

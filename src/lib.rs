@@ -16,7 +16,7 @@ pub enum RepeatedCharacterMatchMode {
 
 impl Default for RepeatedCharacterMatchMode {
     fn default() -> Self {
-        Self::AllowRepeatedCharacters
+        RepeatedCharacterMatchMode::AllowRepeatedCharacters
     }
 }
 
@@ -26,7 +26,7 @@ pub enum CensorMode {
 
 impl Default for CensorMode {
     fn default() -> Self {
-        Self::ReplaceAllWith('*')
+        CensorMode::ReplaceAllWith('*')
     }
 }
 

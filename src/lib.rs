@@ -120,6 +120,13 @@ impl<'a> WordFilter<'a> {
                     continue;
                 }
                 let alias_node = unsafe {
+                    // SAFETY: The obtained reference to a Node is self-referential within the
+                    // WordFilter struct. The only reason this conversion from reference to pointer
+                    // and back again is necessary is to make the reference lifetime-agnostic to
+                    // allow the self-reference. This is safe, because every Node owned in the graph
+                    // by the WordFilter is pinned in place in memory, meaning it will only ever
+                    // move when the WordFilter is dropped. Therefore, this reference will be valid
+                    // for as long as it is used by the WordFilter.
                     (alias_map[alias_value].as_ptr() as *const Node)
                         .as_ref()
                         .unwrap()
@@ -131,11 +138,14 @@ impl<'a> WordFilter<'a> {
             }
         }
         for (value, node) in &alias_map {
-            // Unsafe is needed here to allow the reference to exist but the borrow of alias_map
-            // to also be dropped. If the node is ever removed from alias_map, this will become
-            // unbounded. However, this should never happen, since no method allows modification to
-            // alias_map.
             unsafe {
+                // SAFETY: The obtained reference to a Node is self-referential within the
+                // WordFilter struct. The only reason this conversion from reference to pointer and
+                // back again is necessary is to make the reference lifetime-agnostic to allow the
+                // self-reference. This is safe, because every Node owned in the graph by the
+                // WordFilter is pinned in place in memory, meaning it will only ever move when the
+                // WordFilter is dropped. Therefore, this reference will be valid for as long as it
+                // is used by the WordFilter.
                 root.add_alias(value, (node.as_ptr() as *const Node).as_ref().unwrap());
             }
         }

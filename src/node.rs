@@ -12,11 +12,25 @@
 
 use std::{collections::HashMap, pin::Pin};
 
+/// The different possible node variants.
 #[derive(Debug, PartialEq)]
 pub enum NodeType<'a> {
+    /// A standard pathway node.
     Standard,
+    /// This node indicates a match.
+    ///
+    /// When traveling along a node path, if a match node is encountered that means a filtered word
+    /// is contained in the source string.
     Match(&'a str),
+    /// This node indicates an exception.
+    ///
+    /// When traveling along a node path, if an exception node is encountered that means an
+    /// exception word is contained in the source string. If any matches are found within the same
+    /// character window they should be ignored.
     Exception(&'a str),
+    /// A return pathway node.
+    ///
+    /// This indicates the pointer should jump back to the return node, if one exists.
     Return,
 }
 
@@ -98,12 +112,20 @@ impl<'a> Node<'a> {
         self.add_path(word, NodeType::Return);
     }
 
+    /// Finds the return node for an alias, if one exists.
+    ///
+    /// Travels along the node path using `value`, until it either reaches a dead end or consumes
+    /// all of `value`. If a dead end is reached, `None` is returned instead.
     fn find_alias_return_node(&self, value: &str) -> Option<&'a Node<'a>> {
         if value.is_empty() {
-            // Unsafe is needed to return a reference while also releasing the borrow. If the Node
-            // is ever deleted, this becomes unbounded. However, this should not happen, as Nodes
-            // are only ever added to the WordFilter graph.
             unsafe {
+                // SAFETY: The obtained reference to a Node is self-referential within the
+                // WordFilter struct. The only reason this conversion from reference to pointer and
+                // back again is necessary is to make the reference lifetime-agnostic to allow the
+                // self-reference. This is safe, because every Node owned in the graph by the
+                // WordFilter is pinned in place in memory, meaning it will only ever move when the
+                // WordFilter is dropped. Therefore, this reference will be valid for as long as it
+                // is used by the WordFilter.
                 return Some((self.as_ptr() as *const Node).as_ref().unwrap());
             }
         }
@@ -139,6 +161,9 @@ impl<'a> Node<'a> {
         }
     }
 
+    /// A test-only method used to search directly from a Node.
+    ///
+    /// In production, the actual traversal through the graph is handled by a Pointer.
     #[cfg(test)]
     pub fn search(&'a self, word: &str) -> Option<&'a Node<'a>> {
         if word.is_empty() {

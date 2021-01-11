@@ -59,17 +59,6 @@ impl<'a> Node<'a> {
         self as *const Node as *const u8
     }
 
-    /*
-    /// Obtains a lifetime-arbitrary reference to the node.
-    ///
-    /// Use this with caution. If the reference outlives the Node, we will have dangling references
-    /// and undefined behavior. Do not delete nodes after you have created lfetime-arbitrary
-    /// references to them.
-    pub unsafe fn as_arbitrary_ref(&self) -> &Node {
-        (self as *const Node as *const u8 as *const Node).as_ref().unwrap()
-    }
-    */
-
     fn add_path(&mut self, word: &str, node_type: NodeType<'a>) {
         if word.is_empty() {
             if match self.node_type {

@@ -280,6 +280,7 @@ impl<'a> WordFilter<'a> {
         }
     }
 
+    /// Create new `Pointer`s for the aliases at the `pointer`'s `current_node`.
     fn push_aliases(
         &self,
         pointer: &Pointer<'a>,
@@ -300,6 +301,10 @@ impl<'a> WordFilter<'a> {
         }
     }
 
+    /// Finds all `Pointer`s that encounter matches.
+    ///
+    /// This also excludes all `Pointer`s that encountered matches but whose ranges also are 
+    /// contained within ranges are `Pointer`s who encountered exceptions.
     fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
         let mut pointers = vec![Pointer::new(&self.root, Vec::new(), 0, 0, false)];
         pointers.extend(

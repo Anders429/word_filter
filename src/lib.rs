@@ -66,7 +66,6 @@ pub enum CensorMode {
     ///
     /// assert_eq!(word_filter.censor("foo"), "***");
     /// ```
-
     ReplaceAllWith(char),
 }
 
@@ -77,9 +76,27 @@ impl Default for CensorMode {
     }
 }
 
+/// Options for `WordFilter`s.
+///
+/// This specifies both the `RepeatedCharacterMatchMode` and the `CensorMode` for a `WordFilter`.
+///
+/// Example usage:
+/// 
+/// ```
+/// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+///
+/// let word_filter = WordFilter::new(&["bar"], &[], &[], &[], Options {
+///     repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
+///     censor_mode: CensorMode::ReplaceAllWith('*'),   
+/// });
+///
+/// assert_eq!(word_filter.censor("baaar"), "*****");
+/// ```
 #[derive(Default)]
 pub struct Options {
+    /// The strategy used for matching repeated characters.
     pub repeated_character_match_mode: RepeatedCharacterMatchMode,
+    /// The strategy used for censoring.
     pub censor_mode: CensorMode,
 }
 
@@ -238,13 +255,14 @@ impl<'a> WordFilter<'a> {
         for (i, c) in input.chars().enumerate() {
             let mut new_pointers = Vec::new();
             for pointer in pointers.iter_mut() {
-                let last_pointer = pointer.clone();
+                let mut last_pointer = pointer.clone();
                 if pointer.step(&c) {
                     new_pointers.push(pointer.clone());
 
                     if self.options.repeated_character_match_mode
                         == RepeatedCharacterMatchMode::AllowRepeatedCharacters
                     {
+                        last_pointer.len += 1;
                         new_pointers.push(last_pointer);
                     }
 
@@ -509,6 +527,7 @@ mod tests {
         );
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec!["bar"].into_boxed_slice());
+        assert_eq!(filter.censor("baaar"), "*****");
     }
 
     #[test]

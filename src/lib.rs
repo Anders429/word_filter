@@ -286,6 +286,21 @@ impl<'a> WordFilter<'a> {
         !self.find_pointers(input).is_empty()
     }
 
+    /// Censor all filtered words within `input`.
+    ///
+    /// Returns a newly-allocated `String` with all filtered words censored using the `CensorMode`
+    /// strategy, as defined in the `Options` passed to the `WordFilter` at construction.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{Options, WordFilter};
+    ///
+    /// // Note that Options::default() uses CensorMode::ReplaceAllWith('*').
+    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+    ///
+    /// assert_eq!(word_filter.censor("this string contains foo"), "this string contains ***");
+    /// ```
     pub fn censor(&self, input: &str) -> String {
         let mut output = input.to_string();
         for pointer in self.find_pointers(input).iter() {

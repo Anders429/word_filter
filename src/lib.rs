@@ -132,7 +132,7 @@ pub struct Options {
 ///     Options::default(),
 /// );
 ///
-/// assert_eq!(word_filter.censor("fff ooo_o foobar"), "**********foobar");
+/// assert_eq!(word_filter.censor("fff ooo_o foobar"), "********* foobar");
 /// ```
 pub struct WordFilter<'a> {
     root: Node<'a>,
@@ -292,7 +292,7 @@ impl<'a> WordFilter<'a> {
             }
             let mut return_nodes = pointer.return_nodes.clone();
             return_nodes.push(return_node);
-            let alias_pointer = Pointer::new(alias_node, return_nodes, pointer.start, pointer.len);
+            let alias_pointer = Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
             let mut new_visited = visited.clone();
             new_visited.push(alias_node);
             self.push_aliases(&alias_pointer, new_pointers, new_visited);
@@ -301,12 +301,12 @@ impl<'a> WordFilter<'a> {
     }
 
     fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
-        let mut pointers = vec![Pointer::new(&self.root, Vec::new(), 0, 0)];
+        let mut pointers = vec![Pointer::new(&self.root, Vec::new(), 0, 0, false)];
         pointers.extend(
             self.root
                 .aliases
                 .iter()
-                .map(|(alias_node, return_node)| Pointer::new(alias_node, vec![return_node], 0, 0)),
+                .map(|(alias_node, return_node)| Pointer::new(alias_node, vec![return_node], 0, 0, false)),
         );
         let mut found_matches = Vec::new();
         let mut found_exceptions = Vec::new();
@@ -334,6 +334,7 @@ impl<'a> WordFilter<'a> {
                         return_nodes,
                         pointer.start,
                         pointer.len,
+                        true
                     ));
                 } else if let PointerStatus::Match(_) = pointer.status {
                     found_matches.push(pointer.clone());
@@ -343,9 +344,9 @@ impl<'a> WordFilter<'a> {
             }
 
             // Add root again.
-            new_pointers.push(Pointer::new(&self.root, Vec::new(), i + 1, 0));
+            new_pointers.push(Pointer::new(&self.root, Vec::new(), i + 1, 0, false));
             new_pointers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
-                Pointer::new(alias_node, vec![return_node], i + 1, 0)
+                Pointer::new(alias_node, vec![return_node], i + 1, 0, false)
             }));
 
             pointers = new_pointers;
@@ -444,6 +445,9 @@ impl<'a> WordFilter<'a> {
             let mut new_output = String::with_capacity(output.len());
             let start = pointer.start;
             let end = start + pointer.found_len.unwrap();
+            dbg!(pointer.start);
+            dbg!(pointer.len);
+            dbg!(pointer.found_len);
             for (i, c) in output.chars().enumerate() {
                 if i < start || i > end {
                     new_output.push(c);
@@ -619,5 +623,12 @@ mod tests {
         );
 
         assert_eq!(filter.censor("foo"), "###");
+    }
+
+    #[test]
+    fn separator_at_front_and_back_of_match() {
+        let word_filter = WordFilter::new(&["foo"], &[], &[" "], &[], Options::default());
+
+        assert_eq!(word_filter.censor("bar foo bar"), "bar *** bar");
     }
 }

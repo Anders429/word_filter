@@ -45,6 +45,8 @@ pub struct Pointer<'a> {
     pub len: usize,
     /// The length where the last `Match` or `Exception` node was found.
     pub found_len: Option<usize>,
+
+    pub in_separator: bool,
 }
 
 impl<'a> Pointer<'a> {
@@ -56,6 +58,7 @@ impl<'a> Pointer<'a> {
         return_nodes: Vec<&'a Node<'a>>,
         start: usize,
         len: usize,
+        in_separator: bool,
     ) -> Self {
         Self {
             current_node,
@@ -64,6 +67,7 @@ impl<'a> Pointer<'a> {
             start,
             len,
             found_len: None,
+            in_separator,
         }
     }
 
@@ -85,13 +89,21 @@ impl<'a> Pointer<'a> {
                 }
             }
             NodeType::Match(word) => {
-                self.status = PointerStatus::Match(word);
-                self.found_len = Some(self.len);
+                if self.in_separator {
+                    self.in_separator = false;
+                } else {
+                    self.status = PointerStatus::Match(word);
+                    self.found_len = Some(self.len);
+                }
                 Some(node)
             }
             NodeType::Exception(word) => {
-                self.status = PointerStatus::Exception(word);
-                self.found_len = Some(self.len);
+                if self.in_separator {
+                    self.in_separator = false;
+                } else {
+                    self.status = PointerStatus::Exception(word);
+                    self.found_len = Some(self.len);
+                }
                 Some(node)
             }
         }
@@ -140,7 +152,7 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0);
+        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
         assert!(pointer.step(&'f'));
         assert!(pointer.step(&'o'));
@@ -153,7 +165,7 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0);
+        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
         assert!(pointer.step(&'f'));
         assert!(pointer.step(&'o'));
@@ -167,7 +179,7 @@ mod tests {
         let mut node = Node::new();
         node.add_exception("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0);
+        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
         assert!(pointer.step(&'f'));
         assert!(pointer.step(&'o'));
@@ -183,7 +195,7 @@ mod tests {
 
         let return_node = Node::new();
 
-        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0);
+        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
 
         assert!(pointer.step(&'f'));
         assert!(pointer.step(&'o'));
@@ -197,10 +209,29 @@ mod tests {
         let mut node = Node::new();
         node.add_return("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0);
+        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
         assert!(pointer.step(&'f'));
         assert!(pointer.step(&'o'));
         assert!(!pointer.step(&'o'));
+    }
+
+    #[test]
+    fn step_return_in_separator() {
+        let mut node = Node::new();
+        node.add_return("foo");
+
+        let mut return_node = Node::new();
+        return_node.add_match("");
+
+        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, true);
+
+        assert!(pointer.step(&'f'));
+        assert!(pointer.step(&'o'));
+        assert!(pointer.step(&'o'));
+
+        assert!(std::ptr::eq(pointer.current_node, &return_node));
+        assert!(!pointer.in_separator);
+        assert_eq!(pointer.found_len, None);
     }
 }

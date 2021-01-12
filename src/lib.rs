@@ -252,6 +252,20 @@ impl<'a> WordFilter<'a> {
             .into_boxed_slice()
     }
 
+    /// Find all filtered words matched by `input`.
+    ///
+    /// Returns a boxed slice containing all matched filtered words. Note that these words are not
+    /// guaranteed to be in any order, and will not contain duplicates.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{Options, WordFilter};
+    ///
+    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+    ///
+    /// assert_eq!(word_filter.find("this string contains foo"), vec!["foo"].into_boxed_slice());
+    /// ```
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_pointers(input)
             .iter()

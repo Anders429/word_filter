@@ -143,6 +143,30 @@ pub struct WordFilter<'a> {
 }
 
 impl<'a> WordFilter<'a> {
+    /// Create a new `WordFilter`.
+    ///
+    /// Note that `WordFilter`s created this way are immutable after their creation. Once you
+    /// specify the filtered words, exceptions, separators, aliases, and options, they can not be
+    /// changed.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{Options, WordFilter};
+    ///
+    /// let filtered_words = &["foo"];
+    /// let exceptions = &["foobar"];
+    /// let separators = &[" ", "_"];
+    /// let aliases = &[("f", "F")];
+    ///
+    /// let word_filter = WordFilter::new(
+    ///     filtered_words,
+    ///     exceptions,
+    ///     separators,
+    ///     aliases,
+    ///     Options::default(),
+    /// );
+    /// ```
     pub fn new(
         filtered_words: &[&'a str],
         exceptions: &[&'a str],

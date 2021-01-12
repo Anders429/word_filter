@@ -44,6 +44,7 @@ pub enum RepeatedCharacterMatchMode {
 }
 
 impl Default for RepeatedCharacterMatchMode {
+    /// Returns the default mode, which is `AllowRepeatedCharacters`.
     fn default() -> Self {
         RepeatedCharacterMatchMode::AllowRepeatedCharacters
     }

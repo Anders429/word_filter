@@ -73,8 +73,9 @@ impl<'a> Pointer<'a> {
 
     /// Processes a return node.
     ///
-    /// This evaluation is very conservative. If the node is not actually a return node, the node
-    /// is itself returned.
+    /// This evaluation is evaluated recursively if there are multiple return nodes. If the node is
+    /// not actually a return node, the node is itself returned. This will happen when the final
+    /// node in the return chain, which is itself not a return node, is encountered.
     ///
     /// If the node *is* a return node, and the `return_nodes` stack is empty, then `None` is
     /// returned. Otherwise, the new node where the `Pointer` should be located is returned.

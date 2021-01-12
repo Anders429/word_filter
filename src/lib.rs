@@ -100,6 +100,40 @@ pub struct Options {
     pub censor_mode: CensorMode,
 }
 
+/// A word filter for identifying filtered words within strings.
+///
+/// A `WordFilter` is constructed by passing **filtered words**, **exceptions**, **separators**, 
+/// **aliases**, and **options**. Each of those parameters are defined as follows:
+///
+/// - **filtered words** - strings that should be identified and censored by the `WordFilter`.
+/// - **exceptions** - strings that should explicitly not be identified and censored by the
+/// `WordFilter`. Any string that contains filtered word that is contained entirely inside an 
+/// exception will be ignored.
+/// - **separators** - strings that may appear between characters in filtered words and exceptions.
+/// - **aliases** - tuples defining alias strings that may replace source strings during matching.
+/// These are of the form `(<source string>, <alias string>)`.
+/// - **options** - options for the `WordFilter`. See the `Options` struct for more information.
+///
+/// Example usage:
+///
+/// ```
+/// use word_filter::{Options, WordFilter};
+///
+/// let filtered_words = &["foo"];
+/// let exceptions = &["foobar"];
+/// let separators = &[" ", "_"];
+/// let aliases = &[("f", "F")];
+///
+/// let word_filter = WordFilter::new(
+///     filtered_words,
+///     exceptions,
+///     separators,
+///     aliases,
+///     Options::default(),
+/// );
+///
+/// assert_eq!(word_filter.censor("fff ooo_o foobar"), "**********foobar");
+/// ```
 pub struct WordFilter<'a> {
     root: Node<'a>,
     separator_root: Node<'a>,

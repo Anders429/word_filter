@@ -8,9 +8,38 @@ use std::{
     pin::Pin,
 };
 
+/// The strategy a `WordFilter` should use to match repeated characters.
 #[derive(PartialEq)]
 pub enum RepeatedCharacterMatchMode {
+    /// Allows repeated characters within filtered words.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    ///
+    /// let word_filter = WordFilter::new(&["bar"], &[], &[], &[], Options {
+    ///     repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
+    ///     censor_mode: CensorMode::default(),   
+    /// });
+    ///
+    /// assert!(word_filter.check("baaar"));
+    /// ```
     AllowRepeatedCharacters,
+    /// Disallows repeated characters within filtered words.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    ///
+    /// let word_filter = WordFilter::new(&["bar"], &[], &[], &[], Options {
+    ///     repeated_character_match_mode: RepeatedCharacterMatchMode::DisallowRepeatedCharacters,
+    ///     censor_mode: CensorMode::default(),   
+    /// });
+    ///
+    /// assert!(!word_filter.check("baaar"));
+    /// ```
     DisallowRepeatedCharacters,
 }
 

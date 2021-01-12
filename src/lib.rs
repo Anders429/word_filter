@@ -269,6 +269,19 @@ impl<'a> WordFilter<'a> {
             .into_boxed_slice()
     }
 
+    /// Check whether `input` contains any filtered words.
+    ///
+    /// Returns `true` if matches are found, and `false` otherwise.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{Options, WordFilter};
+    ///
+    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+    ///
+    /// assert!(word_filter.check("this string contains foo"));
+    /// ```
     pub fn check(&self, input: &str) -> bool {
         !self.find_pointers(input).is_empty()
     }

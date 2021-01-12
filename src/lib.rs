@@ -50,11 +50,28 @@ impl Default for RepeatedCharacterMatchMode {
     }
 }
 
+/// The strategy for censoring in a `WordFilter`. 
 pub enum CensorMode {
+    /// Replace all matched characters with the character indicated.
+    ///
+    /// Example usage:
+    ///
+    /// ```
+    /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    ///
+    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options {
+    ///     repeated_character_match_mode: RepeatedCharacterMatchMode::default(),
+    ///     censor_mode: CensorMode::ReplaceAllWith('*'),   
+    /// });
+    ///
+    /// assert_eq!(word_filter.censor("foo"), "***");
+    /// ```
+
     ReplaceAllWith(char),
 }
 
 impl Default for CensorMode {
+    /// Returns the default mode, which is `ReplaceAllWith('*')`.
     fn default() -> Self {
         CensorMode::ReplaceAllWith('*')
     }

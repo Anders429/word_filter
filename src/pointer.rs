@@ -4,8 +4,8 @@
 //! matches to a given string.
 //!
 //! Use of a `Pointer` allows for multiple simultaneous searches to all maintain their own context.
-//! This allows for splitting of paths at aliases, searching for separators, and searching at 
-//! different start locations within the string simultaneously. 
+//! This allows for splitting of paths at aliases, searching for separators, and searching at
+//! different start locations within the string simultaneously.
 
 use crate::node::{Node, NodeType};
 
@@ -49,7 +49,7 @@ pub struct Pointer<'a> {
 
 impl<'a> Pointer<'a> {
     /// Creates a new `Pointer` with the provided attributes.
-    /// 
+    ///
     /// This also sets `status` to `PointerStatus::None` and `found_len` to `None`.
     pub fn new(
         current_node: &'a Node<'a>,
@@ -72,7 +72,7 @@ impl<'a> Pointer<'a> {
     /// This evaluation is very conservative. If the node is not actually a return node, the node
     /// is itself returned.
     ///
-    /// If the node *is* a return node, and the `return_nodes` stack is empty, then `None` is 
+    /// If the node *is* a return node, and the `return_nodes` stack is empty, then `None` is
     /// returned. Otherwise, the new node where the `Pointer` should be located is returned.
     fn evaluate_return_node(&mut self, node: &'a Node<'a>) -> Option<&'a Node<'a>> {
         match node.node_type {

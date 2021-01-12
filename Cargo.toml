@@ -3,6 +3,7 @@ name = "word_filter"
 version = "0.1.0"
 authors = ["Anders Evensen"]
 edition = "2018"
+description = "A robust implementation of a Word Filter."
 
 [dependencies]
 str_overlap = "0.1.1"

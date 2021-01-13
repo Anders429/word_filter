@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Anders Evensen"]
 edition = "2018"
 description = "A robust implementation of a Word Filter."
+repository = "https://github.com/Anders429/word_filter"
 exclude = [".travis.yml"]
 
 [dependencies]

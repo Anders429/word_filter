@@ -21,6 +21,9 @@ alias could be created to replace the letter "a" with the character "@").
 - Ignoring specified separators (such as spaces or other characters) between letters of filtered
 words.
 
+A Word Filter is useful for screening user-generated text in chat applications, online games, and
+many other contexts.
+
 ## Usage
 An example of a functional Word Filter using this crate is as follows:
 

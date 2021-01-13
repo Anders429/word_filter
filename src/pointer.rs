@@ -242,7 +242,7 @@ mod tests {
         node.add_return("foo");
 
         let mut return_node = Node::new();
-        return_node.add_match("");
+        return_node.add_exception("");
 
         let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
 

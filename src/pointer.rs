@@ -235,4 +235,40 @@ mod tests {
         assert!(!pointer.in_separator);
         assert_eq!(pointer.found_len, None);
     }
+
+    #[test]
+    fn step_return_to_exception() {
+        let mut node = Node::new();
+        node.add_return("foo");
+
+        let mut return_node = Node::new();
+        return_node.add_match("");
+
+        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
+
+        assert!(pointer.step(&'f'));
+        assert!(pointer.step(&'o'));
+        assert!(pointer.step(&'o'));
+
+        assert!(std::ptr::eq(pointer.current_node, &return_node));
+    }
+
+    #[test]
+    fn step_return_to_exception_in_separator() {
+        let mut node = Node::new();
+        node.add_return("foo");
+
+        let mut return_node = Node::new();
+        return_node.add_exception("");
+
+        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, true);
+
+        assert!(pointer.step(&'f'));
+        assert!(pointer.step(&'o'));
+        assert!(pointer.step(&'o'));
+
+        assert!(std::ptr::eq(pointer.current_node, &return_node));
+        assert!(!pointer.in_separator);
+        assert_eq!(pointer.found_len, None);
+    }
 }

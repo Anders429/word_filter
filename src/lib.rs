@@ -264,7 +264,7 @@ impl<'a> WordFilter<'a> {
                     value.to_string(),
                     merge_value[overlap_value.len()..].to_string(),
                     alias.to_string(),
-                ))
+                ));
             }
         }
         let mut new_aliases = Vec::new();

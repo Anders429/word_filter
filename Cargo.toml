@@ -11,4 +11,5 @@ repository = "https://github.com/Anders429/word_filter"
 exclude = [".travis.yml"]
 
 [dependencies]
+nested_containment_list = "0.1.0"
 str_overlap = "0.1.1"

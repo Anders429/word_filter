@@ -1,7 +1,7 @@
 //! A robust implementation of a Word Filter.
 //!
 //! A Word Filter is a system for identifying and censoring specific words or phrases in strings. Common
-//! usage includes censoring vulgar or profane language and preventing spam or vandelism in 
+//! usage includes censoring vulgar or profane language and preventing spam or vandelism in
 //! user-provided content.
 //!
 //! The Word Filter implementation provided here allows for advanced filtering functionality, including:
@@ -20,7 +20,7 @@
 //!
 //! // Filtered words are words that should be detected by the WordFilter.
 //! let filtered_words = &["foo"];
-//! // Exceptions are words that should not be detected by the WordFilter, even if words inside them 
+//! // Exceptions are words that should not be detected by the WordFilter, even if words inside them
 //! // are.
 //! let exceptions = &["foobar"];
 //! // Separators are characters that can appear between letters within filtered words.
@@ -57,10 +57,11 @@
 mod node;
 mod pointer;
 
+use nested_containment_list::NestedContainmentList;
 use node::Node;
 use pointer::{Pointer, PointerStatus};
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, VecDeque},
     pin::Pin,
 };
 
@@ -106,7 +107,7 @@ impl Default for RepeatedCharacterMatchMode {
     }
 }
 
-/// The strategy for censoring in a `WordFilter`. 
+/// The strategy for censoring in a `WordFilter`.
 pub enum CensorMode {
     /// Replace all matched characters with the character indicated.
     ///
@@ -137,7 +138,7 @@ impl Default for CensorMode {
 /// This specifies both the `RepeatedCharacterMatchMode` and the `CensorMode` for a `WordFilter`.
 ///
 /// Example usage:
-/// 
+///
 /// ```
 /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
 ///
@@ -158,12 +159,12 @@ pub struct Options {
 
 /// A word filter for identifying filtered words within strings.
 ///
-/// A `WordFilter` is constructed by passing **filtered words**, **exceptions**, **separators**, 
+/// A `WordFilter` is constructed by passing **filtered words**, **exceptions**, **separators**,
 /// **aliases**, and **options**. Each of those parameters are defined as follows:
 ///
 /// - **filtered words** - strings that should be identified and censored by the `WordFilter`.
 /// - **exceptions** - strings that should explicitly not be identified and censored by the
-/// `WordFilter`. Any string that contains filtered word that is contained entirely inside an 
+/// `WordFilter`. Any string that contains filtered word that is contained entirely inside an
 /// exception will be ignored.
 /// - **separators** - strings that may appear between characters in filtered words and exceptions.
 /// - **aliases** - tuples defining alias strings that may replace source strings during matching.
@@ -349,7 +350,8 @@ impl<'a> WordFilter<'a> {
             }
             let mut return_nodes = pointer.return_nodes.clone();
             return_nodes.push(return_node);
-            let alias_pointer = Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
+            let alias_pointer =
+                Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
             let mut new_visited = visited.clone();
             new_visited.push(alias_node);
             self.push_aliases(&alias_pointer, new_pointers, new_visited);
@@ -359,18 +361,14 @@ impl<'a> WordFilter<'a> {
 
     /// Finds all `Pointer`s that encounter matches.
     ///
-    /// This also excludes all `Pointer`s that encountered matches but whose ranges also are 
+    /// This also excludes all `Pointer`s that encountered matches but whose ranges also are
     /// contained within ranges are `Pointer`s who encountered exceptions.
     fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
         let mut pointers = vec![Pointer::new(&self.root, Vec::new(), 0, 0, false)];
-        pointers.extend(
-            self.root
-                .aliases
-                .iter()
-                .map(|(alias_node, return_node)| Pointer::new(alias_node, vec![return_node], 0, 0, false)),
-        );
-        let mut found_matches = Vec::new();
-        let mut found_exceptions = Vec::new();
+        pointers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
+            Pointer::new(alias_node, vec![return_node], 0, 0, false)
+        }));
+        let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
             let mut new_pointers = Vec::new();
             for pointer in pointers.iter_mut() {
@@ -395,12 +393,12 @@ impl<'a> WordFilter<'a> {
                         return_nodes,
                         pointer.start,
                         pointer.len,
-                        true
+                        true,
                     ));
                 } else if let PointerStatus::Match(_) = pointer.status {
-                    found_matches.push(pointer.clone());
+                    found.push(pointer.clone());
                 } else if let PointerStatus::Exception(_) = pointer.status {
-                    found_exceptions.push(pointer.clone());
+                    found.push(pointer.clone());
                 }
             }
 
@@ -416,31 +414,31 @@ impl<'a> WordFilter<'a> {
         // Evaluate all remaining pointers.
         for pointer in pointers {
             match pointer.status {
-                PointerStatus::Match(_) => found_matches.push(pointer.clone()),
-                PointerStatus::Exception(_) => found_exceptions.push(pointer.clone()),
+                PointerStatus::Match(_) => found.push(pointer.clone()),
+                PointerStatus::Exception(_) => found.push(pointer.clone()),
                 _ => {}
             }
         }
 
-        // TODO: Is there a faster way to do this?
-        found_matches
-            .iter()
-            .filter(|m| {
-                let start = m.start;
-                let end = start + m.found_len.unwrap();
-                !found_exceptions
-                    .iter()
-                    .any(|e| e.start <= start && e.start + e.found_len.unwrap() >= end)
+        let nclist = NestedContainmentList::from_slice(&found);
+        nclist
+            .sublist()
+            .map(|element| element.value)
+            .filter(|p| {
+                if let PointerStatus::Match(_) = p.status {
+                    true
+                } else {
+                    false
+                }
             })
-            .cloned()
-            .collect::<Vec<Pointer>>()
+            .map(|p| (*p).clone())
+            .collect::<Vec<_>>()
             .into_boxed_slice()
     }
 
     /// Find all filtered words matched by `input`.
     ///
-    /// Returns a boxed slice containing all matched filtered words. Note that these words are not
-    /// guaranteed to be in any order, and will not contain duplicates.
+    /// Returns a boxed slice containing all matched filtered words in order of appearance.
     ///
     /// Example usage:
     ///
@@ -458,12 +456,9 @@ impl<'a> WordFilter<'a> {
                 if let PointerStatus::Match(s) = pointer.status {
                     s
                 } else {
-                    ""
+                    unreachable!()
                 }
             })
-            .collect::<HashSet<&str>>()
-            .iter()
-            .cloned()
             .collect::<Vec<&str>>()
             .into_boxed_slice()
     }

@@ -8,6 +8,7 @@
 //! different start locations within the string simultaneously.
 
 use crate::node::{Node, NodeType};
+use nested_containment_list::Interval;
 
 /// The current status of the `Pointer`.
 ///
@@ -140,6 +141,16 @@ impl<'a> Pointer<'a> {
         };
         self.len += 1;
         true
+    }
+}
+
+impl Interval<usize> for Pointer<'_> {
+    fn start(&self) -> usize {
+        self.start
+    }
+
+    fn end(&self) -> usize {
+        self.start + self.found_len.unwrap_or(0) + 1
     }
 }
 

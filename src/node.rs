@@ -10,7 +10,11 @@
 //!
 //! Each node also has a NodeType, identifying what kind of Node it is.
 
-use std::{collections::HashMap, pin::Pin};
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
+use core::pin::Pin;
+use hashbrown::HashMap;
 
 /// The different possible node variants.
 #[derive(Debug, PartialEq)]
@@ -192,7 +196,7 @@ mod tests {
     #[test]
     fn as_ptr() {
         let node = Node::new();
-        assert!(std::ptr::eq(&node, node.as_ptr() as *const Node));
+        assert!(core::ptr::eq(&node, node.as_ptr() as *const Node));
     }
 
     #[test]
@@ -227,10 +231,10 @@ mod tests {
 
     #[test]
     fn add_alias() {
+        let alias_node = Node::new();
         let mut node = Node::new();
         node.add_match("foo");
 
-        let alias_node = Node::new();
         node.add_alias("o", &alias_node);
 
         let first_node = node.search("f").unwrap();
@@ -240,9 +244,9 @@ mod tests {
         assert_eq!(second_node.aliases.len(), 1);
         let (first_node_alias, first_node_return) = first_node.aliases[0];
         let (second_node_alias, second_node_return) = second_node.aliases[0];
-        assert!(std::ptr::eq(first_node_alias, &alias_node));
-        assert!(std::ptr::eq(first_node_return, second_node));
-        assert!(std::ptr::eq(second_node_alias, &alias_node));
-        assert!(std::ptr::eq(second_node_return, third_node));
+        assert!(core::ptr::eq(first_node_alias, &alias_node));
+        assert!(core::ptr::eq(first_node_return, second_node));
+        assert!(core::ptr::eq(second_node_alias, &alias_node));
+        assert!(core::ptr::eq(second_node_return, third_node));
     }
 }

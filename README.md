@@ -69,4 +69,4 @@ assert_eq!(word_filter.censor("Should censor Foo"), "Should censor ***");
 See the documentation for more in-depth usage.
 
 ## Minimum Supported Rust Version
-This crate is guaranteed to compile on stable `rustc 1.33.0` and up.
+This crate is guaranteed to compile on stable `rustc 1.36.0` and up.

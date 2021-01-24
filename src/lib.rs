@@ -54,16 +54,25 @@
 //! assert_eq!(word_filter.censor("Should censor Foo"), "Should censor ***");
 //! ```
 
+#![no_std]
+
+extern crate alloc;
+
 mod node;
 mod pointer;
 
+use alloc::{
+    boxed::Box,
+    collections::VecDeque,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+use core::pin::Pin;
+use hashbrown::HashMap;
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use pointer::{Pointer, PointerStatus};
-use std::{
-    collections::{HashMap, VecDeque},
-    pin::Pin,
-};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 #[derive(PartialEq)]
@@ -345,7 +354,7 @@ impl<'a> WordFilter<'a> {
         visited: Vec<&Node>,
     ) {
         for (alias_node, return_node) in &pointer.current_node.aliases {
-            if visited.iter().any(|n| std::ptr::eq(*n, *alias_node)) {
+            if visited.iter().any(|n| core::ptr::eq(*n, *alias_node)) {
                 continue;
             }
             let mut return_nodes = pointer.return_nodes.clone();
@@ -501,9 +510,6 @@ impl<'a> WordFilter<'a> {
             let mut new_output = String::with_capacity(output.len());
             let start = pointer.start;
             let end = start + pointer.found_len.unwrap();
-            dbg!(pointer.start);
-            dbg!(pointer.len);
-            dbg!(pointer.found_len);
             for (i, c) in output.chars().enumerate() {
                 if i < start || i > end {
                     new_output.push(c);
@@ -521,6 +527,7 @@ impl<'a> WordFilter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use crate::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
 
     #[test]

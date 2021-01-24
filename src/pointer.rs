@@ -7,7 +7,10 @@
 //! This allows for splitting of paths at aliases, searching for separators, and searching at
 //! different start locations within the string simultaneously.
 
+extern crate alloc;
+
 use crate::node::{Node, NodeType};
+use alloc::vec::Vec;
 use nested_containment_list::Interval;
 
 /// The current status of the `Pointer`.
@@ -156,6 +159,7 @@ impl Interval<usize> for Pointer<'_> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use crate::node::Node;
     use crate::pointer::{Pointer, PointerStatus};
 
@@ -213,7 +217,7 @@ mod tests {
         assert!(pointer.step(&'o'));
         assert!(pointer.step(&'o'));
 
-        assert!(std::ptr::eq(pointer.current_node, &return_node));
+        assert!(core::ptr::eq(pointer.current_node, &return_node));
     }
 
     #[test]
@@ -242,7 +246,7 @@ mod tests {
         assert!(pointer.step(&'o'));
         assert!(pointer.step(&'o'));
 
-        assert!(std::ptr::eq(pointer.current_node, &return_node));
+        assert!(core::ptr::eq(pointer.current_node, &return_node));
         assert!(!pointer.in_separator);
         assert_eq!(pointer.found_len, None);
     }
@@ -261,7 +265,7 @@ mod tests {
         assert!(pointer.step(&'o'));
         assert!(pointer.step(&'o'));
 
-        assert!(std::ptr::eq(pointer.current_node, &return_node));
+        assert!(core::ptr::eq(pointer.current_node, &return_node));
     }
 
     #[test]
@@ -278,7 +282,7 @@ mod tests {
         assert!(pointer.step(&'o'));
         assert!(pointer.step(&'o'));
 
-        assert!(std::ptr::eq(pointer.current_node, &return_node));
+        assert!(core::ptr::eq(pointer.current_node, &return_node));
         assert!(!pointer.in_separator);
         assert_eq!(pointer.found_len, None);
     }

@@ -159,9 +159,9 @@ impl Interval<usize> for Pointer<'_> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
     use crate::node::Node;
     use crate::pointer::{Pointer, PointerStatus};
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn step() {

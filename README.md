@@ -4,7 +4,7 @@
 [![codecov.io](https://img.shields.io/codecov/c/gh/Anders429/word_filter)](https://codecov.io/gh/Anders429/word_filter)
 [![crates.io](https://img.shields.io/crates/v/word_filter)](https://crates.io/crates/word_filter)
 [![docs.rs](https://docs.rs/word_filter/badge.svg)](https://docs.rs/word_filter)
-[![MSRV](https://img.shields.io/badge/rustc-1.33.0+-yellow.svg)](#minimum-supported-rust-version)
+[![MSRV](https://img.shields.io/badge/rustc-1.36.0+-yellow.svg)](#minimum-supported-rust-version)
 ![License](https://img.shields.io/crates/l/word_filter)
 
 A robust implementation of a Word Filter.

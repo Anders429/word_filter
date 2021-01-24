@@ -25,22 +25,6 @@ jobs:
       with:
         command: test
 
-  no_std:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - beta
-          - nightly
-    steps:
-    - uses: actions/checkout@v2
-    - run: rustup target add thumbv6m-none-eabi
-    - uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --target thumbv6m-none-eabi --verbose
-
   codecov:
     runs-on: ubuntu-latest
     steps:

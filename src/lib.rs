@@ -75,7 +75,6 @@ use node::Node;
 use pointer::{Pointer, PointerStatus};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
-#[derive(PartialEq)]
 pub enum RepeatedCharacterMatchMode {
     /// Allows repeated characters within filtered words.
     ///
@@ -385,8 +384,8 @@ impl<'a> WordFilter<'a> {
                 if pointer.step(&c) {
                     new_pointers.push(pointer.clone());
 
-                    if self.options.repeated_character_match_mode
-                        == RepeatedCharacterMatchMode::AllowRepeatedCharacters
+                    if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                        self.options.repeated_character_match_mode
                     {
                         last_pointer.len += 1;
                         new_pointers.push(last_pointer);
@@ -527,8 +526,8 @@ impl<'a> WordFilter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
     use crate::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn find() {

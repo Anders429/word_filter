@@ -12,5 +12,5 @@ exclude = [".github/*"]
 
 [dependencies]
 hashbrown = "0.9.1"
-nested_containment_list = "0.1.0"
+nested_containment_list = "0.1.1"
 str_overlap = "0.2.0"

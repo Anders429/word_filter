@@ -286,4 +286,28 @@ mod tests {
         assert!(!pointer.in_separator);
         assert_eq!(pointer.found_len, None);
     }
+
+    #[test]
+    fn step_return_twice() {
+        let mut node = Node::new();
+        node.add_return("foo");
+
+        let mut first_return_node = Node::new();
+        first_return_node.add_return("");
+        let second_return_node = Node::new();
+
+        let mut pointer = Pointer::new(
+            &node,
+            vec![&second_return_node, &first_return_node],
+            0,
+            0,
+            false,
+        );
+
+        assert!(pointer.step(&'f'));
+        assert!(pointer.step(&'o'));
+        assert!(pointer.step(&'o'));
+
+        assert!(core::ptr::eq(pointer.current_node, &second_return_node));
+    }
 }

@@ -1,6 +1,6 @@
 # word_filter
 
-[![travis-ci.org](https://img.shields.io/travis/Anders429/word_filter)](https://travis-ci.org/github/Anders429/word_filter)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Anders429/word_filter/Tests)](https://github.com/Anders429/word_filter/actions)
 [![codecov.io](https://img.shields.io/codecov/c/gh/Anders429/word_filter)](https://codecov.io/gh/Anders429/word_filter)
 [![crates.io](https://img.shields.io/crates/v/word_filter)](https://crates.io/crates/word_filter)
 [![docs.rs](https://docs.rs/word_filter/badge.svg)](https://docs.rs/word_filter)

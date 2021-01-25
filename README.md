@@ -5,7 +5,7 @@
 [![crates.io](https://img.shields.io/crates/v/word_filter)](https://crates.io/crates/word_filter)
 [![docs.rs](https://docs.rs/word_filter/badge.svg)](https://docs.rs/word_filter)
 [![MSRV](https://img.shields.io/badge/rustc-1.36.0+-yellow.svg)](#minimum-supported-rust-version)
-![License](https://img.shields.io/crates/l/word_filter)
+[![License](https://img.shields.io/crates/l/word_filter)](#license)
 
 A robust implementation of a Word Filter.
 
@@ -70,3 +70,15 @@ See the documentation for more in-depth usage.
 
 ## Minimum Supported Rust Version
 This crate is guaranteed to compile on stable `rustc 1.36.0` and up.
+
+## License
+This project is licensed under either of
+
+* Apache License, Version 2.0
+([LICENSE-APACHE](https://github.com/Anders429/word_filter/blob/HEAD/LICENSE-APACHE) or
+http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license
+([LICENSE-MIT](https://github.com/Anders429/word_filter/blob/HEAD/LICENSE-MIT) or
+http://opensource.org/licenses/MIT)
+
+at your option.

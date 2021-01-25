@@ -314,9 +314,7 @@ impl<'a> WordFilter<'a> {
                     // by the WordFilter is pinned in place in memory, meaning it will only ever
                     // move when the WordFilter is dropped. Therefore, this reference will be valid
                     // for as long as it is used by the WordFilter.
-                    (alias_map[alias_value].as_ptr() as *const Node)
-                        .as_ref()
-                        .unwrap()
+                    &*(&*alias_map[alias_value] as *const Node)
                 };
                 alias_map
                     .get_mut(value)
@@ -333,7 +331,7 @@ impl<'a> WordFilter<'a> {
                 // WordFilter is pinned in place in memory, meaning it will only ever move when the
                 // WordFilter is dropped. Therefore, this reference will be valid for as long as it
                 // is used by the WordFilter.
-                root.add_alias(value, (node.as_ptr() as *const Node).as_ref().unwrap());
+                root.add_alias(value, &*(&**node as *const Node));
             }
         }
 

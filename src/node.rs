@@ -70,13 +70,6 @@ impl<'a> Node<'a> {
         }
     }
 
-    /// Converts the Node to a raw pointer.
-    ///
-    /// The caller must ensure the returned pointer is never written to.
-    pub fn as_ptr(&self) -> *const u8 {
-        self as *const Node as *const u8
-    }
-
     fn add_path(&mut self, word: &str, node_type: NodeType<'a>) {
         if word.is_empty() {
             if match self.node_type {
@@ -130,7 +123,7 @@ impl<'a> Node<'a> {
                 // WordFilter is pinned in place in memory, meaning it will only ever move when the
                 // WordFilter is dropped. Therefore, this reference will be valid for as long as it
                 // is used by the WordFilter.
-                return Some((self.as_ptr() as *const Node).as_ref().unwrap());
+                return Some(&*(self as *const Node));
             }
         }
 
@@ -192,12 +185,6 @@ impl<'a> Node<'a> {
 #[cfg(test)]
 mod tests {
     use crate::node::{Node, NodeType};
-
-    #[test]
-    fn as_ptr() {
-        let node = Node::new();
-        assert!(core::ptr::eq(&node, node.as_ptr() as *const Node));
-    }
 
     #[test]
     fn add_match() {

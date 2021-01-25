@@ -619,14 +619,15 @@ mod tests {
     #[test]
     fn merged_aliases_contiguous() {
         let filter = WordFilter::new(
-            &["adefi"],
+            &["ahj"],
             &[],
             &[],
-            &[("a", "bc"), ("cdef", "g"), ("de", "h"), ("fi", "j")],
+            &[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")],
             Options::default(),
         );
 
-        assert_eq!(filter.find("bchj"), vec!["adefi"].into_boxed_slice());
+        assert_eq!(filter.find("bcdefi"), vec!["ahj"].into_boxed_slice());
+        assert_eq!(filter.find("bgi"), vec!["ahj"].into_boxed_slice());
     }
 
     #[test]

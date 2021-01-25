@@ -236,4 +236,13 @@ mod tests {
         assert!(core::ptr::eq(second_node_alias, &alias_node));
         assert!(core::ptr::eq(second_node_return, third_node));
     }
+
+    #[test]
+    fn cannot_add_to_nonstandard_node() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        node.add_match("foo");
+
+        assert_eq!(node.search("foo").unwrap().node_type, NodeType::Return);
+    }
 }

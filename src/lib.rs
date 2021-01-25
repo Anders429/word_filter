@@ -277,8 +277,7 @@ impl<'a> WordFilter<'a> {
             }
         }
         let mut new_aliases = Vec::new();
-        while !queue.is_empty() {
-            let (value, target_value, alias) = queue.pop_front().unwrap();
+        while let Some((value, target_value, alias)) = queue.pop_front() {
             for (new_value, new_alias) in aliases {
                 if target_value == *new_alias || new_alias.starts_with(&target_value) {
                     new_aliases

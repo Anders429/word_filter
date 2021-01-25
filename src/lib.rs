@@ -426,8 +426,8 @@ impl<'a> WordFilter<'a> {
             }
         }
 
-        let nclist = NestedContainmentList::from_slice(&found);
-        nclist
+        // Only return outer-most matched words which aren't part of a longer exception.
+        NestedContainmentList::from_slice(&found)
             .sublist()
             .map(|element| element.value)
             .filter(|p| {

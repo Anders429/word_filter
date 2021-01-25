@@ -617,6 +617,19 @@ mod tests {
     }
 
     #[test]
+    fn merged_aliases_contiguous() {
+        let filter = WordFilter::new(
+            &["adefi"],
+            &[],
+            &[],
+            &[("a", "bc"), ("cdef", "g"), ("de", "h"), ("fi", "j")],
+            Options::default(),
+        );
+
+        assert_eq!(filter.find("bchj"), vec!["adefi"].into_boxed_slice());
+    }
+
+    #[test]
     fn recursive_alias_no_overflow() {
         // Make sure recursive aliases don't cause a stack overflow.
         let filter = WordFilter::new(

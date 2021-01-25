@@ -262,6 +262,7 @@ impl<'a> WordFilter<'a> {
                 .add_return(alias);
         }
         // Find merged aliases.
+        // First, find all aliases that can possibly be combined by a value.
         let mut queue = VecDeque::new();
         for (value, alias) in aliases {
             for (merge_value, _) in aliases {
@@ -276,6 +277,7 @@ impl<'a> WordFilter<'a> {
                 ));
             }
         }
+        // Now, find aliases that complete the combination.
         let mut new_aliases = Vec::new();
         while let Some((value, target_value, alias)) = queue.pop_front() {
             for (new_value, new_alias) in aliases {
@@ -283,6 +285,7 @@ impl<'a> WordFilter<'a> {
                     new_aliases
                         .push((value.to_string() + new_value, alias.to_string() + new_alias));
                 } else if target_value.starts_with(new_alias) {
+                    // If the combination isn't complete, push it to the queue and try again.
                     queue.push_back((
                         value.to_string() + new_value,
                         target_value[new_alias.len()..].to_string(),

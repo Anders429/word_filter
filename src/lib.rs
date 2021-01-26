@@ -64,7 +64,6 @@
 // - manual_strip: 1.45.0
 // - match_like_matches_macro: 1.42.0
 #![allow(clippy::manual_strip, clippy::match_like_matches_macro)]
-
 #![no_std]
 
 extern crate alloc;
@@ -383,10 +382,10 @@ impl<'a> WordFilter<'a> {
     /// This also excludes all `Pointer`s that encountered matches but whose ranges also are
     /// contained within ranges are `Pointer`s who encountered exceptions.
     fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
-        let mut pointers = vec![Pointer::new(&self.root, Vec::new(), 0, 0, false)];
-        pointers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
-            Pointer::new(alias_node, vec![return_node], 0, 0, false)
-        }));
+        let root_pointer = Pointer::new(&self.root, Vec::new(), 0, 0, false);
+        let mut pointers = Vec::new();
+        self.push_aliases(&root_pointer, &mut pointers, Vec::new());
+        pointers.push(root_pointer);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
             let mut new_pointers = Vec::new();
@@ -642,6 +641,19 @@ mod tests {
 
         assert_eq!(filter.find("bcdefi"), vec!["ahj"].into_boxed_slice());
         assert_eq!(filter.find("bgi"), vec!["ahj"].into_boxed_slice());
+    }
+
+    #[test]
+    fn merged_aliases_over_full_match() {
+        let filter = WordFilter::new(
+            &["bar"],
+            &[],
+            &[],
+            &[("b", "x"), ("a", "y"), ("r", "z"), ("xyz", "w")],
+            Options::default(),
+        );
+
+        assert_eq!(filter.find("w"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]

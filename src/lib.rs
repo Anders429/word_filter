@@ -389,20 +389,11 @@ impl<'a> WordFilter<'a> {
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
             let mut new_pointers = Vec::new();
-            for pointer in pointers.iter_mut() {
+            for mut pointer in pointers.drain(..) {
                 let mut last_pointer = pointer.clone();
                 if pointer.step(&c) {
-                    new_pointers.push(pointer.clone());
-
-                    if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
-                        self.options.repeated_character_match_mode
-                    {
-                        last_pointer.len += 1;
-                        new_pointers.push(last_pointer);
-                    }
-
                     // Aliases.
-                    self.push_aliases(pointer, &mut new_pointers, Vec::new());
+                    self.push_aliases(&pointer, &mut new_pointers, Vec::new());
                     // Separators.
                     let mut return_nodes = pointer.return_nodes.clone();
                     return_nodes.push(pointer.current_node);
@@ -413,10 +404,21 @@ impl<'a> WordFilter<'a> {
                         pointer.len,
                         true,
                     ));
+
+                    // Direct path.
+                    new_pointers.push(pointer);
+
+                    // Repeated characters.
+                    if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                        self.options.repeated_character_match_mode
+                    {
+                        last_pointer.len += 1;
+                        new_pointers.push(last_pointer);
+                    }
                 } else if let PointerStatus::Match(_) = pointer.status {
-                    found.push(pointer.clone());
+                    found.push(pointer);
                 } else if let PointerStatus::Exception(_) = pointer.status {
-                    found.push(pointer.clone());
+                    found.push(pointer);
                 }
             }
 
@@ -430,10 +432,10 @@ impl<'a> WordFilter<'a> {
         }
 
         // Evaluate all remaining pointers.
-        for pointer in pointers {
+        for pointer in pointers.drain(..) {
             match pointer.status {
-                PointerStatus::Match(_) => found.push(pointer.clone()),
-                PointerStatus::Exception(_) => found.push(pointer.clone()),
+                PointerStatus::Match(_) => found.push(pointer),
+                PointerStatus::Exception(_) => found.push(pointer),
                 _ => {}
             }
         }

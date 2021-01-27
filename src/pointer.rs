@@ -7,8 +7,6 @@
 //! This allows for splitting of paths at aliases, searching for separators, and searching at
 //! different start locations within the string simultaneously.
 
-extern crate alloc;
-
 use crate::node::{Node, NodeType};
 use alloc::vec::Vec;
 use nested_containment_list::Interval;

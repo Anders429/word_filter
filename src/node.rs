@@ -10,8 +10,6 @@
 //!
 //! Each node also has a NodeType, identifying what kind of Node it is.
 
-extern crate alloc;
-
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
 use hashbrown::HashMap;

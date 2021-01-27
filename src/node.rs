@@ -86,8 +86,7 @@ impl<'a> Node<'a> {
             .add_path(
                 &word[char_indices
                     .next()
-                    .map(|(index, _c)| index)
-                    .unwrap_or_else(|| word.len())..],
+                    .map_or_else(|| word.len(), |(index, _c)| index)..],
                 node_type,
             );
     }
@@ -133,8 +132,7 @@ impl<'a> Node<'a> {
             Some(node) => node.find_alias_return_node(
                 &value[char_indices
                     .next()
-                    .map(|(index, _c)| index)
-                    .unwrap_or_else(|| value.len())..],
+                    .map_or_else(|| value.len(), |(index, _c)| index)..],
             ),
             None => None,
         }

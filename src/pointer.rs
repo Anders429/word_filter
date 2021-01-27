@@ -14,7 +14,7 @@ use nested_containment_list::Interval;
 /// The current status of the `Pointer`.
 ///
 /// This indicates whether the `Pointer` has reached a `Match` or an `Exception` node.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Status<'a> {
     /// Indicates the `Pointer` has found no `Match` or `Exception` nodes yet.
     None,
@@ -157,6 +157,7 @@ mod tests {
     use crate::node::Node;
     use crate::pointer::{Pointer, Status};
     use alloc::{vec, vec::Vec};
+    use claim::assert_matches;
 
     #[test]
     fn step() {
@@ -182,7 +183,7 @@ mod tests {
         assert!(pointer.step('o'));
         assert!(pointer.step('o'));
 
-        assert_eq!(pointer.status, Status::Match("foo"));
+        assert_matches!(pointer.status, Status::Match("foo"));
     }
 
     #[test]
@@ -196,7 +197,7 @@ mod tests {
         assert!(pointer.step('o'));
         assert!(pointer.step('o'));
 
-        assert_eq!(pointer.status, Status::Exception("foo"));
+        assert_matches!(pointer.status, Status::Exception("foo"));
     }
 
     #[test]

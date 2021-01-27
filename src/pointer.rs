@@ -7,7 +7,7 @@
 //! This allows for splitting of paths at aliases, searching for separators, and searching at
 //! different start locations within the string simultaneously.
 
-use crate::node::{Node, NodeType};
+use crate::node::{self, Node};
 use alloc::vec::Vec;
 use nested_containment_list::Interval;
 
@@ -83,12 +83,12 @@ impl<'a> Pointer<'a> {
     /// returned. Otherwise, the new node where the `Pointer` should be located is returned.
     fn evaluate_return_node(&mut self, node: &'a Node<'a>) -> Option<&'a Node<'a>> {
         match node.node_type {
-            NodeType::Standard => Some(node),
-            NodeType::Return => self
+            node::Type::Standard => Some(node),
+            node::Type::Return => self
                 .return_nodes
                 .pop()
                 .and_then(|return_node| self.evaluate_return_node(return_node)),
-            NodeType::Match(word) => {
+            node::Type::Match(word) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
@@ -97,7 +97,7 @@ impl<'a> Pointer<'a> {
                 }
                 Some(node)
             }
-            NodeType::Exception(word) => {
+            node::Type::Exception(word) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
@@ -116,20 +116,20 @@ impl<'a> Pointer<'a> {
     pub fn step(&mut self, c: char) -> bool {
         self.current_node = match self.current_node.children.get(&c) {
             Some(node) => match node.node_type {
-                NodeType::Standard => node,
-                NodeType::Return => {
+                node::Type::Standard => node,
+                node::Type::Return => {
                     if let Some(return_node) = self.evaluate_return_node(node) {
                         return_node
                     } else {
                         return false;
                     }
                 }
-                NodeType::Match(word) => {
+                node::Type::Match(word) => {
                     self.status = PointerStatus::Match(word);
                     self.found_len = Some(self.len);
                     node
                 }
-                NodeType::Exception(word) => {
+                node::Type::Exception(word) => {
                     self.status = PointerStatus::Exception(word);
                     self.found_len = Some(self.len);
                     node

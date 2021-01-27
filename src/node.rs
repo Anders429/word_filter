@@ -8,7 +8,7 @@
 //! other subgraphs. Those subgraphs may end in Return nodes, linking the path back to the
 //! supergraph.
 //!
-//! Each node also has a `NodeType`, identifying what kind of Node it is.
+//! Each node also has a `Type`, identifying what kind of Node it is.
 
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
@@ -16,7 +16,7 @@ use hashbrown::HashMap;
 
 /// The different possible node variants.
 #[derive(Debug, PartialEq)]
-pub enum NodeType<'a> {
+pub enum Type<'a> {
     /// A standard pathway node.
     Standard,
     /// This node indicates a match.
@@ -53,7 +53,7 @@ pub struct Node<'a> {
     pub aliases: Vec<(&'a Node<'a>, &'a Node<'a>)>,
 
     /// The type of node.
-    pub node_type: NodeType<'a>,
+    pub node_type: Type<'a>,
 }
 
 impl<'a> Node<'a> {
@@ -64,14 +64,14 @@ impl<'a> Node<'a> {
         Self {
             children: HashMap::new(),
             aliases: Vec::new(),
-            node_type: NodeType::Standard,
+            node_type: Type::Standard,
         }
     }
 
-    fn add_path(&mut self, word: &str, node_type: NodeType<'a>) {
+    fn add_path(&mut self, word: &str, node_type: Type<'a>) {
         if word.is_empty() {
             if match self.node_type {
-                NodeType::Standard => true,
+                Type::Standard => true,
                 _ => false,
             } {
                 self.node_type = node_type;
@@ -93,17 +93,17 @@ impl<'a> Node<'a> {
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Match.
     pub fn add_match(&mut self, word: &'a str) {
-        self.add_path(word, NodeType::Match(word));
+        self.add_path(word, Type::Match(word));
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as an Exception.
     pub fn add_exception(&mut self, word: &'a str) {
-        self.add_path(word, NodeType::Exception(word));
+        self.add_path(word, Type::Exception(word));
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Return.
     pub fn add_return(&mut self, word: &str) {
-        self.add_path(word, NodeType::Return);
+        self.add_path(word, Type::Return);
     }
 
     /// Finds the return node for an alias, if one exists.
@@ -180,17 +180,14 @@ impl<'a> Node<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::node::{Node, NodeType};
+    use crate::node::{Node, Type};
 
     #[test]
     fn add_match() {
         let mut node = Node::new();
         node.add_match("foo");
 
-        assert_eq!(
-            node.search("foo").unwrap().node_type,
-            NodeType::Match("foo")
-        );
+        assert_eq!(node.search("foo").unwrap().node_type, Type::Match("foo"));
     }
 
     #[test]
@@ -200,7 +197,7 @@ mod tests {
 
         assert_eq!(
             node.search("foo").unwrap().node_type,
-            NodeType::Exception("foo")
+            Type::Exception("foo")
         );
     }
 
@@ -209,7 +206,7 @@ mod tests {
         let mut node = Node::new();
         node.add_return("foo");
 
-        assert_eq!(node.search("foo").unwrap().node_type, NodeType::Return);
+        assert_eq!(node.search("foo").unwrap().node_type, Type::Return);
     }
 
     #[test]
@@ -239,6 +236,6 @@ mod tests {
         node.add_return("foo");
         node.add_match("foo");
 
-        assert_eq!(node.search("foo").unwrap().node_type, NodeType::Return);
+        assert_eq!(node.search("foo").unwrap().node_type, Type::Return);
     }
 }

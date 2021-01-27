@@ -71,14 +71,7 @@ extern crate alloc;
 mod node;
 mod pointer;
 
-use alloc::{
-    borrow::ToOwned,
-    boxed::Box,
-    collections::VecDeque,
-    string::String,
-    vec,
-    vec::Vec,
-};
+use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
 use core::pin::Pin;
 use hashbrown::HashMap;
 use nested_containment_list::NestedContainmentList;
@@ -294,8 +287,7 @@ impl<'a> WordFilter<'a> {
         while let Some((value, target_value, alias)) = queue.pop_front() {
             for (new_value, new_alias) in aliases {
                 if target_value == *new_alias || new_alias.starts_with(&target_value) {
-                    new_aliases
-                        .push((value.to_owned() + new_value, alias.to_owned() + new_alias));
+                    new_aliases.push((value.to_owned() + new_value, alias.to_owned() + new_alias));
                 } else if target_value.starts_with(new_alias) {
                     // If the combination isn't complete, push it to the queue and try again.
                     queue.push_back((

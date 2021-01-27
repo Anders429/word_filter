@@ -1,4 +1,4 @@
-//! Node type for WordFilter's internal directional graph.
+//! Node type for `WordFilter`'s internal directional graph.
 //!
 //! The graph defined by these Nodes is basically a Trie with a few extra attributes. Edges between
 //! nodes are defined by characters (UTF-8), and traversal through the graph is done through those
@@ -8,7 +8,7 @@
 //! other subgraphs. Those subgraphs may end in Return nodes, linking the path back to the
 //! supergraph.
 //!
-//! Each node also has a NodeType, identifying what kind of Node it is.
+//! Each node also has a `NodeType`, identifying what kind of Node it is.
 
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
@@ -41,7 +41,7 @@ pub enum NodeType<'a> {
 /// It represents a directional graph with character edges. Each Node has defined children, as well
 /// as possible alias subgraphs to be traveled on as well.
 ///
-/// Each Node also has a node_type, defining what kind of node it is. These are useful if the user
+/// Each Node also has a `node_type`, defining what kind of node it is. These are useful if the user
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub struct Node<'a> {
     /// All children Nodes, keyed by character edges.

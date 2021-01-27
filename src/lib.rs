@@ -437,7 +437,7 @@ impl<'a> WordFilter<'a> {
         for pointer in pointers.drain(..) {
             match pointer.status {
                 PointerStatus::Match(_) | PointerStatus::Exception(_) => found.push(pointer),
-                _ => {}
+                PointerStatus::None => {}
             }
         }
 

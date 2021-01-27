@@ -556,6 +556,7 @@ mod tests {
         let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
 
         assert!(filter.check("foo"));
+        assert!(!filter.check("bar"));
     }
 
     #[test]

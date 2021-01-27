@@ -76,7 +76,7 @@ use core::pin::Pin;
 use hashbrown::HashMap;
 use nested_containment_list::NestedContainmentList;
 use node::Node;
-use pointer::{Pointer, PointerStatus};
+use pointer::Pointer;
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 pub enum RepeatedCharacterMatchMode {
@@ -409,9 +409,9 @@ impl<'a> WordFilter<'a> {
                         last_pointer.len += 1;
                         new_pointers.push(last_pointer);
                     }
-                } else if let PointerStatus::Match(_) = pointer.status {
+                } else if let pointer::Status::Match(_) = pointer.status {
                     found.push(pointer);
-                } else if let PointerStatus::Exception(_) = pointer.status {
+                } else if let pointer::Status::Exception(_) = pointer.status {
                     found.push(pointer);
                 }
             }
@@ -428,8 +428,8 @@ impl<'a> WordFilter<'a> {
         // Evaluate all remaining pointers.
         for pointer in pointers.drain(..) {
             match pointer.status {
-                PointerStatus::Match(_) | PointerStatus::Exception(_) => found.push(pointer),
-                PointerStatus::None => {}
+                pointer::Status::Match(_) | pointer::Status::Exception(_) => found.push(pointer),
+                pointer::Status::None => {}
             }
         }
 
@@ -438,7 +438,7 @@ impl<'a> WordFilter<'a> {
             .sublist()
             .map(|element| element.value)
             .filter_map(|p| {
-                if let PointerStatus::Match(_) = p.status {
+                if let pointer::Status::Match(_) = p.status {
                     Some(p.clone())
                 } else {
                     None
@@ -466,7 +466,7 @@ impl<'a> WordFilter<'a> {
         self.find_pointers(input)
             .iter()
             .map(|pointer| {
-                if let PointerStatus::Match(s) = pointer.status {
+                if let pointer::Status::Match(s) = pointer.status {
                     s
                 } else {
                     unreachable!()

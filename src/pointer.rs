@@ -15,7 +15,7 @@ use nested_containment_list::Interval;
 ///
 /// This indicates whether the `Pointer` has reached a `Match` or an `Exception` node.
 #[derive(Clone, Debug, PartialEq)]
-pub enum PointerStatus<'a> {
+pub enum Status<'a> {
     /// Indicates the `Pointer` has found no `Match` or `Exception` nodes yet.
     None,
     /// Indicates the `Pointer` has found a `Match` node containing the stored string.
@@ -39,7 +39,7 @@ pub struct Pointer<'a> {
     /// A stack of return nodes (indicating the `Pointer`'s context within subgraphs).
     pub return_nodes: Vec<&'a Node<'a>>,
     /// This `Pointer`'s current status.
-    pub status: PointerStatus<'a>,
+    pub status: Status<'a>,
 
     /// The start index within the original source string.
     pub start: usize,
@@ -54,7 +54,7 @@ pub struct Pointer<'a> {
 impl<'a> Pointer<'a> {
     /// Creates a new `Pointer` with the provided attributes.
     ///
-    /// This also sets `status` to `PointerStatus::None` and `found_len` to `None`.
+    /// This also sets `status` to `Status::None` and `found_len` to `None`.
     pub fn new(
         current_node: &'a Node<'a>,
         return_nodes: Vec<&'a Node<'a>>,
@@ -65,7 +65,7 @@ impl<'a> Pointer<'a> {
         Self {
             current_node,
             return_nodes,
-            status: PointerStatus::None,
+            status: Status::None,
             start,
             len,
             found_len: None,
@@ -92,7 +92,7 @@ impl<'a> Pointer<'a> {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
-                    self.status = PointerStatus::Match(word);
+                    self.status = Status::Match(word);
                     self.found_len = Some(self.len);
                 }
                 Some(node)
@@ -101,7 +101,7 @@ impl<'a> Pointer<'a> {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
-                    self.status = PointerStatus::Exception(word);
+                    self.status = Status::Exception(word);
                     self.found_len = Some(self.len);
                 }
                 Some(node)
@@ -125,12 +125,12 @@ impl<'a> Pointer<'a> {
                     }
                 }
                 node::Type::Match(word) => {
-                    self.status = PointerStatus::Match(word);
+                    self.status = Status::Match(word);
                     self.found_len = Some(self.len);
                     node
                 }
                 node::Type::Exception(word) => {
-                    self.status = PointerStatus::Exception(word);
+                    self.status = Status::Exception(word);
                     self.found_len = Some(self.len);
                     node
                 }
@@ -155,7 +155,7 @@ impl Interval<usize> for Pointer<'_> {
 #[cfg(test)]
 mod tests {
     use crate::node::Node;
-    use crate::pointer::{Pointer, PointerStatus};
+    use crate::pointer::{Pointer, Status};
     use alloc::{vec, vec::Vec};
 
     #[test]
@@ -182,7 +182,7 @@ mod tests {
         assert!(pointer.step('o'));
         assert!(pointer.step('o'));
 
-        assert_eq!(pointer.status, PointerStatus::Match("foo"));
+        assert_eq!(pointer.status, Status::Match("foo"));
     }
 
     #[test]
@@ -196,7 +196,7 @@ mod tests {
         assert!(pointer.step('o'));
         assert!(pointer.step('o'));
 
-        assert_eq!(pointer.status, PointerStatus::Exception("foo"));
+        assert_eq!(pointer.status, Status::Exception("foo"));
     }
 
     #[test]

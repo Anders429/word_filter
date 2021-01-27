@@ -267,7 +267,7 @@ impl<'a> WordFilter<'a> {
         let mut alias_map = HashMap::new();
         for (value, alias) in aliases {
             alias_map
-                .entry(value.to_string())
+                .entry((*value).to_string())
                 .or_insert_with(|| Box::pin(Node::new()))
                 .add_return(alias);
         }
@@ -281,9 +281,9 @@ impl<'a> WordFilter<'a> {
                     continue;
                 }
                 queue.push_back((
-                    value.to_string(),
+                    (*value).to_string(),
                     merge_value[overlap_value.len()..].to_string(),
-                    alias.to_string(),
+                    (*alias).to_string(),
                 ));
             }
         }

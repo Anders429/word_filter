@@ -243,6 +243,7 @@ impl<'a> WordFilter<'a> {
     ///     Options::default(),
     /// );
     /// ```
+    #[must_use]
     pub fn new(
         filtered_words: &[&'a str],
         exceptions: &[&'a str],
@@ -468,6 +469,7 @@ impl<'a> WordFilter<'a> {
     ///
     /// assert_eq!(word_filter.find("this string contains foo"), vec!["foo"].into_boxed_slice());
     /// ```
+    #[must_use]
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_pointers(input)
             .iter()
@@ -495,6 +497,7 @@ impl<'a> WordFilter<'a> {
     ///
     /// assert!(word_filter.check("this string contains foo"));
     /// ```
+    #[must_use]
     pub fn check(&self, input: &str) -> bool {
         !self.find_pointers(input).is_empty()
     }
@@ -514,6 +517,7 @@ impl<'a> WordFilter<'a> {
     ///
     /// assert_eq!(word_filter.censor("this string contains foo"), "this string contains ***");
     /// ```
+    #[must_use]
     pub fn censor(&self, input: &str) -> String {
         let mut output = input.to_string();
         for pointer in self.find_pointers(input).iter() {

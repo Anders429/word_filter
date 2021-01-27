@@ -392,7 +392,7 @@ impl<'a> WordFilter<'a> {
             let mut new_pointers = Vec::new();
             for mut pointer in pointers.drain(..) {
                 let mut last_pointer = pointer.clone();
-                if pointer.step(&c) {
+                if pointer.step(c) {
                     // Aliases.
                     self.push_aliases(&pointer, &mut new_pointers, &[]);
                     // Separators.

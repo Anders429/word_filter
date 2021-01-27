@@ -116,8 +116,8 @@ impl<'a> Pointer<'a> {
     ///
     /// If the `Pointer` has reached a dead-end, this method returns `false`. Otherwise, it returns
     /// `true` to indicate the `Pointer` is still active in the `WordFilter` graph.
-    pub fn step(&mut self, c: &char) -> bool {
-        self.current_node = match self.current_node.children.get(c) {
+    pub fn step(&mut self, c: char) -> bool {
+        self.current_node = match self.current_node.children.get(&c) {
             Some(node) => match node.node_type {
                 NodeType::Standard => node,
                 NodeType::Return => {
@@ -168,10 +168,10 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
-        assert!(!pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
+        assert!(!pointer.step('o'));
     }
 
     #[test]
@@ -181,9 +181,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert_eq!(pointer.status, PointerStatus::Match("foo"));
     }
@@ -195,9 +195,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert_eq!(pointer.status, PointerStatus::Exception("foo"));
     }
@@ -211,9 +211,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert!(core::ptr::eq(pointer.current_node, &return_node));
     }
@@ -225,9 +225,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(!pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(!pointer.step('o'));
     }
 
     #[test]
@@ -240,9 +240,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, true);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert!(core::ptr::eq(pointer.current_node, &return_node));
         assert!(!pointer.in_separator);
@@ -259,9 +259,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert!(core::ptr::eq(pointer.current_node, &return_node));
     }
@@ -276,9 +276,9 @@ mod tests {
 
         let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, true);
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert!(core::ptr::eq(pointer.current_node, &return_node));
         assert!(!pointer.in_separator);
@@ -302,9 +302,9 @@ mod tests {
             false,
         );
 
-        assert!(pointer.step(&'f'));
-        assert!(pointer.step(&'o'));
-        assert!(pointer.step(&'o'));
+        assert!(pointer.step('f'));
+        assert!(pointer.step('o'));
+        assert!(pointer.step('o'));
 
         assert!(core::ptr::eq(pointer.current_node, &second_return_node));
     }

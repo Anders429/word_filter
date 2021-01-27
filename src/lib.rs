@@ -75,7 +75,7 @@ use alloc::{
     borrow::ToOwned,
     boxed::Box,
     collections::VecDeque,
-    string::{String, ToString},
+    string::String,
     vec,
     vec::Vec,
 };
@@ -269,7 +269,7 @@ impl<'a> WordFilter<'a> {
         let mut alias_map = HashMap::new();
         for (value, alias) in aliases {
             alias_map
-                .entry((*value).to_string())
+                .entry((*value).to_owned())
                 .or_insert_with(|| Box::pin(Node::new()))
                 .add_return(alias);
         }
@@ -283,9 +283,9 @@ impl<'a> WordFilter<'a> {
                     continue;
                 }
                 queue.push_back((
-                    (*value).to_string(),
-                    merge_value[overlap_value.len()..].to_string(),
-                    (*alias).to_string(),
+                    (*value).to_owned(),
+                    merge_value[overlap_value.len()..].to_owned(),
+                    (*alias).to_owned(),
                 ));
             }
         }
@@ -295,13 +295,13 @@ impl<'a> WordFilter<'a> {
             for (new_value, new_alias) in aliases {
                 if target_value == *new_alias || new_alias.starts_with(&target_value) {
                     new_aliases
-                        .push((value.to_string() + new_value, alias.to_string() + new_alias));
+                        .push((value.to_owned() + new_value, alias.to_owned() + new_alias));
                 } else if target_value.starts_with(new_alias) {
                     // If the combination isn't complete, push it to the queue and try again.
                     queue.push_back((
-                        value.to_string() + new_value,
-                        target_value[new_alias.len()..].to_string(),
-                        alias.to_string() + new_alias,
+                        value.to_owned() + new_value,
+                        target_value[new_alias.len()..].to_owned(),
+                        alias.to_owned() + new_alias,
                     ));
                 }
             }
@@ -519,7 +519,7 @@ impl<'a> WordFilter<'a> {
     /// ```
     #[must_use]
     pub fn censor(&self, input: &str) -> String {
-        let mut output = input.to_string();
+        let mut output = input.to_owned();
         for pointer in self.find_pointers(input).iter() {
             let mut new_output = String::with_capacity(output.len());
             let start = pointer.start;

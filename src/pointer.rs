@@ -84,13 +84,10 @@ impl<'a> Pointer<'a> {
     fn evaluate_return_node(&mut self, node: &'a Node<'a>) -> Option<&'a Node<'a>> {
         match node.node_type {
             NodeType::Standard => Some(node),
-            NodeType::Return => {
-                if let Some(return_node) = self.return_nodes.pop() {
-                    self.evaluate_return_node(return_node)
-                } else {
-                    None
-                }
-            }
+            NodeType::Return => self
+                .return_nodes
+                .pop()
+                .map_or(None, |return_node| self.evaluate_return_node(return_node)),
             NodeType::Match(word) => {
                 if self.in_separator {
                     self.in_separator = false;

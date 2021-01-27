@@ -15,7 +15,7 @@ use core::pin::Pin;
 use hashbrown::HashMap;
 
 /// The different possible node variants.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Type<'a> {
     /// A standard pathway node.
     Standard,
@@ -181,13 +181,14 @@ impl<'a> Node<'a> {
 #[cfg(test)]
 mod tests {
     use crate::node::{Node, Type};
+    use claim::assert_matches;
 
     #[test]
     fn add_match() {
         let mut node = Node::new();
         node.add_match("foo");
 
-        assert_eq!(node.search("foo").unwrap().node_type, Type::Match("foo"));
+        assert_matches!(&node.search("foo").unwrap().node_type, Type::Match("foo"));
     }
 
     #[test]
@@ -195,8 +196,8 @@ mod tests {
         let mut node = Node::new();
         node.add_exception("foo");
 
-        assert_eq!(
-            node.search("foo").unwrap().node_type,
+        assert_matches!(
+            &node.search("foo").unwrap().node_type,
             Type::Exception("foo")
         );
     }
@@ -206,7 +207,7 @@ mod tests {
         let mut node = Node::new();
         node.add_return("foo");
 
-        assert_eq!(node.search("foo").unwrap().node_type, Type::Return);
+        assert_matches!(&node.search("foo").unwrap().node_type, Type::Return);
     }
 
     #[test]
@@ -236,6 +237,6 @@ mod tests {
         node.add_return("foo");
         node.add_match("foo");
 
-        assert_eq!(node.search("foo").unwrap().node_type, Type::Return);
+        assert_matches!(&node.search("foo").unwrap().node_type, Type::Return);
     }
 }

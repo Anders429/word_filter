@@ -434,8 +434,7 @@ impl<'a> WordFilter<'a> {
         // Evaluate all remaining pointers.
         for pointer in pointers.drain(..) {
             match pointer.status {
-                PointerStatus::Match(_) => found.push(pointer),
-                PointerStatus::Exception(_) => found.push(pointer),
+                PointerStatus::Match(_) | PointerStatus::Exception(_) => found.push(pointer),
                 _ => {}
             }
         }

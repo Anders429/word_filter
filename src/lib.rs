@@ -72,6 +72,7 @@ mod node;
 mod pointer;
 
 use alloc::{
+    borrow::ToOwned,
     boxed::Box,
     collections::VecDeque,
     string::{String, ToString},
@@ -360,7 +361,7 @@ impl<'a> WordFilter<'a> {
         &self,
         pointer: &Pointer<'a>,
         new_pointers: &mut Vec<Pointer<'a>>,
-        visited: Vec<&Node>,
+        visited: &[&Node],
     ) {
         for (alias_node, return_node) in &pointer.current_node.aliases {
             if visited.iter().any(|n| core::ptr::eq(*n, *alias_node)) {
@@ -370,9 +371,9 @@ impl<'a> WordFilter<'a> {
             return_nodes.push(return_node);
             let alias_pointer =
                 Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
-            let mut new_visited = visited.clone();
+            let mut new_visited = visited.to_owned();
             new_visited.push(alias_node);
-            self.push_aliases(&alias_pointer, new_pointers, new_visited);
+            self.push_aliases(&alias_pointer, new_pointers, &new_visited);
             new_pointers.push(alias_pointer);
         }
     }
@@ -384,7 +385,7 @@ impl<'a> WordFilter<'a> {
     fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
         let root_pointer = Pointer::new(&self.root, Vec::new(), 0, 0, false);
         let mut pointers = Vec::new();
-        self.push_aliases(&root_pointer, &mut pointers, Vec::new());
+        self.push_aliases(&root_pointer, &mut pointers, &[]);
         pointers.push(root_pointer);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
@@ -393,7 +394,7 @@ impl<'a> WordFilter<'a> {
                 let mut last_pointer = pointer.clone();
                 if pointer.step(&c) {
                     // Aliases.
-                    self.push_aliases(&pointer, &mut new_pointers, Vec::new());
+                    self.push_aliases(&pointer, &mut new_pointers, &[]);
                     // Separators.
                     let mut return_nodes = pointer.return_nodes.clone();
                     return_nodes.push(pointer.current_node);

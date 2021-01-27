@@ -444,14 +444,13 @@ impl<'a> WordFilter<'a> {
         NestedContainmentList::from_slice(&found)
             .sublist()
             .map(|element| element.value)
-            .filter(|p| {
+            .filter_map(|p| {
                 if let PointerStatus::Match(_) = p.status {
-                    true
+                    Some(p.clone())
                 } else {
-                    false
+                    None
                 }
             })
-            .map(|p| (*p).clone())
             .collect::<Vec<_>>()
             .into_boxed_slice()
     }

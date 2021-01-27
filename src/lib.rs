@@ -560,6 +560,13 @@ mod tests {
     }
 
     #[test]
+    fn check_only_partial() {
+        let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+
+        assert!(!filter.check("fo"));
+    }
+
+    #[test]
     fn censor() {
         let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
 

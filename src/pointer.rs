@@ -87,7 +87,7 @@ impl<'a> Pointer<'a> {
             NodeType::Return => self
                 .return_nodes
                 .pop()
-                .map_or(None, |return_node| self.evaluate_return_node(return_node)),
+                .and_then(|return_node| self.evaluate_return_node(return_node)),
             NodeType::Match(word) => {
                 if self.in_separator {
                     self.in_separator = false;

@@ -77,6 +77,7 @@ use hashbrown::HashMap;
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use pointer::Pointer;
+use str_overlap::Overlap;
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 pub enum RepeatedCharacterMatchMode {
@@ -271,7 +272,7 @@ impl<'a> WordFilter<'a> {
         let mut queue = VecDeque::new();
         for (value, alias) in aliases {
             for (merge_value, _) in aliases {
-                let overlap_value = str_overlap::overlap(alias, merge_value);
+                let overlap_value = alias.overlap_end(merge_value);
                 if overlap_value.is_empty() || overlap_value == *merge_value {
                     continue;
                 }

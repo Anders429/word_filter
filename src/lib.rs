@@ -75,7 +75,7 @@ use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, 
 use by_address::ByAddress;
 use core::pin::Pin;
 use hashbrown::{HashMap, HashSet};
-use nested_containment_list::NestedContainmentList;
+use nested_containment_list::{Interval, NestedContainmentList};
 use node::Node;
 use pointer::Pointer;
 use str_overlap::Overlap;
@@ -521,22 +521,43 @@ impl<'a> WordFilter<'a> {
     /// ```
     #[must_use]
     pub fn censor(&self, input: &str) -> String {
-        let mut output = input.to_owned();
+        let mut output = String::with_capacity(input.len());
+        let mut input_char_indices = input.char_indices();
+        // Pointers are sorted on both start and end, due to use of NestedContainmentList.
+        let mut prev_end = 0;
         for pointer in self.find_pointers(input).iter() {
-            let mut new_output = String::with_capacity(output.len());
-            let start = pointer.start;
-            let end = start + pointer.found_len.unwrap();
-            for (i, c) in output.chars().enumerate() {
-                if i < start || i > end {
-                    new_output.push(c);
-                } else {
-                    match self.options.censor_mode {
-                        CensorMode::ReplaceAllWith(c) => new_output.push(c),
+            // Insert un-censored characters.
+            if pointer.start() > prev_end {
+                for _ in 0..(pointer.start() - prev_end) {
+                    output.push(input_char_indices.next().map(|(_i, c)| c).unwrap())
+                }
+            }
+            // Censor the covered characters for this pointer.
+            let len = pointer.end() - core::cmp::max(pointer.start(), prev_end);
+            match self.options.censor_mode {
+                CensorMode::ReplaceAllWith(c) => {
+                    for _ in 0..len {
+                        output.push(c);
+                        input_char_indices.next();
                     }
                 }
             }
-            output = new_output;
+
+            prev_end = pointer.end();
         }
+
+        // Add the rest of the characters.
+        output.push_str(unsafe {
+            // SAFETY: Since the index is obtained from a `CharIndices` `Iterator` over `input`, the
+            // index used here will always be on character bounds of `input`, and will never be
+            // outside the bounds. Therefore, this usage of `get_unchecked()` is sound.
+            input.get_unchecked(
+                input_char_indices
+                    .next()
+                    .map_or_else(|| input.len(), |(i, _c)| i)..,
+            )
+        });
+
         output
     }
 }

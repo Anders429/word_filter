@@ -278,7 +278,12 @@ impl<'a> WordFilter<'a> {
                 }
                 queue.push_back((
                     (*value).to_owned(),
-                    merge_value[overlap_value.len()..].to_owned(),
+                    unsafe {
+                        // SAFETY: `overlap_value` will always be the prefix of merge_value.
+                        // Therefore, this will never be out of bounds and it will always uphold
+                        // `str` invariants.
+                        merge_value.get_unchecked(overlap_value.len()..).to_owned()
+                    },
                     (*alias).to_owned(),
                 ));
             }

@@ -64,6 +64,7 @@
 // Required MSRVs:
 // - manual_strip: 1.45.0
 // - match_like_matches_macro: 1.42.0
+// - nursery::use_self: 1.37.0
 #![allow(clippy::manual_strip, clippy::match_like_matches_macro, clippy::nursery::use_self)]
 #![no_std]
 

@@ -279,7 +279,7 @@ impl<'a> WordFilter<'a> {
                 queue.push_back((
                     (*value).to_owned(),
                     unsafe {
-                        // SAFETY: `overlap_value` will always be the prefix of merge_value.
+                        // SAFETY: `overlap_value` will always be the prefix of `merge_value`.
                         // Therefore, this will never be out of bounds and it will always uphold
                         // `str` invariants.
                         merge_value.get_unchecked(overlap_value.len()..).to_owned()
@@ -298,7 +298,11 @@ impl<'a> WordFilter<'a> {
                     // If the combination isn't complete, push it to the queue and try again.
                     queue.push_back((
                         value.to_owned() + new_value,
-                        target_value[new_alias.len()..].to_owned(),
+                        unsafe {
+                            // SAFETY: Since `new_alias` is the prefix of `target_value`, this will
+                            // never be out of bounds and will always uphold `str` invariants.
+                            target_value.get_unchecked(new_alias.len()..).to_owned()
+                        },
                         alias.to_owned() + new_alias,
                     ));
                 }

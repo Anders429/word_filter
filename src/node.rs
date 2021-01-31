@@ -88,7 +88,7 @@ impl<'a> Node<'a> {
                     // SAFETY: Since `char_indices` is created from `word`, its indices will always
                     // fall on character bounds of `word`. Therefore, this usage of
                     // `get_unchecked()` is sound.
-                    &word.get_unchecked(
+                    word.get_unchecked(
                         char_indices
                             .next()
                             .map_or_else(|| word.len(), |(index, _c)| index)..,

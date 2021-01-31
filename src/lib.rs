@@ -72,8 +72,9 @@ mod node;
 mod pointer;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
+use by_address::ByAddress;
 use core::pin::Pin;
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use pointer::Pointer;
@@ -116,7 +117,7 @@ pub enum RepeatedCharacterMatchMode {
 impl Default for RepeatedCharacterMatchMode {
     /// Returns the default mode, which is `AllowRepeatedCharacters`.
     fn default() -> Self {
-        Self::AllowRepeatedCharacters
+        RepeatedCharacterMatchMode::AllowRepeatedCharacters
     }
 }
 
@@ -142,7 +143,7 @@ pub enum CensorMode {
 impl Default for CensorMode {
     /// Returns the default mode, which is `ReplaceAllWith('*')`.
     fn default() -> Self {
-        Self::ReplaceAllWith('*')
+        CensorMode::ReplaceAllWith('*')
     }
 }
 
@@ -364,10 +365,10 @@ impl<'a> WordFilter<'a> {
         &self,
         pointer: &Pointer<'a>,
         new_pointers: &mut Vec<Pointer<'a>>,
-        visited: &[&Node],
+        visited: &HashSet<ByAddress<&Node>>,
     ) {
         for (alias_node, return_node) in &pointer.current_node.aliases {
-            if visited.iter().any(|n| core::ptr::eq(*n, *alias_node)) {
+            if visited.contains(&ByAddress(alias_node)) {
                 continue;
             }
             let mut return_nodes = pointer.return_nodes.clone();
@@ -375,7 +376,7 @@ impl<'a> WordFilter<'a> {
             let alias_pointer =
                 Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
             let mut new_visited = visited.to_owned();
-            new_visited.push(alias_node);
+            new_visited.insert(ByAddress(alias_node));
             self.push_aliases(&alias_pointer, new_pointers, &new_visited);
             new_pointers.push(alias_pointer);
         }
@@ -388,7 +389,7 @@ impl<'a> WordFilter<'a> {
     fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
         let root_pointer = Pointer::new(&self.root, Vec::new(), 0, 0, false);
         let mut pointers = Vec::new();
-        self.push_aliases(&root_pointer, &mut pointers, &[]);
+        self.push_aliases(&root_pointer, &mut pointers, &HashSet::new());
         pointers.push(root_pointer);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
@@ -397,7 +398,7 @@ impl<'a> WordFilter<'a> {
                 let mut last_pointer = pointer.clone();
                 if pointer.step(c) {
                     // Aliases.
-                    self.push_aliases(&pointer, &mut new_pointers, &[]);
+                    self.push_aliases(&pointer, &mut new_pointers, &HashSet::new());
                     // Separators.
                     let mut return_nodes = pointer.return_nodes.clone();
                     return_nodes.push(pointer.current_node);

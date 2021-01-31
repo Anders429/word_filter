@@ -84,9 +84,16 @@ impl<'a> Node<'a> {
             .entry(char_indices.next().map(|(_index, c)| c).unwrap())
             .or_insert_with(|| Box::pin(Self::new()))
             .add_path(
-                &word[char_indices
-                    .next()
-                    .map_or_else(|| word.len(), |(index, _c)| index)..],
+                unsafe {
+                    // SAFETY: Since `char_indices` is created from `word`, its indices will always
+                    // fall on character bounds of `word`. Therefore, this usage of
+                    // `get_unchecked()` is sound.
+                    &word.get_unchecked(
+                        char_indices
+                            .next()
+                            .map_or_else(|| word.len(), |(index, _c)| index)..,
+                    )
+                },
                 node_type,
             );
     }

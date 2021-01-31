@@ -143,10 +143,12 @@ impl<'a> Pointer<'a> {
 }
 
 impl Interval<usize> for Pointer<'_> {
+    #[inline]
     fn start(&self) -> usize {
         self.start
     }
 
+    #[inline]
     fn end(&self) -> usize {
         self.start + self.found_len.unwrap_or(0) + 1
     }

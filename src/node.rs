@@ -68,6 +68,11 @@ impl<'a> Node<'a> {
         }
     }
 
+    /// Recursively add a path through the characters in `word`, ending with a node of type
+    /// `node_type`.
+    ///
+    /// If the exact path already exists ending in a different `node::Type`, then the previous type
+    /// is preserved.
     fn add_path(&mut self, word: &str, node_type: Type<'a>) {
         if word.is_empty() {
             if match self.node_type {

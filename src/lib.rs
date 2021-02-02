@@ -66,7 +66,7 @@
     unused_import_braces,
     unused_lifetimes,
     unused_qualifications,
-    variant_size_differences,
+    variant_size_differences
 )]
 #![warn(
     clippy::nursery,

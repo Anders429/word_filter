@@ -54,7 +54,26 @@
 //! assert_eq!(word_filter.censor("Should censor Foo"), "Should censor ***");
 //! ```
 
-#![warn(clippy::nursery, clippy::pedantic, clippy::restriction::str_to_string, clippy::restriction::string_to_string)]
+#![warn(
+    anonymous_parameters,
+    explicit_outlives_requirements,
+    missing_docs,
+    nonstandard_style,
+    rust_2018_idioms,
+    single_use_lifetimes,
+    unreachable_pub,
+    unused_crate_dependencies,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications,
+    variant_size_differences,
+)]
+#![warn(
+    clippy::nursery,
+    clippy::pedantic,
+    clippy::restriction::str_to_string,
+    clippy::restriction::string_to_string
+)]
 // The following clippy allowances are due to the MSRV of this crate being less than the required
 // MSRV for each lint. The required MSRV for each lint is listed below. If the MSRV is bumped enough
 // to allow usage of a lint, it should be removed from this list.
@@ -65,7 +84,11 @@
 // - manual_strip: 1.45.0
 // - match_like_matches_macro: 1.42.0
 // - nursery::use_self: 1.37.0
-#![allow(clippy::manual_strip, clippy::match_like_matches_macro, clippy::nursery::use_self)]
+#![allow(
+    clippy::manual_strip,
+    clippy::match_like_matches_macro,
+    clippy::nursery::use_self
+)]
 #![no_std]
 
 extern crate alloc;

@@ -21,7 +21,10 @@ jobs:
           - 1.36.0
     steps:
     - uses: actions/checkout@v2
-    - run: cargo --version
+    - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
     - uses: actions-rs/cargo@v1
       with:
         command: test
@@ -37,7 +40,11 @@ jobs:
           - 1.36.0
     steps:
     - uses: actions/checkout@v2
-    - run: rustup target add thumbv6m-none-eabi
+    - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: thumbv6m-none-eabi
+          override: true
     - uses: actions-rs/cargo@v1
       with:
         command: build

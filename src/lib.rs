@@ -89,6 +89,8 @@
     clippy::match_like_matches_macro,
     clippy::nursery::use_self
 )]
+// This lint is directly contradictory to `unreachable_pub`.
+#![allow(clippy::nursery::redundant_pub_crate)]
 #![no_std]
 
 extern crate alloc;

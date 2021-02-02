@@ -132,7 +132,7 @@ impl<'a> Node<'a> {
                 // WordFilter is pinned in place in memory, meaning it will only ever move when the
                 // WordFilter is dropped. Therefore, this reference will be valid for as long as it
                 // is used by the WordFilter.
-                return Some(&*(self as *const Node));
+                return Some(&*(self as *const Node<'_>));
             }
         }
 

@@ -356,7 +356,7 @@ impl<'a> WordFilter<'a> {
                     // by the WordFilter is pinned in place in memory, meaning it will only ever
                     // move when the WordFilter is dropped. Therefore, this reference will be valid
                     // for as long as it is used by the WordFilter.
-                    &*(&*alias_map[alias_value] as *const Node)
+                    &*(&*alias_map[alias_value] as *const Node<'_>)
                 };
                 alias_map
                     .get_mut(value)
@@ -373,7 +373,7 @@ impl<'a> WordFilter<'a> {
                 // WordFilter is pinned in place in memory, meaning it will only ever move when the
                 // WordFilter is dropped. Therefore, this reference will be valid for as long as it
                 // is used by the WordFilter.
-                root.add_alias(value, &*(&**node as *const Node));
+                root.add_alias(value, &*(&**node as *const Node<'_>));
             }
         }
 
@@ -410,7 +410,7 @@ impl<'a> WordFilter<'a> {
     ///
     /// This also excludes all `Pointer`s that encountered matches but whose ranges also are
     /// contained within ranges are `Pointer`s who encountered exceptions.
-    fn find_pointers(&self, input: &str) -> Box<[Pointer]> {
+    fn find_pointers(&self, input: &str) -> Box<[Pointer<'_>]> {
         let root_pointer = Pointer::new(&self.root, Vec::new(), 0, 0, false);
         let mut pointers = Vec::new();
         self.push_aliases(&root_pointer, &mut pointers, &mut HashSet::new());

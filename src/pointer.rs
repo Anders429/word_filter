@@ -15,7 +15,7 @@ use nested_containment_list::Interval;
 ///
 /// This indicates whether the `Pointer` has reached a `Match` or an `Exception` node.
 #[derive(Clone, Debug)]
-pub enum Status<'a> {
+pub(crate) enum Status<'a> {
     /// Indicates the `Pointer` has found no `Match` or `Exception` nodes yet.
     None,
     /// Indicates the `Pointer` has found a `Match` node containing the stored string.
@@ -33,29 +33,29 @@ pub enum Status<'a> {
 /// In order to progress the `Pointer` forward, the `step()` method is provided, which allows the
 /// user to step the `Pointer` through each character in a string.
 #[derive(Clone)]
-pub struct Pointer<'a> {
+pub(crate) struct Pointer<'a> {
     /// The current node that is being pointed to.
-    pub current_node: &'a Node<'a>,
+    pub(crate) current_node: &'a Node<'a>,
     /// A stack of return nodes (indicating the `Pointer`'s context within subgraphs).
-    pub return_nodes: Vec<&'a Node<'a>>,
+    pub(crate) return_nodes: Vec<&'a Node<'a>>,
     /// This `Pointer`'s current status.
-    pub status: Status<'a>,
+    pub(crate) status: Status<'a>,
 
     /// The start index within the original source string.
-    pub start: usize,
+    pub(crate) start: usize,
     /// The length which this `Pointer` has traveled.
-    pub len: usize,
+    pub(crate) len: usize,
     /// The length where the last `Match` or `Exception` node was found.
-    pub found_len: Option<usize>,
+    pub(crate) found_len: Option<usize>,
 
-    pub in_separator: bool,
+    pub(crate) in_separator: bool,
 }
 
 impl<'a> Pointer<'a> {
     /// Creates a new `Pointer` with the provided attributes.
     ///
     /// This also sets `status` to `Status::None` and `found_len` to `None`.
-    pub fn new(
+    pub(crate) fn new(
         current_node: &'a Node<'a>,
         return_nodes: Vec<&'a Node<'a>>,
         start: usize,
@@ -113,7 +113,7 @@ impl<'a> Pointer<'a> {
     ///
     /// If the `Pointer` has reached a dead-end, this method returns `false`. Otherwise, it returns
     /// `true` to indicate the `Pointer` is still active in the `WordFilter` graph.
-    pub fn step(&mut self, c: char) -> bool {
+    pub(crate) fn step(&mut self, c: char) -> bool {
         self.current_node = match self.current_node.children.get(&c) {
             Some(node) => match node.node_type {
                 node::Type::Standard => node,

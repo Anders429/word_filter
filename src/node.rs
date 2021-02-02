@@ -16,7 +16,7 @@ use hashbrown::HashMap;
 
 /// The different possible node variants.
 #[derive(Debug)]
-pub enum Type<'a> {
+pub(crate) enum Type<'a> {
     /// A standard pathway node.
     Standard,
     /// This node indicates a match.
@@ -43,24 +43,24 @@ pub enum Type<'a> {
 ///
 /// Each Node also has a `node_type`, defining what kind of node it is. These are useful if the user
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
-pub struct Node<'a> {
+pub(crate) struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub children: HashMap<char, Pin<Box<Node<'a>>>>,
+    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
     /// These are pairs representing `(sub_graph_node, return_node)`.
-    pub aliases: Vec<(&'a Node<'a>, &'a Node<'a>)>,
+    pub(crate) aliases: Vec<(&'a Node<'a>, &'a Node<'a>)>,
 
     /// The type of node.
-    pub node_type: Type<'a>,
+    pub(crate) node_type: Type<'a>,
 }
 
 impl<'a> Node<'a> {
     /// Creates a new Standard node.
     ///
     /// All internal fields are initialized to be empty.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             children: HashMap::new(),
             aliases: Vec::new(),
@@ -104,17 +104,17 @@ impl<'a> Node<'a> {
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Match.
-    pub fn add_match(&mut self, word: &'a str) {
+    pub(crate) fn add_match(&mut self, word: &'a str) {
         self.add_path(word, Type::Match(word));
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as an Exception.
-    pub fn add_exception(&mut self, word: &'a str) {
+    pub(crate) fn add_exception(&mut self, word: &'a str) {
         self.add_path(word, Type::Exception(word));
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Return.
-    pub fn add_return(&mut self, word: &str) {
+    pub(crate) fn add_return(&mut self, word: &str) {
         self.add_path(word, Type::Return);
     }
 
@@ -155,7 +155,7 @@ impl<'a> Node<'a> {
     ///
     /// The caller must be sure that no Nodes are removed from the graph after calling this method,
     /// as it may leave some dangling references.
-    pub fn add_alias(&mut self, value: &str, sub_graph_node: &'a Node<'a>) {
+    pub(crate) fn add_alias(&mut self, value: &str, sub_graph_node: &'a Node<'a>) {
         // Head recursion.
         for child in self.children.iter_mut().map(|(_c, node)| node) {
             child.add_alias(value, sub_graph_node);
@@ -170,7 +170,7 @@ impl<'a> Node<'a> {
     ///
     /// In production, the actual traversal through the graph is handled by a Pointer.
     #[cfg(test)]
-    pub fn search(&'a self, word: &str) -> Option<&'a Node<'a>> {
+    pub(crate) fn search(&'a self, word: &str) -> Option<&'a Node<'a>> {
         if word.is_empty() {
             return Some(self);
         }

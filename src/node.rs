@@ -9,6 +9,13 @@
 //! supergraph.
 //!
 //! Each node also has a `Type`, identifying what kind of Node it is.
+//!
+//! `Node`s implement `!Unpin`, meaning they are, essentially, pinnable. This is necessary due to
+//! their self-referential nature. If a `Node` exists that is referenced by any other `Node` (which
+//! is basically every node besides `root` and `separator_root`), it should be pinned in memory
+//! using `Pin`. After being pinned, great care should be taken when mutating `Node`s, since moving
+//! the values will result in invalidating any references to that `Node`. Most `unsafe` calls within
+//! the code are dedicated to upholding that invariant.
 
 use alloc::{boxed::Box, vec::Vec};
 use core::{marker::PhantomPinned, pin::Pin};

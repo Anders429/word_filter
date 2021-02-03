@@ -95,9 +95,6 @@
 
 extern crate alloc;
 
-extern crate std;
-use std::{dbg, println};
-
 mod node;
 mod pointer;
 
@@ -412,7 +409,6 @@ impl<'a> WordFilter<'a> {
             if visited.contains(&ByAddress(alias_node)) {
                 continue;
             }
-            println!("Adding alias!");
             let mut return_nodes = pointer.return_nodes.clone();
             return_nodes.push(return_node);
             let alias_pointer =
@@ -435,18 +431,10 @@ impl<'a> WordFilter<'a> {
         pointers.push(root_pointer);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
-            dbg!(pointers.len());
-            dbg!(c);
             let mut new_pointers = Vec::new();
             for mut pointer in pointers.drain(..) {
                 let mut last_pointer = pointer.clone();
                 if pointer.step(c) {
-
-                println!("{}", match &pointer.status {
-                    pointer::Status::Match(s) | pointer::Status::Exception(s) => s,
-                    _ => "None",
-                });
-
                     // Aliases.
                     self.push_aliases(&pointer, &mut new_pointers, &mut HashSet::new());
                     // Separators.

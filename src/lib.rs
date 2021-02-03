@@ -419,6 +419,7 @@ impl<'a> WordFilter<'a> {
                 Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
             visited.insert(ByAddress(alias_node));
             self.push_aliases(&alias_pointer, new_pointers, visited);
+            visited.remove(&ByAddress(alias_node));
             new_pointers.push(alias_pointer);
         }
     }
@@ -447,8 +448,7 @@ impl<'a> WordFilter<'a> {
                 });
 
                     // Aliases.
-                    let mut visited = HashSet::new();
-                    self.push_aliases(&pointer, &mut new_pointers, &mut visited);
+                    self.push_aliases(&pointer, &mut new_pointers, &mut HashSet::new());
                     // Separators.
                     let mut return_nodes = pointer.return_nodes.clone();
                     return_nodes.push(pointer.current_node);

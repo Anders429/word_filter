@@ -238,8 +238,7 @@ pub struct Options {
 pub struct WordFilter<'a> {
     root: Node<'a>,
     separator_root: Node<'a>,
-    #[allow(dead_code)]
-    alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
+    _alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
     options: Options,
 }
 
@@ -397,7 +396,7 @@ impl<'a> WordFilter<'a> {
         Self {
             root,
             separator_root,
-            alias_map,
+            _alias_map: alias_map,
             options,
         }
     }

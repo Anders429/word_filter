@@ -11,6 +11,7 @@
 //! Each node also has a `Type`, identifying what kind of Node it is.
 
 use alloc::{boxed::Box, vec::Vec};
+use core::{marker::PhantomPinned, pin::Pin};
 use hashbrown::HashMap;
 
 /// The different possible node variants.
@@ -44,7 +45,7 @@ pub(crate) enum Type<'a> {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub(crate) struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub(crate) children: HashMap<char, Box<Node<'a>>>,
+    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
@@ -53,6 +54,9 @@ pub(crate) struct Node<'a> {
 
     /// The type of node.
     pub(crate) node_type: Type<'a>,
+
+    /// Mark as !Unpin.
+    pub(crate) _pin: PhantomPinned,
 }
 
 impl<'a> Node<'a> {
@@ -64,6 +68,7 @@ impl<'a> Node<'a> {
             children: HashMap::new(),
             aliases: Vec::new(),
             node_type: Type::Standard,
+            _pin: PhantomPinned,
         }
     }
 
@@ -84,22 +89,26 @@ impl<'a> Node<'a> {
         }
 
         let mut char_indices = word.char_indices();
-        self.children
-            .entry(char_indices.next().map(|(_index, c)| c).unwrap())
-            .or_insert_with(|| Box::new(Self::new()))
-            .add_path(
-                unsafe {
-                    // SAFETY: Since `char_indices` is created from `word`, its indices will always
-                    // fall on character bounds of `word`. Therefore, this usage of
-                    // `get_unchecked()` is sound.
-                    word.get_unchecked(
-                        char_indices
-                            .next()
-                            .map_or_else(|| word.len(), |(index, _c)| index)..,
-                    )
-                },
-                node_type,
-            );
+        unsafe {
+            self.children
+                .entry(char_indices.next().map(|(_index, c)| c).unwrap())
+                .or_insert_with(|| Box::pin(Self::new()))
+                .as_mut()
+                .get_unchecked_mut()
+                .add_path(
+                    unsafe {
+                        // SAFETY: Since `char_indices` is created from `word`, its indices will always
+                        // fall on character bounds of `word`. Therefore, this usage of
+                        // `get_unchecked()` is sound.
+                        word.get_unchecked(
+                            char_indices
+                                .next()
+                                .map_or_else(|| word.len(), |(index, _c)| index)..,
+                        )
+                    },
+                    node_type,
+                );
+        }
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Match.
@@ -157,7 +166,9 @@ impl<'a> Node<'a> {
     pub(crate) fn add_alias(&mut self, value: &str, sub_graph_node: &'a Node<'a>) {
         // Head recursion.
         for child in self.children.iter_mut().map(|(_c, node)| node) {
-            child.add_alias(value, sub_graph_node);
+            unsafe {
+                child.as_mut().get_unchecked_mut().add_alias(value, sub_graph_node);
+            }
         }
 
         if let Some(return_node) = self.find_alias_return_node(value) {

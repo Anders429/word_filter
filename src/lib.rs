@@ -95,6 +95,9 @@
 
 extern crate alloc;
 
+extern crate std;
+use std::{dbg, println};
+
 mod node;
 mod pointer;
 
@@ -290,10 +293,14 @@ impl<'a> WordFilter<'a> {
 
         let mut alias_map = HashMap::new();
         for (value, alias) in aliases {
-            alias_map
-                .entry((*value).to_owned())
-                .or_insert_with(|| Box::pin(Node::new()))
-                .add_return(alias);
+            unsafe {
+                alias_map
+                    .entry((*value).to_owned())
+                    .or_insert_with(|| Box::pin(Node::new()))
+                    .as_mut()
+                    .get_unchecked_mut()
+                    .add_return(alias);
+            }
         }
         // Find merged aliases.
         // First, find all aliases that can possibly be combined by a value.
@@ -337,10 +344,14 @@ impl<'a> WordFilter<'a> {
             }
         }
         for (value, alias) in new_aliases {
-            alias_map
-                .entry(value)
-                .or_insert_with(|| Box::pin(Node::new()))
-                .add_return(&alias);
+            unsafe {
+                alias_map
+                    .entry(value)
+                    .or_insert_with(|| Box::pin(Node::new()))
+                    .as_mut()
+                    .get_unchecked_mut()
+                    .add_return(&alias);
+            }
         }
 
         // Apply aliases on each other.
@@ -360,10 +371,14 @@ impl<'a> WordFilter<'a> {
                     // for as long as it is used by the WordFilter.
                     &*(&*alias_map[alias_value] as *const Node<'_>)
                 };
-                alias_map
-                    .get_mut(value)
-                    .unwrap()
-                    .add_alias(alias_value, alias_node);
+                unsafe {
+                    alias_map
+                        .get_mut(value)
+                        .unwrap()
+                        .as_mut()
+                        .get_unchecked_mut()
+                        .add_alias(alias_value, alias_node);
+                }
             }
         }
         for (value, node) in &alias_map {
@@ -398,6 +413,7 @@ impl<'a> WordFilter<'a> {
             if visited.contains(&ByAddress(alias_node)) {
                 continue;
             }
+            println!("Adding alias!");
             let mut return_nodes = pointer.return_nodes.clone();
             return_nodes.push(return_node);
             let alias_pointer =
@@ -419,10 +435,18 @@ impl<'a> WordFilter<'a> {
         pointers.push(root_pointer);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
+            dbg!(pointers.len());
+            dbg!(c);
             let mut new_pointers = Vec::new();
             for mut pointer in pointers.drain(..) {
                 let mut last_pointer = pointer.clone();
                 if pointer.step(c) {
+
+                println!("{}", match &pointer.status {
+                    pointer::Status::Match(s) | pointer::Status::Exception(s) => s,
+                    _ => "None",
+                });
+
                     // Aliases.
                     let mut visited = HashSet::new();
                     self.push_aliases(&pointer, &mut new_pointers, &mut visited);

@@ -585,7 +585,10 @@ impl<'a> WordFilter<'a> {
                         // subsequent `pointer` will cover a new set of `input` characters. Thus,
                         // the `unchecked_unwrap()` here is safe, as it will never fail to unwrap a
                         // value.
-                        input_char_indices.next().map(|(_i, c)| c).unchecked_unwrap()
+                        input_char_indices
+                            .next()
+                            .map(|(_i, c)| c)
+                            .unchecked_unwrap()
                     })
                 }
             }

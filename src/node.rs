@@ -102,7 +102,7 @@ impl<'a> Node<'a> {
                 .entry(
                     // SAFETY: We guarantee above that `word` is non-empty, and therefore
                     // `char_indices.next()` will always return a value.
-                    char_indices.next().map(|(_index, c)| c).unchecked_unwrap()
+                    char_indices.next().map(|(_index, c)| c).unchecked_unwrap(),
                 )
                 .or_insert_with(|| Box::pin(Self::new()))
                 .as_mut()
@@ -144,7 +144,7 @@ impl<'a> Node<'a> {
     /// all of `value`. If a dead end is reached, `None` is returned instead.
     fn find_alias_return_node(&self, value: &str) -> Option<&'a Node<'a>> {
         if value.is_empty() {
-            unsafe {
+            return unsafe {
                 // SAFETY: The obtained reference to a Node is self-referential within the
                 // WordFilter struct. The only reason this conversion from reference to pointer and
                 // back again is necessary is to make the reference lifetime-agnostic to allow the
@@ -152,19 +152,16 @@ impl<'a> Node<'a> {
                 // WordFilter is pinned in place in memory, meaning it will only ever move when the
                 // WordFilter is dropped. Therefore, this reference will be valid for as long as it
                 // is used by the WordFilter.
-                return Some(&*(self as *const Node<'_>));
-            }
+                Some(&*(self as *const Node<'_>))
+            };
         }
 
         let mut char_indices = value.char_indices();
-        match self
-            .children
-            .get(unsafe {
-                // SAFETY: `value` is verified above to be non-empty. Therefore, `char_indices` will
-                // always return a value on `next()`.
-                &char_indices.next().map(|(_index, c)| c).unchecked_unwrap()
-            })
-        {
+        match self.children.get(unsafe {
+            // SAFETY: `value` is verified above to be non-empty. Therefore, `char_indices` will
+            // always return a value on `next()`.
+            &char_indices.next().map(|(_index, c)| c).unchecked_unwrap()
+        }) {
             Some(node) => node.find_alias_return_node(
                 &value[char_indices
                     .next()

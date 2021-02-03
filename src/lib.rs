@@ -290,6 +290,8 @@ impl<'a> WordFilter<'a> {
         let mut alias_map = HashMap::new();
         for (value, alias) in aliases {
             unsafe {
+                // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
+                // mutation of the `Node` will uphold pin invariants.
                 alias_map
                     .entry((*value).to_owned())
                     .or_insert_with(|| Box::pin(Node::new()))
@@ -341,6 +343,8 @@ impl<'a> WordFilter<'a> {
         }
         for (value, alias) in new_aliases {
             unsafe {
+                // SAFETY: Adding a return to a `Node` will not move the `Node`. Therefore, this
+                // mutation of the `Node` will uphold pin invariants.
                 alias_map
                     .entry(value)
                     .or_insert_with(|| Box::pin(Node::new()))
@@ -368,6 +372,8 @@ impl<'a> WordFilter<'a> {
                     &*(&*alias_map[alias_value] as *const Node<'_>)
                 };
                 unsafe {
+                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
+                    // mutation of the `Node` will uphold pin invariants.
                     alias_map
                         .get_mut(value)
                         .unwrap()

@@ -3,7 +3,7 @@
 //! The graph defined by these Nodes is basically a Trie with a few extra attributes. Edges between
 //! nodes are defined by characters (UTF-8), and traversal through the graph is done through those
 //! characters.
-
+//!
 //! In addition to the standard parent-child path, aliases can also be represented as references to
 //! other subgraphs. Those subgraphs may end in Return nodes, linking the path back to the
 //! supergraph.
@@ -90,22 +90,22 @@ impl<'a> Node<'a> {
 
         let mut char_indices = word.char_indices();
         unsafe {
+            // SAFETY: Adding a path to a `Node` will not move the `Node`. Therefore, this mutation
+            // of the `Node` will uphold pin invariants.
             self.children
                 .entry(char_indices.next().map(|(_index, c)| c).unwrap())
                 .or_insert_with(|| Box::pin(Self::new()))
                 .as_mut()
                 .get_unchecked_mut()
                 .add_path(
-                    unsafe {
-                        // SAFETY: Since `char_indices` is created from `word`, its indices will always
-                        // fall on character bounds of `word`. Therefore, this usage of
-                        // `get_unchecked()` is sound.
-                        word.get_unchecked(
-                            char_indices
-                                .next()
-                                .map_or_else(|| word.len(), |(index, _c)| index)..,
-                        )
-                    },
+                    // SAFETY: Since `char_indices` is created from `word`, its indices will always
+                    // fall on character bounds of `word`. Therefore, this usage of
+                    // `get_unchecked()` is sound.
+                    word.get_unchecked(
+                        char_indices
+                            .next()
+                            .map_or_else(|| word.len(), |(index, _c)| index)..,
+                    ),
                     node_type,
                 );
         }
@@ -167,6 +167,8 @@ impl<'a> Node<'a> {
         // Head recursion.
         for child in self.children.iter_mut().map(|(_c, node)| node) {
             unsafe {
+                // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
+                // mutation of the `Node` will uphold pin invariants.
                 child.as_mut().get_unchecked_mut().add_alias(value, sub_graph_node);
             }
         }

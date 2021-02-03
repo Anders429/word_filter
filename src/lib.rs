@@ -106,6 +106,7 @@ use nested_containment_list::{Interval, NestedContainmentList};
 use node::Node;
 use pointer::Pointer;
 use str_overlap::Overlap;
+use unchecked_unwrap::UncheckedUnwrap;
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 pub enum RepeatedCharacterMatchMode {
@@ -372,12 +373,14 @@ impl<'a> WordFilter<'a> {
                     &*(&*alias_map[alias_value] as *const Node<'_>)
                 };
                 unsafe {
-                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
-                    // mutation of the `Node` will uphold pin invariants.
                     alias_map
                         .get_mut(value)
-                        .unwrap()
+                        // SAFETY: We know that `value` is a valid key in `alias_map`, and therefore
+                        // `get_mut()` will always return a value.
+                        .unchecked_unwrap()
                         .as_mut()
+                        // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore,
+                        // this mutation of the `Node` will uphold pin invariants.
                         .get_unchecked_mut()
                         .add_alias(alias_value, alias_node);
                 }
@@ -574,7 +577,16 @@ impl<'a> WordFilter<'a> {
             // Insert un-censored characters.
             if pointer.start() > prev_end {
                 for _ in 0..(pointer.start() - prev_end) {
-                    output.push(input_char_indices.next().map(|(_i, c)| c).unwrap())
+                    output.push(unsafe {
+                        // SAFETY: Each `pointer` within `pointers` is guaranteed to be within the
+                        // bounds of `input`. Additionally, since the `pointer`s are ordered by the
+                        // ordering provided by the `NestedContainmentList` and are guaranteed by
+                        // that same data structure to not include any nested `pointer`s, each
+                        // subsequent `pointer` will cover a new set of `input` characters. Thus,
+                        // the `unchecked_unwrap()` here is safe, as it will never fail to unwrap a
+                        // value.
+                        input_char_indices.next().map(|(_i, c)| c).unchecked_unwrap()
+                    })
                 }
             }
             // Censor the covered characters for this pointer.

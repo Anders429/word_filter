@@ -20,6 +20,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::{marker::PhantomPinned, pin::Pin};
 use hashbrown::HashMap;
+use unchecked_unwrap::UncheckedUnwrap;
 
 /// The different possible node variants.
 #[derive(Debug)]
@@ -97,12 +98,16 @@ impl<'a> Node<'a> {
 
         let mut char_indices = word.char_indices();
         unsafe {
-            // SAFETY: Adding a path to a `Node` will not move the `Node`. Therefore, this mutation
-            // of the `Node` will uphold pin invariants.
             self.children
-                .entry(char_indices.next().map(|(_index, c)| c).unwrap())
+                .entry(
+                    // SAFETY: We guarantee above that `word` is non-empty, and therefore
+                    // `char_indices.next()` will always return a value.
+                    char_indices.next().map(|(_index, c)| c).unchecked_unwrap()
+                )
                 .or_insert_with(|| Box::pin(Self::new()))
                 .as_mut()
+                // SAFETY: Adding a path to a `Node` will not move the `Node`. Therefore, this
+                // mutation of the `Node` will uphold pin invariants.
                 .get_unchecked_mut()
                 .add_path(
                     // SAFETY: Since `char_indices` is created from `word`, its indices will always
@@ -154,7 +159,11 @@ impl<'a> Node<'a> {
         let mut char_indices = value.char_indices();
         match self
             .children
-            .get(&char_indices.next().map(|(_index, c)| c).unwrap())
+            .get(unsafe {
+                // SAFETY: `value` is verified above to be non-empty. Therefore, `char_indices` will
+                // always return a value on `next()`.
+                &char_indices.next().map(|(_index, c)| c).unchecked_unwrap()
+            })
         {
             Some(node) => node.find_alias_return_node(
                 &value[char_indices

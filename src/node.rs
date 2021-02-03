@@ -176,7 +176,10 @@ impl<'a> Node<'a> {
             unsafe {
                 // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
                 // mutation of the `Node` will uphold pin invariants.
-                child.as_mut().get_unchecked_mut().add_alias(value, sub_graph_node);
+                child
+                    .as_mut()
+                    .get_unchecked_mut()
+                    .add_alias(value, sub_graph_node);
             }
         }
 

@@ -11,7 +11,6 @@
 //! Each node also has a `Type`, identifying what kind of Node it is.
 
 use alloc::{boxed::Box, vec::Vec};
-use core::pin::Pin;
 use hashbrown::HashMap;
 
 /// The different possible node variants.
@@ -45,7 +44,7 @@ pub(crate) enum Type<'a> {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub(crate) struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>>,
+    pub(crate) children: HashMap<char, Box<Node<'a>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
@@ -87,7 +86,7 @@ impl<'a> Node<'a> {
         let mut char_indices = word.char_indices();
         self.children
             .entry(char_indices.next().map(|(_index, c)| c).unwrap())
-            .or_insert_with(|| Box::pin(Self::new()))
+            .or_insert_with(|| Box::new(Self::new()))
             .add_path(
                 unsafe {
                     // SAFETY: Since `char_indices` is created from `word`, its indices will always

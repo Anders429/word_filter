@@ -142,6 +142,13 @@ impl<'a> Pointer<'a> {
     }
 }
 
+/// Define `Pointer` as an interval.
+///
+/// This defines `start()` and `end()` indicating where the matched word or exception starts and
+/// ends.
+///
+/// Note that this only defines a usable interval if a match was found. If no match was found, there
+/// is no usable interval, and the `Pointer` shouldn't be used in a `NestedContainmentList`.
 impl Interval<usize> for Pointer<'_> {
     #[inline]
     fn start(&self) -> usize {

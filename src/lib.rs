@@ -392,7 +392,7 @@ impl<'a> WordFilter<'a> {
         &self,
         pointer: &Pointer<'a>,
         new_pointers: &mut Vec<Pointer<'a>>,
-        visited: &mut HashSet<ByAddress<&'a Node<'a>>>,
+        visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) {
         for (alias_node, return_node) in &pointer.current_node.aliases {
             if visited.contains(&ByAddress(alias_node)) {
@@ -424,7 +424,8 @@ impl<'a> WordFilter<'a> {
                 let mut last_pointer = pointer.clone();
                 if pointer.step(c) {
                     // Aliases.
-                    self.push_aliases(&pointer, &mut new_pointers, &mut HashSet::new());
+                    let mut visited = HashSet::new();
+                    self.push_aliases(&pointer, &mut new_pointers, &mut visited);
                     // Separators.
                     let mut return_nodes = pointer.return_nodes.clone();
                     return_nodes.push(pointer.current_node);
@@ -735,6 +736,13 @@ mod tests {
         );
 
         assert_eq!(filter.find("abr"), vec!["bar"].into_boxed_slice());
+    }
+
+    #[test]
+    fn alias_after_separator() {
+        let filter = WordFilter::new(&["bar"], &[], &[" "], &[("a", "A")], Options::default());
+
+        assert_eq!(filter.find("b Ar"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]

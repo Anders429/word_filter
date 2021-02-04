@@ -210,18 +210,16 @@ impl<'a> Node<'a> {
             return Some(self);
         }
         let mut char_indices = word.char_indices();
-        match self
-            .children
+        self.children
             .get(&char_indices.next().map(|(_index, c)| c).unwrap())
-        {
-            Some(node) => node.search(
-                &word[char_indices
-                    .next()
-                    .map(|(index, _c)| index)
-                    .unwrap_or_else(|| word.len())..],
-            ),
-            None => None,
-        }
+            .and_then(|node| {
+                node.search(
+                    &word[char_indices
+                        .next()
+                        .map(|(index, _c)| index)
+                        .unwrap_or_else(|| word.len())..],
+                )
+            })
     }
 }
 

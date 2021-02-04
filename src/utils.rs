@@ -11,6 +11,7 @@ use core::hint::unreachable_unchecked;
 ///
 /// # Safety
 /// The caller must make sure this is never run.
+#[cfg_attr(all(rustc_1_46, debug_assertions), track_caller)]
 #[inline(always)]
 pub(crate) unsafe fn debug_unreachable() -> ! {
     if cfg!(debug_assertions) {

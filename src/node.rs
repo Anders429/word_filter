@@ -17,10 +17,10 @@
 //! the values will result in invalidating any references to that `Node`. Most `unsafe` calls within
 //! the code are dedicated to upholding that invariant.
 
+use crate::utils::debug_unreachable;
 use alloc::{boxed::Box, vec::Vec};
 use core::{marker::PhantomPinned, pin::Pin};
 use hashbrown::HashMap;
-use unchecked_unwrap::UncheckedUnwrap;
 
 /// The different possible node variants.
 #[derive(Debug)]
@@ -100,9 +100,14 @@ impl<'a> Node<'a> {
         unsafe {
             self.children
                 .entry(
-                    // SAFETY: We guarantee above that `word` is non-empty, and therefore
-                    // `char_indices.next()` will always return a value.
-                    char_indices.next().map(|(_index, c)| c).unchecked_unwrap(),
+                    match char_indices.next().map(|(_index, c)| c) {
+                        Some(c) => c,
+                        None => {
+                            // SAFETY: We guarantee above that `word` is non-empty, and therefore
+                            // `char_indices.next()` will always return a value.
+                            debug_unreachable()
+                        }
+                    }
                 )
                 .or_insert_with(|| Box::pin(Self::new()))
                 .as_mut()
@@ -157,11 +162,16 @@ impl<'a> Node<'a> {
         }
 
         let mut char_indices = value.char_indices();
-        match self.children.get(unsafe {
-            // SAFETY: `value` is verified above to be non-empty. Therefore, `char_indices` will
-            // always return a value on `next()`.
-            &char_indices.next().map(|(_index, c)| c).unchecked_unwrap()
-        }) {
+        match self
+            .children
+            .get(&match char_indices.next().map(|(_index, c)| c) {
+                Some(c) => c,
+                None => unsafe {
+                    // SAFETY: `value` is verified above to be non-empty. Therefore, `char_indices` will
+                    // always return a value on `next()`.
+                    debug_unreachable()
+                },
+            }) {
             Some(node) => node.find_alias_return_node(
                 &value[char_indices
                     .next()

@@ -97,6 +97,7 @@ extern crate alloc;
 
 mod node;
 mod pointer;
+mod utils;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
 use by_address::ByAddress;
@@ -107,6 +108,7 @@ use node::Node;
 use pointer::Pointer;
 use str_overlap::Overlap;
 use unchecked_unwrap::UncheckedUnwrap;
+use utils::debug_unreachable;
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 pub enum RepeatedCharacterMatchMode {
@@ -527,15 +529,11 @@ impl<'a> WordFilter<'a> {
                 if let pointer::Status::Match(s) = pointer.status {
                     s
                 } else {
-                    if cfg!(debug_assertions) {
-                        unreachable!()
-                    } else {
-                        unsafe {
-                            // SAFETY: All `Pointer`s returned from `find_pointers()` are guaranteed
-                            // to be matches. In the event that this changes in the future, it will
-                            // be caught in dev by the above `debug_assertions` `cfg!` path.
-                            core::hint::unreachable_unchecked()
-                        }
+                    unsafe {
+                        // SAFETY: All `Pointer`s returned from ``find_pointers()` are guaranteed to
+                        // be matches. In the event that this changes in the future, this call will
+                        // panic when `debug_assertions` is on.
+                        debug_unreachable()
                     }
                 }
             })

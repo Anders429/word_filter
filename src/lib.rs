@@ -87,10 +87,10 @@
 #![allow(
     clippy::manual_strip,
     clippy::match_like_matches_macro,
-    clippy::nursery::use_self
+    clippy::use_self
 )]
 // This lint is directly contradictory to `unreachable_pub`.
-#![allow(clippy::nursery::redundant_pub_crate)]
+#![allow(clippy::redundant_pub_crate)]
 #![no_std]
 
 extern crate alloc;
@@ -292,12 +292,12 @@ impl<'a> WordFilter<'a> {
         let mut alias_map = HashMap::new();
         for (value, alias) in aliases {
             unsafe {
-                // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
-                // mutation of the `Node` will uphold pin invariants.
                 alias_map
                     .entry((*value).to_owned())
                     .or_insert_with(|| Box::pin(Node::new()))
                     .as_mut()
+                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
+                    // mutation of the `Node` will uphold pin invariants.
                     .get_unchecked_mut()
                     .add_return(alias);
             }
@@ -345,12 +345,12 @@ impl<'a> WordFilter<'a> {
         }
         for (value, alias) in new_aliases {
             unsafe {
-                // SAFETY: Adding a return to a `Node` will not move the `Node`. Therefore, this
-                // mutation of the `Node` will uphold pin invariants.
                 alias_map
                     .entry(value)
                     .or_insert_with(|| Box::pin(Node::new()))
                     .as_mut()
+                    // SAFETY: Adding a return to a `Node` will not move the `Node`. Therefore, this
+                    // mutation of the `Node` will uphold pin invariants.
                     .get_unchecked_mut()
                     .add_return(&alias);
             }

@@ -1,5 +1,4 @@
 /// Shared utility functions used throughout the rest of the crate.
-
 use core::hint::unreachable_unchecked;
 
 /// Behaves like `unreachable!()` when `debug_assertions` are on, `panic!()`ing when run, but

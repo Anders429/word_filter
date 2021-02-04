@@ -99,16 +99,14 @@ impl<'a> Node<'a> {
         let mut char_indices = word.char_indices();
         unsafe {
             self.children
-                .entry(
-                    match char_indices.next().map(|(_index, c)| c) {
-                        Some(c) => c,
-                        None => {
-                            // SAFETY: We guarantee above that `word` is non-empty, and therefore
-                            // `char_indices.next()` will always return a value.
-                            debug_unreachable()
-                        }
+                .entry(match char_indices.next().map(|(_index, c)| c) {
+                    Some(c) => c,
+                    None => {
+                        // SAFETY: We guarantee above that `word` is non-empty, and therefore
+                        // `char_indices.next()` will always return a value.
+                        debug_unreachable()
                     }
-                )
+                })
                 .or_insert_with(|| Box::pin(Self::new()))
                 .as_mut()
                 // SAFETY: Adding a path to a `Node` will not move the `Node`. Therefore, this
@@ -162,8 +160,7 @@ impl<'a> Node<'a> {
         }
 
         let mut char_indices = value.char_indices();
-        match self
-            .children
+        self.children
             .get(&match char_indices.next().map(|(_index, c)| c) {
                 Some(c) => c,
                 None => unsafe {
@@ -171,14 +168,14 @@ impl<'a> Node<'a> {
                     // always return a value on `next()`.
                     debug_unreachable()
                 },
-            }) {
-            Some(node) => node.find_alias_return_node(
-                &value[char_indices
-                    .next()
-                    .map_or_else(|| value.len(), |(index, _c)| index)..],
-            ),
-            None => None,
-        }
+            })
+            .and_then(|node| {
+                node.find_alias_return_node(
+                    &value[char_indices
+                        .next()
+                        .map_or_else(|| value.len(), |(index, _c)| index)..],
+                )
+            })
     }
 
     /// Insert an alias pointing to `sub_graph_node` at all places where `value` exists in the

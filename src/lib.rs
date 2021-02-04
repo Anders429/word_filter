@@ -527,7 +527,16 @@ impl<'a> WordFilter<'a> {
                 if let pointer::Status::Match(s) = pointer.status {
                     s
                 } else {
-                    unreachable!()
+                    if cfg!(debug_assertions) {
+                        unreachable!()
+                    } else {
+                        unsafe {
+                            // SAFETY: All `Pointer`s returned from `find_pointers()` are guaranteed
+                            // to be matches. In the event that this changes in the future, it will
+                            // be caught in dev by the above `debug_assertions` `cfg!` path.
+                            core::hint::unreachable_unchecked()
+                        }
+                    }
                 }
             })
             .collect::<Vec<&str>>()

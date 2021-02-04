@@ -15,7 +15,7 @@ exclude = [".github/*"]
 by_address = "1.0.4"
 hashbrown = "0.9.1"
 nested_containment_list = "0.1.1"
-str_overlap = "0.4.1"
+str_overlap = "0.4.2"
 
 [build-dependencies]
 autocfg = "1.0.1"

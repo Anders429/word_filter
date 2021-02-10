@@ -559,10 +559,7 @@ impl<'a> WordFilter<'a> {
     /// ```
     #[must_use]
     pub fn check(&self, input: &str) -> bool {
-        match self.find_pointers(input).next() {
-            Some(_) => true,
-            None => false,
-        }
+        self.find_pointers(input).next().is_some()
     }
 
     /// Censor all filtered words within `input`.

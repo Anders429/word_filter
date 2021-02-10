@@ -441,7 +441,7 @@ impl<'a> WordFilter<'a> {
     ///
     /// This also excludes all `Pointer`s that encountered matches but whose ranges also are
     /// contained within ranges are `Pointer`s who encountered exceptions.
-    fn find_pointers(&self, input: &str) -> Box<[Pointer<'_>]> {
+    fn find_pointers(&self, input: &str) -> impl Iterator<Item = Pointer<'_>> {
         let root_pointer = Pointer::new(&self.root, Vec::new(), 0, 0, false);
         let mut pointers = Vec::new();
         self.push_aliases(&root_pointer, &mut pointers, &mut HashSet::new());
@@ -510,8 +510,6 @@ impl<'a> WordFilter<'a> {
                     None
                 }
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
     }
 
     /// Find all filtered words matched by `input`.
@@ -530,7 +528,6 @@ impl<'a> WordFilter<'a> {
     #[must_use]
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_pointers(input)
-            .iter()
             .map(|pointer| {
                 if let pointer::Status::Match(s) = pointer.status {
                     s
@@ -562,7 +559,10 @@ impl<'a> WordFilter<'a> {
     /// ```
     #[must_use]
     pub fn check(&self, input: &str) -> bool {
-        !self.find_pointers(input).is_empty()
+        match self.find_pointers(input).next() {
+            Some(_) => true,
+            None => false,
+        }
     }
 
     /// Censor all filtered words within `input`.
@@ -586,7 +586,7 @@ impl<'a> WordFilter<'a> {
         let mut input_char_indices = input.char_indices();
         // Pointers are sorted on both start and end, due to use of NestedContainmentList.
         let mut prev_end = 0;
-        for pointer in self.find_pointers(input).iter() {
+        for pointer in self.find_pointers(input) {
             // Insert un-censored characters.
             if pointer.start > prev_end {
                 for _ in 0..(pointer.start - prev_end) {

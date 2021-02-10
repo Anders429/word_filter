@@ -505,7 +505,7 @@ impl<'a> WordFilter<'a> {
             .map(|element| element.value)
             .filter_map(|p| {
                 if let pointer::Status::Match(_) = p.status {
-                    Some(p.clone())
+                    Some(p)
                 } else {
                     None
                 }

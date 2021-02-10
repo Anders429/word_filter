@@ -9,7 +9,7 @@
 
 use crate::node::{self, Node};
 use alloc::vec::Vec;
-use nested_containment_list::Interval;
+use core::ops::{Bound, RangeBounds};
 
 /// The current status of the `Pointer`.
 ///
@@ -45,8 +45,8 @@ pub(crate) struct Pointer<'a> {
     pub(crate) start: usize,
     /// The length which this `Pointer` has traveled.
     pub(crate) len: usize,
-    /// The length where the last `Match` or `Exception` node was found.
-    pub(crate) found_len: Option<usize>,
+    /// The end index where the last `Match` or `Exception` node was found.
+    pub(crate) found_end: Option<usize>,
 
     pub(crate) in_separator: bool,
 }
@@ -68,7 +68,7 @@ impl<'a> Pointer<'a> {
             status: Status::None,
             start,
             len,
-            found_len: None,
+            found_end: None,
             in_separator,
         }
     }
@@ -93,7 +93,7 @@ impl<'a> Pointer<'a> {
                     self.in_separator = false;
                 } else {
                     self.status = Status::Match(word);
-                    self.found_len = Some(self.len);
+                    self.found_end = Some(self.start + self.len);
                 }
                 Some(node)
             }
@@ -102,7 +102,7 @@ impl<'a> Pointer<'a> {
                     self.in_separator = false;
                 } else {
                     self.status = Status::Exception(word);
-                    self.found_len = Some(self.len);
+                    self.found_end = Some(self.start + self.len);
                 }
                 Some(node)
             }
@@ -126,12 +126,12 @@ impl<'a> Pointer<'a> {
                 }
                 node::Type::Match(word) => {
                     self.status = Status::Match(word);
-                    self.found_len = Some(self.len);
+                    self.found_end = Some(self.start + self.len);
                     node
                 }
                 node::Type::Exception(word) => {
                     self.status = Status::Exception(word);
-                    self.found_len = Some(self.len);
+                    self.found_end = Some(self.start + self.len);
                     node
                 }
             },
@@ -142,22 +142,24 @@ impl<'a> Pointer<'a> {
     }
 }
 
-/// Define `Pointer` as an interval.
+/// Define `Pointer` to have [`RangeBounds`].
 ///
-/// This defines `start()` and `end()` indicating where the matched word or exception starts and
-/// ends.
+/// The bounds correspond with the matched word or exception's start and end character positions.
 ///
-/// Note that this only defines a usable interval if a match was found. If no match was found, there
-/// is no usable interval, and the `Pointer` shouldn't be used in a `NestedContainmentList`.
-impl Interval<usize> for Pointer<'_> {
+/// Note that this only defines a usable interval if a match or exception was found. If nothing was
+/// found, there is no usable interval, and the `Pointer` shouldn't be used in contexts needing
+/// `RangeBounds`.
+///
+/// [`RangeBounds`]: core::ops::RangeBounds
+impl RangeBounds<usize> for Pointer<'_> {
     #[inline]
-    fn start(&self) -> usize {
-        self.start
+    fn start_bound(&self) -> Bound<&usize> {
+        Bound::Included(&self.start)
     }
 
     #[inline]
-    fn end(&self) -> usize {
-        self.start + self.found_len.unwrap_or(0) + 1
+    fn end_bound(&self) -> Bound<&usize> {
+        Bound::Included(self.found_end.as_ref().unwrap_or(&self.start))
     }
 }
 
@@ -253,7 +255,7 @@ mod tests {
 
         assert!(core::ptr::eq(pointer.current_node, &return_node));
         assert!(!pointer.in_separator);
-        assert_eq!(pointer.found_len, None);
+        assert_eq!(pointer.found_end, None);
     }
 
     #[test]
@@ -289,7 +291,7 @@ mod tests {
 
         assert!(core::ptr::eq(pointer.current_node, &return_node));
         assert!(!pointer.in_separator);
-        assert_eq!(pointer.found_len, None);
+        assert_eq!(pointer.found_end, None);
     }
 
     #[test]

@@ -101,9 +101,13 @@ mod utils;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
 use by_address::ByAddress;
-use core::pin::Pin;
+use core::{
+    iter::FromIterator,
+    ops::{Bound, RangeBounds},
+    pin::Pin,
+};
 use hashbrown::{HashMap, HashSet};
-use nested_containment_list::{Interval, NestedContainmentList};
+use nested_containment_list::NestedContainmentList;
 use node::Node;
 use pointer::Pointer;
 use str_overlap::Overlap;
@@ -496,8 +500,8 @@ impl<'a> WordFilter<'a> {
         }
 
         // Only return outer-most matched words which aren't part of a longer exception.
-        NestedContainmentList::from_slice(&found)
-            .sublist()
+        NestedContainmentList::from_iter(found)
+            .into_iter()
             .map(|element| element.value)
             .filter_map(|p| {
                 if let pointer::Status::Match(_) = p.status {
@@ -584,8 +588,8 @@ impl<'a> WordFilter<'a> {
         let mut prev_end = 0;
         for pointer in self.find_pointers(input).iter() {
             // Insert un-censored characters.
-            if pointer.start() > prev_end {
-                for _ in 0..(pointer.start() - prev_end) {
+            if pointer.start > prev_end {
+                for _ in 0..(pointer.start - prev_end) {
                     output.push(match input_char_indices.next().map(|(_i, c)| c) {
                         Some(c) => c,
                         None => unsafe {
@@ -602,7 +606,14 @@ impl<'a> WordFilter<'a> {
                 }
             }
             // Censor the covered characters for this pointer.
-            let len = pointer.end() - core::cmp::max(pointer.start(), prev_end);
+            let len = match pointer.end_bound() {
+                Bound::Included(end) => end + 1,
+                _ => unsafe {
+                    // SAFETY: The `RangeBounds` on a `Pointer` will always be `Bound::Included`, so
+                    // we will never reach any other branch.
+                    debug_unreachable()
+                },
+            } - core::cmp::max(pointer.start, prev_end);
             match self.options.censor_mode {
                 CensorMode::ReplaceAllWith(c) => {
                     for _ in 0..len {
@@ -612,7 +623,14 @@ impl<'a> WordFilter<'a> {
                 }
             }
 
-            prev_end = pointer.end();
+            prev_end = match pointer.end_bound() {
+                Bound::Included(end) => end + 1,
+                _ => unsafe {
+                    // SAFETY: The `RangeBounds` on a `Pointer` will always be `Bound::Included`, so
+                    // we will never reach any other branch.
+                    debug_unreachable()
+                },
+            };
         }
 
         // Add the rest of the characters.

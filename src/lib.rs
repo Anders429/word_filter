@@ -74,21 +74,6 @@
     clippy::restriction::str_to_string,
     clippy::restriction::string_to_string
 )]
-// The following clippy allowances are due to the MSRV of this crate being less than the required
-// MSRV for each lint. The required MSRV for each lint is listed below. If the MSRV is bumped enough
-// to allow usage of a lint, it should be removed from this list.
-// NOTE: This will no longer be necessary with the next stable release (1.50.0), as the MSRV
-// specification can be placed in a config file at that point..
-//
-// Required MSRVs:
-// - manual_strip: 1.45.0
-// - match_like_matches_macro: 1.42.0
-// - nursery::use_self: 1.37.0
-#![allow(
-    clippy::manual_strip,
-    clippy::match_like_matches_macro,
-    clippy::use_self
-)]
 // This lint is directly contradictory to `unreachable_pub`.
 #![allow(clippy::redundant_pub_crate)]
 #![no_std]

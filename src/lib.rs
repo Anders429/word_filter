@@ -502,8 +502,8 @@ impl<'a> WordFilter<'a> {
         // Only return outer-most matched words which aren't part of a longer exception.
         NestedContainmentList::from_iter(found)
             .into_iter()
-            .map(|element| element.value)
-            .filter_map(|p| {
+            .filter_map(|element| {
+                let p = element.value;
                 if let pointer::Status::Match(_) = p.status {
                     Some(p)
                 } else {

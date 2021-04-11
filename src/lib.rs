@@ -458,6 +458,18 @@ impl<'a> WordFilter<'a> {
                         self.options.repeated_character_match_mode
                     {
                         last_pointer.len += 1;
+
+                        // Separators.
+                        let mut return_nodes = last_pointer.return_nodes.clone();
+                        return_nodes.push(last_pointer.current_node);
+                        new_pointers.push(Pointer::new(
+                            &self.separator_root,
+                            return_nodes,
+                            last_pointer.start,
+                            last_pointer.len,
+                            true,
+                        ));
+
                         new_pointers.push(last_pointer);
                     }
                 } else if let pointer::Status::Match(_) = pointer.status {
@@ -693,6 +705,14 @@ mod tests {
         let filter = WordFilter::new(&["foo"], &[], &[" "], &[], Options::default());
 
         assert_eq!(filter.find("f oo"), vec!["foo"].into_boxed_slice());
+    }
+
+    #[test]
+    fn separator_between_repeated_characters() {
+        let filter = WordFilter::new(&["bar"], &[], &[" "], &[], Options::default());
+
+        assert_eq!(filter.find("b a a r"), vec!["bar"].into_boxed_slice());
+        assert_eq!(filter.censor(" b a a r "), " ******* ");
     }
 
     #[test]

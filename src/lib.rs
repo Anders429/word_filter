@@ -155,17 +155,6 @@ impl Default for CensorMode {
     }
 }
 
-/// Options for `WordFilter`s.
-///
-/// This specifies both the `RepeatedCharacterMatchMode` and the `CensorMode` for a `WordFilter`.
-#[derive(Default)]
-pub struct Options {
-    /// The strategy used for matching repeated characters.
-    pub repeated_character_match_mode: RepeatedCharacterMatchMode,
-    /// The strategy used for censoring.
-    pub censor_mode: CensorMode,
-}
-
 /// A word filter for identifying filtered words within strings.
 ///
 /// A `WordFilter` is constructed by passing **filtered words**, **exceptions**, **separators**,
@@ -198,7 +187,8 @@ pub struct WordFilter<'a> {
     root: Node<'a>,
     separator_root: Node<'a>,
     _alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
-    options: Options,
+    repeated_character_match_mode: RepeatedCharacterMatchMode,
+    censor_mode: CensorMode,
 }
 
 impl<'a> WordFilter<'a> {
@@ -257,7 +247,7 @@ impl<'a> WordFilter<'a> {
 
                     // Repeated characters.
                     if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
-                        self.options.repeated_character_match_mode
+                        self.repeated_character_match_mode
                     {
                         last_pointer.len += 1;
 
@@ -364,7 +354,7 @@ impl<'a> WordFilter<'a> {
     /// Censor all filtered words within `input`.
     ///
     /// Returns a newly-allocated `String` with all filtered words censored using the `CensorMode`
-    /// strategy, as defined in the `Options` passed to the `WordFilter` at construction.
+    /// strategy, as defined during building.
     ///
     /// Example usage:
     ///
@@ -410,7 +400,7 @@ impl<'a> WordFilter<'a> {
                     debug_unreachable()
                 },
             } - core::cmp::max(pointer.start, prev_end);
-            match self.options.censor_mode {
+            match self.censor_mode {
                 CensorMode::ReplaceAllWith(c) => {
                     for _ in 0..len {
                         output.push(c);
@@ -769,10 +759,8 @@ impl<'a> WordFilterBuilder<'a> {
             root,
             separator_root,
             _alias_map: alias_map,
-            options: Options {
-                repeated_character_match_mode: self.repeated_character_match_mode,
-                censor_mode: self.censor_mode,
-            },
+            repeated_character_match_mode: self.repeated_character_match_mode,
+            censor_mode: self.censor_mode,
         }
     }
 }
@@ -914,7 +902,7 @@ mod tests {
     }
 
     #[test]
-    fn options_repeated_characters_allowed() {
+    fn repeated_characters_allowed() {
         let filter = WordFilterBuilder::new().words(&["bar"]).repeated_character_match_mode(RepeatedCharacterMatchMode::AllowRepeatedCharacters).build();
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec!["bar"].into_boxed_slice());
@@ -922,14 +910,14 @@ mod tests {
     }
 
     #[test]
-    fn options_repeated_characters_disallowed() {
+    fn repeated_characters_disallowed() {
         let filter = WordFilterBuilder::new().words(&["bar"]).repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters).build();
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec![].into_boxed_slice());
     }
 
     #[test]
-    fn options_censor_mode() {
+    fn censor_mode() {
         let filter = WordFilterBuilder::new().words(&["foo"]).censor_mode(CensorMode::ReplaceAllWith('#')).build();
 
         assert_eq!(filter.censor("foo"), "###");

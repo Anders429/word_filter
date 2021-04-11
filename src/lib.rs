@@ -99,6 +99,7 @@ use str_overlap::Overlap;
 use utils::debug_unreachable;
 
 /// The strategy a `WordFilter` should use to match repeated characters.
+#[derive(Clone, Copy)]
 pub enum RepeatedCharacterMatchMode {
     /// Allows repeated characters within filtered words.
     ///
@@ -140,6 +141,7 @@ impl Default for RepeatedCharacterMatchMode {
 }
 
 /// The strategy for censoring in a `WordFilter`.
+#[derive(Clone, Copy)]
 pub enum CensorMode {
     /// Replace all matched characters with the character indicated.
     ///
@@ -640,6 +642,97 @@ impl<'a> WordFilter<'a> {
         });
 
         output
+    }
+}
+
+pub struct WordFilterBuilder<'a> {
+    words: Vec<&'a str>,
+    exceptions: Vec<&'a str>,
+    separators: Vec<&'a str>,
+    aliases: Vec<(&'a str, &'a str)>,
+    repeated_character_match_mode: RepeatedCharacterMatchMode,
+    censor_mode: CensorMode,
+}
+
+impl<'a> WordFilterBuilder<'a> {
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            words: Vec::new(),
+            exceptions: Vec::new(),
+            separators: Vec::new(),
+            aliases: Vec::new(),
+            repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
+            censor_mode: CensorMode::ReplaceAllWith('*'),
+        }
+    }
+
+    #[inline
+]    pub fn word(&mut self, word: &'a str) -> &mut Self {
+        self.words.push(word);
+        self
+    }
+
+    #[inline]
+    pub fn words(&mut self, words: &[&'a str]) -> &mut Self {
+        self.words.extend_from_slice(words);
+        self
+    }
+
+    #[inline]
+    pub fn exception(&mut self, exception: &'a str) -> &mut Self {
+        self.exceptions.push(exception);
+        self
+    }
+
+    #[inline]
+    pub fn exceptions(&mut self, exceptions: &[&'a str]) -> &mut Self {
+        self.exceptions.extend_from_slice(exceptions);
+        self
+    }
+
+    #[inline]
+    pub fn separator(&mut self, separator: &'a str) -> &mut Self {
+        self.separators.push(separator);
+        self
+    }
+
+    #[inline]
+    pub fn separators(&mut self, separators: &[&'a str]) -> &mut Self {
+        self.separators.extend_from_slice(separators);
+        self
+    }
+
+    #[inline]
+    pub fn alias(&mut self, alias: (&'a str, &'a str)) -> &mut Self {
+        self.aliases.push(alias);
+        self
+    }
+
+    #[inline]
+    pub fn aliases(&mut self, aliases: &[(&'a str, &'a str)]) -> &mut Self {
+        self.aliases.extend_from_slice(aliases);
+        self
+    }
+
+    #[inline]
+    pub fn repeated_character_match_mode(&mut self, mode: RepeatedCharacterMatchMode) -> &mut Self {
+        self.repeated_character_match_mode = mode;
+        self
+    }
+
+    #[inline]
+    pub fn censor_mode(&mut self, mode: CensorMode) -> &mut Self {
+        self.censor_mode = mode;
+        self
+    }
+
+    #[inline]
+    pub fn build(&self) -> WordFilter<'a> {
+        WordFilter::new(&self.words, &self.exceptions, &self.separators, &self.aliases, Options {
+            repeated_character_match_mode: self.repeated_character_match_mode,
+            censor_mode: self.censor_mode,
+        })
     }
 }
 

@@ -13,45 +13,33 @@
 //! words.
 //!
 //! # Usage
-//! An example of a functional Word Filter using this crate is as follows:
+//! An example of a functional `WordFilter` using this crate is as follows:
 //!
 //! ```
-//! use word_filter::{Options, WordFilter};
+//! use word_filter::WordFilterBuilder;
 //!
-//! // Filtered words are words that should be detected by the WordFilter.
-//! let filtered_words = &["foo"];
-//! // Exceptions are words that should not be detected by the WordFilter, even if words inside them
-//! // are.
-//! let exceptions = &["foobar"];
-//! // Separators are characters that can appear between letters within filtered words.
-//! let separators = &[" ", "_"];
-//! // Aliases define characters that can be found in place of other characters in a match.
-//! let aliases = &[("f", "F")];
-//!
-//! // All of these together are used to create a WordFilter.
-//! let word_filter = WordFilter::new(
-//!     filtered_words,
-//!     exceptions,
-//!     separators,
-//!     aliases,
-//!     Options::default(),
-//! );
+//! let filter = WordFilterBuilder::new()
+//!     .words(&["foo"])
+//!     .exceptions(&["foobar"])
+//!     .separators(&[" ", "_"])
+//!     .aliases(&[("f", "F")])
+//!     .build();
 //!
 //! // The word filter will both identify and censor the word "foo".
-//! assert!(word_filter.check("Should censor foo"));
-//! assert_eq!(word_filter.censor("Should censor foo"), "Should censor ***");
+//! assert!(filter.check("Should censor foo"));
+//! assert_eq!(filter.censor("Should censor foo"), "Should censor ***");
 //!
 //! // The word filter does not identify or censor the word "foobar".
-//! assert!(!word_filter.check("Should not censor foobar"));
-//! assert_eq!(word_filter.censor("Should not censor foobar"), "Should not censor foobar");
+//! assert!(!filter.check("Should not censor foobar"));
+//! assert_eq!(filter.censor("Should not censor foobar"), "Should not censor foobar");
 //!
 //! // The word filter will ignore separators while matching.
-//! assert!(word_filter.check("Should censor f o_o"));
-//! assert_eq!(word_filter.censor("Should censor f o_o"), "Should censor *****");
+//! assert!(filter.check("Should censor f o_o"));
+//! assert_eq!(filter.censor("Should censor f o_o"), "Should censor *****");
 //!
 //! // The word filter checks for aliases while matching.
-//! assert!(word_filter.check("Should censor Foo"));
-//! assert_eq!(word_filter.censor("Should censor Foo"), "Should censor ***");
+//! assert!(filter.check("Should censor Foo"));
+//! assert_eq!(filter.censor("Should censor Foo"), "Should censor ***");
 //! ```
 
 #![warn(
@@ -106,14 +94,14 @@ pub enum RepeatedCharacterMatchMode {
     /// Example usage:
     ///
     /// ```
-    /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    /// use word_filter::{RepeatedCharacterMatchMode, WordFilterBuilder};
     ///
-    /// let word_filter = WordFilter::new(&["bar"], &[], &[], &[], Options {
-    ///     repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-    ///     censor_mode: CensorMode::default(),   
-    /// });
+    /// let filter = WordFilterBuilder::new()
+    ///     .words(&["bar"])
+    ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::AllowRepeatedCharacters)
+    ///     .build();
     ///
-    /// assert!(word_filter.check("baaar"));
+    /// assert!(filter.check("baaar"));
     /// ```
     AllowRepeatedCharacters,
     /// Disallows repeated characters within filtered words.
@@ -121,14 +109,14 @@ pub enum RepeatedCharacterMatchMode {
     /// Example usage:
     ///
     /// ```
-    /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    /// use word_filter::{RepeatedCharacterMatchMode, WordFilterBuilder};
     ///
-    /// let word_filter = WordFilter::new(&["bar"], &[], &[], &[], Options {
-    ///     repeated_character_match_mode: RepeatedCharacterMatchMode::DisallowRepeatedCharacters,
-    ///     censor_mode: CensorMode::default(),   
-    /// });
+    /// let filter = WordFilterBuilder::new()
+    ///     .words(&["bar"])
+    ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
+    ///     .build();
     ///
-    /// assert!(!word_filter.check("baaar"));
+    /// assert!(!filter.check("baaar"));
     /// ```
     DisallowRepeatedCharacters,
 }
@@ -148,14 +136,14 @@ pub enum CensorMode {
     /// Example usage:
     ///
     /// ```
-    /// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    /// use word_filter::{CensorMode, WordFilterBuilder};
     ///
-    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options {
-    ///     repeated_character_match_mode: RepeatedCharacterMatchMode::default(),
-    ///     censor_mode: CensorMode::ReplaceAllWith('*'),   
-    /// });
+    /// let filter = WordFilterBuilder::new()
+    ///     .words(&["foo"])
+    ///     .censor_mode(CensorMode::ReplaceAllWith('*'))
+    ///     .build();
     ///
-    /// assert_eq!(word_filter.censor("foo"), "***");
+    /// assert_eq!(filter.censor("foo"), "***");
     /// ```
     ReplaceAllWith(char),
 }
@@ -170,19 +158,6 @@ impl Default for CensorMode {
 /// Options for `WordFilter`s.
 ///
 /// This specifies both the `RepeatedCharacterMatchMode` and the `CensorMode` for a `WordFilter`.
-///
-/// Example usage:
-///
-/// ```
-/// use word_filter::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
-///
-/// let word_filter = WordFilter::new(&["bar"], &[], &[], &[], Options {
-///     repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-///     censor_mode: CensorMode::ReplaceAllWith('*'),   
-/// });
-///
-/// assert_eq!(word_filter.censor("baaar"), "*****");
-/// ```
 #[derive(Default)]
 pub struct Options {
     /// The strategy used for matching repeated characters.
@@ -208,22 +183,16 @@ pub struct Options {
 /// Example usage:
 ///
 /// ```
-/// use word_filter::{Options, WordFilter};
+/// use word_filter::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
 ///
-/// let filtered_words = &["foo"];
-/// let exceptions = &["foobar"];
-/// let separators = &[" ", "_"];
-/// let aliases = &[("f", "F")];
-///
-/// let word_filter = WordFilter::new(
-///     filtered_words,
-///     exceptions,
-///     separators,
-///     aliases,
-///     Options::default(),
-/// );
-///
-/// assert_eq!(word_filter.censor("fff ooo_o foobar"), "********* foobar");
+/// let filter = WordFilterBuilder::new()
+///     .words(&["foo"])
+///     .exceptions(&["foobar"])
+///     .separators(&[" ", "_"])
+///     .aliases(&[("f", "F")])
+///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
+///     .censor_mode(CensorMode::ReplaceAllWith('#'))
+///     .build();
 /// ```
 pub struct WordFilter<'a> {
     root: Node<'a>,
@@ -233,175 +202,6 @@ pub struct WordFilter<'a> {
 }
 
 impl<'a> WordFilter<'a> {
-    /// Create a new `WordFilter`.
-    ///
-    /// Note that `WordFilter`s created this way are immutable after their creation. Once you
-    /// specify the filtered words, exceptions, separators, aliases, and options, they can not be
-    /// changed.
-    ///
-    /// Example usage:
-    ///
-    /// ```
-    /// use word_filter::{Options, WordFilter};
-    ///
-    /// let filtered_words = &["foo"];
-    /// let exceptions = &["foobar"];
-    /// let separators = &[" ", "_"];
-    /// let aliases = &[("f", "F")];
-    ///
-    /// let word_filter = WordFilter::new(
-    ///     filtered_words,
-    ///     exceptions,
-    ///     separators,
-    ///     aliases,
-    ///     Options::default(),
-    /// );
-    /// ```
-    #[must_use]
-    pub fn new(
-        filtered_words: &[&'a str],
-        exceptions: &[&'a str],
-        separators: &[&str],
-        aliases: &[(&'a str, &str)],
-        options: Options,
-    ) -> Self {
-        let mut root = Node::new();
-
-        for word in filtered_words {
-            root.add_match(word);
-        }
-
-        for word in exceptions {
-            root.add_exception(word);
-        }
-
-        let mut separator_root = Node::new();
-        for word in separators {
-            separator_root.add_return(word);
-        }
-
-        let mut alias_map = HashMap::new();
-        for (value, alias) in aliases {
-            unsafe {
-                alias_map
-                    .entry((*value).to_owned())
-                    .or_insert_with(|| Box::pin(Node::new()))
-                    .as_mut()
-                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
-                    // mutation of the `Node` will uphold pin invariants.
-                    .get_unchecked_mut()
-                    .add_return(alias);
-            }
-        }
-        // Find merged aliases.
-        // First, find all aliases that can possibly be combined by a value.
-        let mut queue = VecDeque::new();
-        for (value, alias) in aliases {
-            for (merge_value, _) in aliases {
-                let overlap_value = alias.overlap_end(merge_value);
-                if overlap_value.is_empty() || overlap_value == *merge_value {
-                    continue;
-                }
-                queue.push_back((
-                    (*value).to_owned(),
-                    unsafe {
-                        // SAFETY: `overlap_value` will always be the prefix of `merge_value`.
-                        // Therefore, this will never be out of bounds and it will always uphold
-                        // `str` invariants.
-                        merge_value.get_unchecked(overlap_value.len()..).to_owned()
-                    },
-                    (*alias).to_owned(),
-                ));
-            }
-        }
-        // Now, find aliases that complete the combination.
-        let mut new_aliases = Vec::new();
-        while let Some((value, target_value, alias)) = queue.pop_front() {
-            for (new_value, new_alias) in aliases {
-                if target_value == *new_alias || new_alias.starts_with(&target_value) {
-                    new_aliases.push((value.to_owned() + new_value, alias.to_owned() + new_alias));
-                } else if target_value.starts_with(new_alias) {
-                    // If the combination isn't complete, push it to the queue and try again.
-                    queue.push_back((
-                        value.to_owned() + new_value,
-                        unsafe {
-                            // SAFETY: Since `new_alias` is the prefix of `target_value`, this will
-                            // never be out of bounds and will always uphold `str` invariants.
-                            target_value.get_unchecked(new_alias.len()..).to_owned()
-                        },
-                        alias.to_owned() + new_alias,
-                    ));
-                }
-            }
-        }
-        for (value, alias) in new_aliases {
-            unsafe {
-                alias_map
-                    .entry(value)
-                    .or_insert_with(|| Box::pin(Node::new()))
-                    .as_mut()
-                    // SAFETY: Adding a return to a `Node` will not move the `Node`. Therefore, this
-                    // mutation of the `Node` will uphold pin invariants.
-                    .get_unchecked_mut()
-                    .add_return(&alias);
-            }
-        }
-
-        // Apply aliases on each other.
-        let keys = alias_map.keys().cloned().collect::<Vec<_>>();
-        for value in &keys {
-            for alias_value in &keys {
-                if value == alias_value {
-                    continue;
-                }
-                let alias_node = unsafe {
-                    // SAFETY: The obtained reference to a Node is self-referential within the
-                    // WordFilter struct. The only reason this conversion from reference to pointer
-                    // and back again is necessary is to make the reference lifetime-agnostic to
-                    // allow the self-reference. This is safe, because every Node owned in the graph
-                    // by the WordFilter is pinned in place in memory, meaning it will only ever
-                    // move when the WordFilter is dropped. Therefore, this reference will be valid
-                    // for as long as it is used by the WordFilter.
-                    &*(&*alias_map[alias_value] as *const Node<'_>)
-                };
-                unsafe {
-                    match alias_map.get_mut(value) {
-                        Some(node) => node,
-                        None => {
-                            // SAFETY: We know that `value` is a valid key in `alias_map`, and
-                            // therefore `get_mut()` will always return a value.
-                            debug_unreachable()
-                        }
-                    }
-                    .as_mut()
-                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore,
-                    // this mutation of the `Node` will uphold pin invariants.
-                    .get_unchecked_mut()
-                    .add_alias(alias_value, alias_node);
-                }
-            }
-        }
-        for (value, node) in &alias_map {
-            unsafe {
-                // SAFETY: The obtained reference to a Node is self-referential within the
-                // WordFilter struct. The only reason this conversion from reference to pointer and
-                // back again is necessary is to make the reference lifetime-agnostic to allow the
-                // self-reference. This is safe, because every Node owned in the graph by the
-                // WordFilter is pinned in place in memory, meaning it will only ever move when the
-                // WordFilter is dropped. Therefore, this reference will be valid for as long as it
-                // is used by the WordFilter.
-                root.add_alias(value, &*(&**node as *const Node<'_>));
-            }
-        }
-
-        Self {
-            root,
-            separator_root,
-            _alias_map: alias_map,
-            options,
-        }
-    }
-
     /// Create new `Pointer`s for the aliases at the `pointer`'s `current_node`.
     fn push_aliases(
         &self,
@@ -518,11 +318,11 @@ impl<'a> WordFilter<'a> {
     /// Example usage:
     ///
     /// ```
-    /// use word_filter::{Options, WordFilter};
+    /// use word_filter::WordFilterBuilder;
     ///
-    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+    /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     ///
-    /// assert_eq!(word_filter.find("this string contains foo"), vec!["foo"].into_boxed_slice());
+    /// assert_eq!(filter.find("this string contains foo"), vec!["foo"].into_boxed_slice());
     /// ```
     #[must_use]
     pub fn find(&self, input: &str) -> Box<[&str]> {
@@ -550,11 +350,11 @@ impl<'a> WordFilter<'a> {
     /// Example usage:
     ///
     /// ```
-    /// use word_filter::{Options, WordFilter};
+    /// use word_filter::WordFilterBuilder;
     ///
-    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+    /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     ///
-    /// assert!(word_filter.check("this string contains foo"));
+    /// assert!(filter.check("this string contains foo"));
     /// ```
     #[must_use]
     pub fn check(&self, input: &str) -> bool {
@@ -569,12 +369,12 @@ impl<'a> WordFilter<'a> {
     /// Example usage:
     ///
     /// ```
-    /// use word_filter::{Options, WordFilter};
+    /// use word_filter::WordFilterBuilder;
     ///
-    /// // Note that Options::default() uses CensorMode::ReplaceAllWith('*').
-    /// let word_filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+    /// // Note that the WordFilterBuilder uses CensorMode::ReplaceAllWith('*') by default.
+    /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     ///
-    /// assert_eq!(word_filter.censor("this string contains foo"), "this string contains ***");
+    /// assert_eq!(filter.censor("this string contains foo"), "this string contains ***");
     /// ```
     #[must_use]
     pub fn censor(&self, input: &str) -> String {
@@ -834,19 +634,146 @@ impl<'a> WordFilterBuilder<'a> {
     ///
     /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     /// ```
-    #[inline]
     #[must_use]
     pub fn build(&self) -> WordFilter<'a> {
-        WordFilter::new(
-            &self.words,
-            &self.exceptions,
-            &self.separators,
-            &self.aliases,
-            Options {
+        let mut root = Node::new();
+
+        for word in &self.words {
+            root.add_match(word);
+        }
+
+        for exception in &self.exceptions {
+            root.add_exception(exception);
+        }
+
+        let mut separator_root = Node::new();
+        for separator in &self.separators {
+            separator_root.add_return(separator);
+        }
+
+        let mut alias_map = HashMap::new();
+        for (value, alias) in &self.aliases {
+            unsafe {
+                alias_map
+                    .entry((*value).to_owned())
+                    .or_insert_with(|| Box::pin(Node::new()))
+                    .as_mut()
+                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
+                    // mutation of the `Node` will uphold pin invariants.
+                    .get_unchecked_mut()
+                    .add_return(alias);
+            }
+        }
+        // Find merged aliases.
+        // First, find all aliases that can possibly be combined by a value.
+        let mut queue = VecDeque::new();
+        for (value, alias) in &self.aliases {
+            for (merge_value, _) in &self.aliases {
+                let overlap_value = alias.overlap_end(merge_value);
+                if overlap_value.is_empty() || overlap_value == *merge_value {
+                    continue;
+                }
+                queue.push_back((
+                    (*value).to_owned(),
+                    unsafe {
+                        // SAFETY: `overlap_value` will always be the prefix of `merge_value`.
+                        // Therefore, this will never be out of bounds and it will always uphold
+                        // `str` invariants.
+                        merge_value.get_unchecked(overlap_value.len()..).to_owned()
+                    },
+                    (*alias).to_owned(),
+                ));
+            }
+        }
+        // Now, find aliases that complete the combination.
+        let mut new_aliases = Vec::new();
+        while let Some((value, target_value, alias)) = queue.pop_front() {
+            for (new_value, new_alias) in &self.aliases {
+                if target_value == *new_alias || new_alias.starts_with(&target_value) {
+                    new_aliases.push((value.to_owned() + new_value, alias.to_owned() + new_alias));
+                } else if target_value.starts_with(new_alias) {
+                    // If the combination isn't complete, push it to the queue and try again.
+                    queue.push_back((
+                        value.to_owned() + new_value,
+                        unsafe {
+                            // SAFETY: Since `new_alias` is the prefix of `target_value`, this will
+                            // never be out of bounds and will always uphold `str` invariants.
+                            target_value.get_unchecked(new_alias.len()..).to_owned()
+                        },
+                        alias.to_owned() + new_alias,
+                    ));
+                }
+            }
+        }
+        for (value, alias) in new_aliases {
+            unsafe {
+                alias_map
+                    .entry(value)
+                    .or_insert_with(|| Box::pin(Node::new()))
+                    .as_mut()
+                    // SAFETY: Adding a return to a `Node` will not move the `Node`. Therefore, this
+                    // mutation of the `Node` will uphold pin invariants.
+                    .get_unchecked_mut()
+                    .add_return(&alias);
+            }
+        }
+
+        // Apply aliases on each other.
+        let keys = alias_map.keys().cloned().collect::<Vec<_>>();
+        for value in &keys {
+            for alias_value in &keys {
+                if value == alias_value {
+                    continue;
+                }
+                let alias_node = unsafe {
+                    // SAFETY: The obtained reference to a Node is self-referential within the
+                    // WordFilter struct. The only reason this conversion from reference to pointer
+                    // and back again is necessary is to make the reference lifetime-agnostic to
+                    // allow the self-reference. This is safe, because every Node owned in the graph
+                    // by the WordFilter is pinned in place in memory, meaning it will only ever
+                    // move when the WordFilter is dropped. Therefore, this reference will be valid
+                    // for as long as it is used by the WordFilter.
+                    &*(&*alias_map[alias_value] as *const Node<'_>)
+                };
+                unsafe {
+                    match alias_map.get_mut(value) {
+                        Some(node) => node,
+                        None => {
+                            // SAFETY: We know that `value` is a valid key in `alias_map`, and
+                            // therefore `get_mut()` will always return a value.
+                            debug_unreachable()
+                        }
+                    }
+                    .as_mut()
+                    // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore,
+                    // this mutation of the `Node` will uphold pin invariants.
+                    .get_unchecked_mut()
+                    .add_alias(alias_value, alias_node);
+                }
+            }
+        }
+        for (value, node) in &alias_map {
+            unsafe {
+                // SAFETY: The obtained reference to a Node is self-referential within the
+                // WordFilter struct. The only reason this conversion from reference to pointer and
+                // back again is necessary is to make the reference lifetime-agnostic to allow the
+                // self-reference. This is safe, because every Node owned in the graph by the
+                // WordFilter is pinned in place in memory, meaning it will only ever move when the
+                // WordFilter is dropped. Therefore, this reference will be valid for as long as it
+                // is used by the WordFilter.
+                root.add_alias(value, &*(&**node as *const Node<'_>));
+            }
+        }
+
+        WordFilter {
+            root,
+            separator_root,
+            _alias_map: alias_map,
+            options: Options {
                 repeated_character_match_mode: self.repeated_character_match_mode,
                 censor_mode: self.censor_mode,
             },
-        )
+        }
     }
 }
 

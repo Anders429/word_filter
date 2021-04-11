@@ -99,7 +99,7 @@ use str_overlap::Overlap;
 use utils::debug_unreachable;
 
 /// The strategy a `WordFilter` should use to match repeated characters.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum RepeatedCharacterMatchMode {
     /// Allows repeated characters within filtered words.
     ///
@@ -141,7 +141,7 @@ impl Default for RepeatedCharacterMatchMode {
 }
 
 /// The strategy for censoring in a `WordFilter`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum CensorMode {
     /// Replace all matched characters with the character indicated.
     ///
@@ -686,6 +686,7 @@ impl<'a> WordFilter<'a> {
 /// [`aliases`]: Self::aliases
 /// [`repeated_character_match_mode`]: Self::repeated_character_match_mode
 /// [`censor_mode`]: Self::censor_mode
+#[derive(Clone, Debug)]
 pub struct WordFilterBuilder<'a> {
     words: Vec<&'a str>,
     exceptions: Vec<&'a str>,

@@ -645,6 +645,47 @@ impl<'a> WordFilter<'a> {
     }
 }
 
+/// A non-consuming builder for a [`WordFilter`].
+///
+/// Allows configuration of any of the following elements that make up a `WordFilter`, through the
+/// corresponding methods:
+///
+/// - **[`words`]** - Words to be filtered.
+/// - **[`exceptions`]** - Words that are not to be filtered.
+/// - **[`separators`]** - Values that may appear between characters of words or exceptions.
+/// - **[`aliases`]** - Pairs of alias strings and source strings. Alias strings may replace source 
+/// strings in words and exceptions.
+/// - **[`repeated_character_match_mode`]** - The [`RepeatedCharacterMatchMode`] to be used. By default
+/// this is set to `RepeatedCharacterMatchMode::AllowRepeatedCharacters`.
+/// - **[`censor_mode`]** - The [`CensorMode`] to be used. By default this is set to
+/// `CensorMode::ReplaceAllWith('*')`.
+///
+/// These methods can be chained on each other, allowing construction to be performed in a single
+/// statement if desired.
+///
+/// # Example
+/// Fully configuring and constructing a `WordFilter` using the `WordFilterBuilder` can be done as
+/// follows:
+///
+/// ```
+/// use word_filter::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
+///
+/// let filter = WordFilterBuilder::new()
+///     .words(&["foo"])
+///     .exceptions(&["foobar"])
+///     .separators(&[" ", "_"])
+///     .aliases(&[("f", "F")])
+///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
+///     .censor_mode(CensorMode::ReplaceAllWith('#'))
+///     .build();
+/// ```
+///
+/// [`words`]: Self::words
+/// [`exceptions`]: Self::exceptions
+/// [`separators`]: Self::separators
+/// [`aliases`]: Self::aliases
+/// [`repeated_character_match_mode`]: Self::repeated_character_match_mode
+/// [`censor_mode`]: Self::censor_mode
 pub struct WordFilterBuilder<'a> {
     words: Vec<&'a str>,
     exceptions: Vec<&'a str>,
@@ -655,6 +696,14 @@ pub struct WordFilterBuilder<'a> {
 }
 
 impl<'a> WordFilterBuilder<'a> {
+    /// Constructs a new `WordFilterBuilder`.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let builder = WordFilterBuilder::new();
+    /// ```
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -667,42 +716,123 @@ impl<'a> WordFilterBuilder<'a> {
         }
     }
 
+    /// Adds words to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any words that have been added prior. Multiple calls to this
+    /// method will result in all words being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
+    /// ```
     #[inline]
     pub fn words(&mut self, words: &[&'a str]) -> &mut Self {
         self.words.extend_from_slice(words);
         self
     }
 
+    /// Adds exceptions to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any exceptions that have been added prior. Multiple calls to
+    /// this method will result in all exceptions being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().exceptions(&["foo"]).build();
+    /// ```
     #[inline]
     pub fn exceptions(&mut self, exceptions: &[&'a str]) -> &mut Self {
         self.exceptions.extend_from_slice(exceptions);
         self
     }
 
+    /// Adds separators to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any separators that have been added prior. Multiple calls to
+    /// this method will result in all separators being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().separators(&["_"]).build();
+    /// ```
     #[inline]
     pub fn separators(&mut self, separators: &[&'a str]) -> &mut Self {
         self.separators.extend_from_slice(separators);
         self
     }
 
+    /// Adds aliases to be used in building the [`WordFilter`].
+    ///
+    /// Aliases are tuples defining alias strings that may replace source strings during matching.
+    /// These are of the form `(<source string>, <alias string>)`.
+    ///
+    /// Note that this does not replace any aliases that have been added prior. Multiple calls to
+    /// this method will result in all aliases being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().aliases(&[("a", "@")]).build();
+    /// ```
     #[inline]
     pub fn aliases(&mut self, aliases: &[(&'a str, &'a str)]) -> &mut Self {
         self.aliases.extend_from_slice(aliases);
         self
     }
 
+    /// Sets the [`RepeatedCharacterMatchMode`] to be used by the [`WordFilter`].
+    ///
+    /// If this is not provided, it will default to
+    /// `RepeatedCharacterMatchMode::AllowRepeatedCharacters`.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::{RepeatedCharacterMatchMode, WordFilterBuilder};
+    ///
+    /// let filter = WordFilterBuilder::new()
+    ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
+    ///     .build();
+    /// ```
     #[inline]
     pub fn repeated_character_match_mode(&mut self, mode: RepeatedCharacterMatchMode) -> &mut Self {
         self.repeated_character_match_mode = mode;
         self
     }
 
+    /// Sets the [`CensorMode`] to be used by the [`WordFilter`].
+    ///
+    /// If this is not provided, it will default to `CensorMode::ReplaceAllWith('*')`.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::{CensorMode, WordFilterBuilder};
+    ///
+    /// let filter = WordFilterBuilder::new().censor_mode(CensorMode::ReplaceAllWith('#')).build();
+    /// ```
     #[inline]
     pub fn censor_mode(&mut self, mode: CensorMode) -> &mut Self {
         self.censor_mode = mode;
         self
     }
 
+    /// Builds a [`WordFilter`] using the configurations set on the `WordFilterBuilder`.
+    ///
+    /// Note that this is a non-consuming function, and the `WordFilterBuilder` can therefore be
+    /// used after a `WordFilter` is built.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
+    /// ```
     #[inline]
     #[must_use]
     pub fn build(&self) -> WordFilter<'a> {

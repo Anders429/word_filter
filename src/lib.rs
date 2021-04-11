@@ -771,13 +771,6 @@ mod tests {
     use alloc::{vec, vec::Vec};
 
     #[test]
-    fn builder() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).build();
-
-        assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
-    }
-
-    #[test]
     fn find() {
         let filter = WordFilterBuilder::new().words(&["foo"]).build();
 

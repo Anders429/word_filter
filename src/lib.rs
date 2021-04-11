@@ -1,4 +1,4 @@
-//! A robust implementation of a Word Filter.
+//! A Word Filter for filtering text.
 //!
 //! A Word Filter is a system for identifying and censoring specific words or phrases in strings. Common
 //! usage includes censoring vulgar or profane language and preventing spam or vandelism in
@@ -13,7 +13,7 @@
 //! words.
 //!
 //! # Usage
-//! An example of a functional `WordFilter` using this crate is as follows:
+//! A [`WordFilter`] can be created using the [`WordFilterBuilder`] as follows:
 //!
 //! ```
 //! use word_filter::WordFilterBuilder;

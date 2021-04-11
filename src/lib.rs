@@ -667,21 +667,9 @@ impl<'a> WordFilterBuilder<'a> {
         }
     }
 
-    #[inline
-]    pub fn word(&mut self, word: &'a str) -> &mut Self {
-        self.words.push(word);
-        self
-    }
-
     #[inline]
     pub fn words(&mut self, words: &[&'a str]) -> &mut Self {
         self.words.extend_from_slice(words);
-        self
-    }
-
-    #[inline]
-    pub fn exception(&mut self, exception: &'a str) -> &mut Self {
-        self.exceptions.push(exception);
         self
     }
 
@@ -692,20 +680,8 @@ impl<'a> WordFilterBuilder<'a> {
     }
 
     #[inline]
-    pub fn separator(&mut self, separator: &'a str) -> &mut Self {
-        self.separators.push(separator);
-        self
-    }
-
-    #[inline]
     pub fn separators(&mut self, separators: &[&'a str]) -> &mut Self {
         self.separators.extend_from_slice(separators);
-        self
-    }
-
-    #[inline]
-    pub fn alias(&mut self, alias: (&'a str, &'a str)) -> &mut Self {
-        self.aliases.push(alias);
         self
     }
 
@@ -728,29 +704,43 @@ impl<'a> WordFilterBuilder<'a> {
     }
 
     #[inline]
+    #[must_use]
     pub fn build(&self) -> WordFilter<'a> {
-        WordFilter::new(&self.words, &self.exceptions, &self.separators, &self.aliases, Options {
-            repeated_character_match_mode: self.repeated_character_match_mode,
-            censor_mode: self.censor_mode,
-        })
+        WordFilter::new(
+            &self.words,
+            &self.exceptions,
+            &self.separators,
+            &self.aliases,
+            Options {
+                repeated_character_match_mode: self.repeated_character_match_mode,
+                censor_mode: self.censor_mode,
+            },
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{CensorMode, Options, RepeatedCharacterMatchMode, WordFilter};
+    use crate::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
     use alloc::{vec, vec::Vec};
 
     #[test]
+    fn builder() {
+        let filter = WordFilterBuilder::new().words(&["foo"]).build();
+
+        assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
+    }
+
+    #[test]
     fn find() {
-        let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
     }
 
     #[test]
     fn check() {
-        let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).build();
 
         assert!(filter.check("foo"));
         assert!(!filter.check("bar"));
@@ -758,27 +748,24 @@ mod tests {
 
     #[test]
     fn check_only_partial() {
-        let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).build();
 
         assert!(!filter.check("fo"));
     }
 
     #[test]
     fn censor() {
-        let filter = WordFilter::new(&["foo"], &[], &[], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).build();
 
         assert_eq!(filter.censor("foo"), "***");
     }
 
     #[test]
     fn exceptions() {
-        let filter = WordFilter::new(
-            &["foo"],
-            &["afoo", "foob", "cfood"],
-            &[],
-            &[],
-            Options::default(),
-        );
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .exceptions(&["afoo", "foob", "cfood"])
+            .build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
         assert_eq!(filter.find("afoo"), Vec::new().into_boxed_slice());
@@ -788,21 +775,24 @@ mod tests {
 
     #[test]
     fn exceptions_and_matches() {
-        let filter = WordFilter::new(&["foo"], &["foobar"], &[], &[], Options::default());
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .exceptions(&["foobar"])
+            .build();
 
         assert_eq!(filter.find("foobarfoo"), vec!["foo"].into_boxed_slice());
     }
 
     #[test]
     fn separators() {
-        let filter = WordFilter::new(&["foo"], &[], &[" "], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).separators(&[" "]).build();
 
         assert_eq!(filter.find("f oo"), vec!["foo"].into_boxed_slice());
     }
 
     #[test]
     fn separator_between_repeated_characters() {
-        let filter = WordFilter::new(&["bar"], &[], &[" "], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["bar"]).separators(&[" "]).build();
 
         assert_eq!(filter.find("b a a r"), vec!["bar"].into_boxed_slice());
         assert_eq!(filter.censor(" b a a r "), " ******* ");
@@ -810,7 +800,7 @@ mod tests {
 
     #[test]
     fn aliases() {
-        let filter = WordFilter::new(&["foo"], &[], &[], &[("o", "a")], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).aliases(&[("o", "a")]).build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
         assert_eq!(filter.find("fao"), vec!["foo"].into_boxed_slice());
@@ -820,13 +810,7 @@ mod tests {
 
     #[test]
     fn aliases_on_aliases() {
-        let filter = WordFilter::new(
-            &["foo"],
-            &[],
-            &[],
-            &[("o", "a"), ("a", "b")],
-            Options::default(),
-        );
+        let filter = WordFilterBuilder::new().words(&["foo"]).aliases(&[("o", "a"), ("a", "b")]).build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
         assert_eq!(filter.find("fbo"), vec!["foo"].into_boxed_slice());
@@ -836,26 +820,14 @@ mod tests {
 
     #[test]
     fn merged_aliases() {
-        let filter = WordFilter::new(
-            &["bar"],
-            &[],
-            &[],
-            &[("b", "cd"), ("a", "ef"), ("de", "g")],
-            Options::default(),
-        );
+        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("b", "cd"), ("a", "ef"), ("de", "g")]).build();
 
         assert_eq!(filter.find("cgfr"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]
     fn merged_aliases_contiguous() {
-        let filter = WordFilter::new(
-            &["ahj"],
-            &[],
-            &[],
-            &[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")],
-            Options::default(),
-        );
+        let filter = WordFilterBuilder::new().words(&["ahj"]).aliases(&[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")]).build();
 
         assert_eq!(filter.find("bcdefi"), vec!["ahj"].into_boxed_slice());
         assert_eq!(filter.find("bgi"), vec!["ahj"].into_boxed_slice());
@@ -863,13 +835,7 @@ mod tests {
 
     #[test]
     fn merged_aliases_over_full_match() {
-        let filter = WordFilter::new(
-            &["bar"],
-            &[],
-            &[],
-            &[("b", "x"), ("a", "y"), ("r", "z"), ("xyz", "w")],
-            Options::default(),
-        );
+        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("b", "x"), ("a", "y"), ("r", "z"), ("xyz", "w")]).build();
 
         assert_eq!(filter.find("w"), vec!["bar"].into_boxed_slice());
     }
@@ -877,40 +843,21 @@ mod tests {
     #[test]
     fn recursive_alias_no_overflow() {
         // Make sure recursive aliases don't cause a stack overflow.
-        let filter = WordFilter::new(
-            &["bar"],
-            &[],
-            &[],
-            &[("a", "b"), ("b", "a")],
-            Options {
-                repeated_character_match_mode:
-                    RepeatedCharacterMatchMode::DisallowRepeatedCharacters,
-                censor_mode: CensorMode::ReplaceAllWith('*'),
-            },
-        );
+        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("a", "b"), ("b", "a")]).repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters).build();
 
         assert_eq!(filter.find("abr"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]
     fn alias_after_separator() {
-        let filter = WordFilter::new(&["bar"], &[], &[" "], &[("a", "A")], Options::default());
+        let filter = WordFilterBuilder::new().words(&["bar"]).separators(&[" "]).aliases(&[("a", "A")]).build();
 
         assert_eq!(filter.find("b Ar"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]
     fn options_repeated_characters_allowed() {
-        let filter = WordFilter::new(
-            &["bar"],
-            &[],
-            &[],
-            &[],
-            Options {
-                repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-                censor_mode: CensorMode::ReplaceAllWith('*'),
-            },
-        );
+        let filter = WordFilterBuilder::new().words(&["bar"]).repeated_character_match_mode(RepeatedCharacterMatchMode::AllowRepeatedCharacters).build();
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec!["bar"].into_boxed_slice());
         assert_eq!(filter.censor("baaar"), "*****");
@@ -918,41 +865,22 @@ mod tests {
 
     #[test]
     fn options_repeated_characters_disallowed() {
-        let filter = WordFilter::new(
-            &["bar"],
-            &[],
-            &[],
-            &[],
-            Options {
-                repeated_character_match_mode:
-                    RepeatedCharacterMatchMode::DisallowRepeatedCharacters,
-                censor_mode: CensorMode::ReplaceAllWith('*'),
-            },
-        );
+        let filter = WordFilterBuilder::new().words(&["bar"]).repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters).build();
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec![].into_boxed_slice());
     }
 
     #[test]
     fn options_censor_mode() {
-        let filter = WordFilter::new(
-            &["foo"],
-            &[],
-            &[],
-            &[],
-            Options {
-                repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-                censor_mode: CensorMode::ReplaceAllWith('#'),
-            },
-        );
+        let filter = WordFilterBuilder::new().words(&["foo"]).censor_mode(CensorMode::ReplaceAllWith('#')).build();
 
         assert_eq!(filter.censor("foo"), "###");
     }
 
     #[test]
     fn separator_at_front_and_back_of_match() {
-        let word_filter = WordFilter::new(&["foo"], &[], &[" "], &[], Options::default());
+        let filter = WordFilterBuilder::new().words(&["foo"]).separators(&[" "]).build();
 
-        assert_eq!(word_filter.censor("bar foo bar"), "bar *** bar");
+        assert_eq!(filter.censor("bar foo bar"), "bar *** bar");
     }
 }

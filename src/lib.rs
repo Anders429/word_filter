@@ -677,17 +677,17 @@ impl<'a> WordFilterBuilder<'a> {
         while let Some((value, target_value, alias)) = queue.pop_front() {
             for (new_value, new_alias) in &self.aliases {
                 if target_value == *new_alias || new_alias.starts_with(&target_value) {
-                    new_aliases.push((value.to_owned() + new_value, alias.to_owned() + new_alias));
+                    new_aliases.push((value.clone() + new_value, alias.clone() + new_alias));
                 } else if target_value.starts_with(new_alias) {
                     // If the combination isn't complete, push it to the queue and try again.
                     queue.push_back((
-                        value.to_owned() + new_value,
+                        value.clone() + new_value,
                         unsafe {
                             // SAFETY: Since `new_alias` is the prefix of `target_value`, this will
                             // never be out of bounds and will always uphold `str` invariants.
                             target_value.get_unchecked(new_alias.len()..).to_owned()
                         },
-                        alias.to_owned() + new_alias,
+                        alias.clone() + new_alias,
                     ));
                 }
             }

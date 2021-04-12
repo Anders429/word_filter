@@ -40,7 +40,7 @@ pub(crate) enum Type<'a> {
     Exception(&'a str),
     /// A return pathway node.
     ///
-    /// This indicates the pointer should jump back to the return node, if one exists.
+    /// This indicates the walker should jump back to the return node, if one exists.
     Return,
 }
 
@@ -203,7 +203,7 @@ impl<'a> Node<'a> {
 
     /// A test-only method used to search directly from a Node.
     ///
-    /// In production, the actual traversal through the graph is handled by a Pointer.
+    /// In production, the actual traversal through the graph is handled by a Walker.
     #[cfg(test)]
     pub(crate) fn search(&'a self, word: &str) -> Option<&'a Node<'a>> {
         if word.is_empty() {

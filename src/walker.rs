@@ -1,9 +1,9 @@
-//! Pointer type for `WordFilter`'s internal searching.
+//! Walker for [`WordFilter`]'s internal searching.
 //!
-//! `Pointer` provides an efficient way for the `WordFilter` to search its own directional graph for
+//! [`Walker`] provides an efficient way for the `WordFilter` to search its own directional graph for
 //! matches to a given string.
 //!
-//! Use of a `Pointer` allows for multiple simultaneous searches to all maintain their own context.
+//! Use of a `Walker` allows for multiple simultaneous searches to all maintain their own context.
 //! This allows for splitting of paths at aliases, searching for separators, and searching at
 //! different start locations within the string simultaneously.
 
@@ -11,39 +11,39 @@ use crate::node::{self, Node};
 use alloc::vec::Vec;
 use core::ops::{Bound, RangeBounds};
 
-/// The current status of the `Pointer`.
+/// The current status of the `Walker`.
 ///
-/// This indicates whether the `Pointer` has reached a `Match` or an `Exception` node.
+/// This indicates whether the `Walker` has reached a `Match` or an `Exception` node.
 #[derive(Clone, Debug)]
 pub(crate) enum Status<'a> {
-    /// Indicates the `Pointer` has found no `Match` or `Exception` nodes yet.
+    /// Indicates the `Walker` has found no `Match` or `Exception` nodes yet.
     None,
-    /// Indicates the `Pointer` has found a `Match` node containing the stored string.
+    /// Indicates the `Walker` has found a `Match` node containing the stored string.
     Match(&'a str),
-    /// Indicates the `Pointer` has found an `Exception` node containing the stored string.
+    /// Indicates the `Walker` has found an `Exception` node containing the stored string.
     Exception(&'a str),
 }
 
-/// A specialized pointer for traveling through the `WordFilter`'s `Node` graph.
+/// A specialized walker for traveling through the `WordFilter`'s `Node` graph.
 ///
-/// The `Pointer` keeps track of the current context within the `Node` (as in, the current pointer
-/// location, a stack of return nodes, etc.), as well as information about the `Pointer`'s location
+/// The `Walker` keeps track of the current context within the `Node` (as in, the current walker
+/// location, a stack of return nodes, etc.), as well as information about the `Walker`'s location
 /// within the original source string passed into the `WordFilter`.
 ///
-/// In order to progress the `Pointer` forward, the `step()` method is provided, which allows the
-/// user to step the `Pointer` through each character in a string.
+/// In order to progress the `Walker` forward, the `step()` method is provided, which allows the
+/// user to step the `Walker` through each character in a string.
 #[derive(Clone)]
-pub(crate) struct Pointer<'a> {
-    /// The current node that is being pointed to.
+pub(crate) struct Walker<'a> {
+    /// The current node.
     pub(crate) current_node: &'a Node<'a>,
-    /// A stack of return nodes (indicating the `Pointer`'s context within subgraphs).
+    /// A stack of return nodes (indicating the `Walker`'s context within subgraphs).
     pub(crate) return_nodes: Vec<&'a Node<'a>>,
-    /// This `Pointer`'s current status.
+    /// This `Walker`'s current status.
     pub(crate) status: Status<'a>,
 
     /// The start index within the original source string.
     pub(crate) start: usize,
-    /// The length which this `Pointer` has traveled.
+    /// The length which this `Walker` has traveled.
     pub(crate) len: usize,
     /// The end index where the last `Match` or `Exception` node was found.
     pub(crate) found_end: Option<usize>,
@@ -51,8 +51,8 @@ pub(crate) struct Pointer<'a> {
     pub(crate) in_separator: bool,
 }
 
-impl<'a> Pointer<'a> {
-    /// Creates a new `Pointer` with the provided attributes.
+impl<'a> Walker<'a> {
+    /// Creates a new `Walker` with the provided attributes.
     ///
     /// This also sets `status` to `Status::None` and `found_len` to `None`.
     pub(crate) fn new(
@@ -80,7 +80,7 @@ impl<'a> Pointer<'a> {
     /// node in the return chain, which is itself not a return node, is encountered.
     ///
     /// If the node *is* a return node, and the `return_nodes` stack is empty, then `None` is
-    /// returned. Otherwise, the new node where the `Pointer` should be located is returned.
+    /// returned. Otherwise, the new node where the `Walker` should be located is returned.
     fn evaluate_return_node(&mut self, node: &'a Node<'a>) -> Option<&'a Node<'a>> {
         match node.node_type {
             node::Type::Standard => Some(node),
@@ -109,10 +109,10 @@ impl<'a> Pointer<'a> {
         }
     }
 
-    /// Step the `Pointer` along the character `c`.
+    /// Step the `Walker` along the character `c`.
     ///
-    /// If the `Pointer` has reached a dead-end, this method returns `false`. Otherwise, it returns
-    /// `true` to indicate the `Pointer` is still active in the `WordFilter` graph.
+    /// If the `Walker` has reached a dead-end, this method returns `false`. Otherwise, it returns
+    /// `true` to indicate the `Walker` is still active in the `WordFilter` graph.
     pub(crate) fn step(&mut self, c: char) -> bool {
         self.current_node = match self.current_node.children.get(&c) {
             Some(node) => match node.node_type {
@@ -142,16 +142,16 @@ impl<'a> Pointer<'a> {
     }
 }
 
-/// Define `Pointer` to have [`RangeBounds`].
+/// Define `Walker` to have [`RangeBounds`].
 ///
 /// The bounds correspond with the matched word or exception's start and end character positions.
 ///
 /// Note that this only defines a usable interval if a match or exception was found. If nothing was
-/// found, there is no usable interval, and the `Pointer` shouldn't be used in contexts needing
+/// found, there is no usable interval, and the `Walker` shouldn't be used in contexts needing
 /// `RangeBounds`.
 ///
 /// [`RangeBounds`]: core::ops::RangeBounds
-impl RangeBounds<usize> for Pointer<'_> {
+impl RangeBounds<usize> for Walker<'_> {
     #[inline]
     fn start_bound(&self) -> Bound<&usize> {
         Bound::Included(&self.start)
@@ -166,7 +166,7 @@ impl RangeBounds<usize> for Pointer<'_> {
 #[cfg(test)]
 mod tests {
     use crate::node::Node;
-    use crate::pointer::{Pointer, Status};
+    use crate::walker::{Walker, Status};
     use alloc::{vec, vec::Vec};
     use claim::assert_matches;
 
@@ -175,12 +175,12 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
-        assert!(!pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
+        assert!(!walker.step('o'));
     }
 
     #[test]
@@ -188,13 +188,13 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert_matches!(pointer.status, Status::Match("foo"));
+        assert_matches!(walker.status, Status::Match("foo"));
     }
 
     #[test]
@@ -202,13 +202,13 @@ mod tests {
         let mut node = Node::new();
         node.add_exception("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert_matches!(pointer.status, Status::Exception("foo"));
+        assert_matches!(walker.status, Status::Exception("foo"));
     }
 
     #[test]
@@ -218,13 +218,13 @@ mod tests {
 
         let return_node = Node::new();
 
-        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert!(core::ptr::eq(pointer.current_node, &return_node));
+        assert!(core::ptr::eq(walker.current_node, &return_node));
     }
 
     #[test]
@@ -232,11 +232,11 @@ mod tests {
         let mut node = Node::new();
         node.add_return("foo");
 
-        let mut pointer = Pointer::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(!pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(!walker.step('o'));
     }
 
     #[test]
@@ -247,15 +247,15 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_match("");
 
-        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, true);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert!(core::ptr::eq(pointer.current_node, &return_node));
-        assert!(!pointer.in_separator);
-        assert_eq!(pointer.found_end, None);
+        assert!(core::ptr::eq(walker.current_node, &return_node));
+        assert!(!walker.in_separator);
+        assert_eq!(walker.found_end, None);
     }
 
     #[test]
@@ -266,13 +266,13 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_exception("");
 
-        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, false);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert!(core::ptr::eq(pointer.current_node, &return_node));
+        assert!(core::ptr::eq(walker.current_node, &return_node));
     }
 
     #[test]
@@ -283,15 +283,15 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_exception("");
 
-        let mut pointer = Pointer::new(&node, vec![&return_node], 0, 0, true);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true);
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert!(core::ptr::eq(pointer.current_node, &return_node));
-        assert!(!pointer.in_separator);
-        assert_eq!(pointer.found_end, None);
+        assert!(core::ptr::eq(walker.current_node, &return_node));
+        assert!(!walker.in_separator);
+        assert_eq!(walker.found_end, None);
     }
 
     #[test]
@@ -303,7 +303,7 @@ mod tests {
         first_return_node.add_return("");
         let second_return_node = Node::new();
 
-        let mut pointer = Pointer::new(
+        let mut walker = Walker::new(
             &node,
             vec![&second_return_node, &first_return_node],
             0,
@@ -311,10 +311,10 @@ mod tests {
             false,
         );
 
-        assert!(pointer.step('f'));
-        assert!(pointer.step('o'));
-        assert!(pointer.step('o'));
+        assert!(walker.step('f'));
+        assert!(walker.step('o'));
+        assert!(walker.step('o'));
 
-        assert!(core::ptr::eq(pointer.current_node, &second_return_node));
+        assert!(core::ptr::eq(walker.current_node, &second_return_node));
     }
 }

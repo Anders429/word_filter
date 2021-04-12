@@ -65,8 +65,8 @@
 extern crate alloc;
 
 mod node;
-mod pointer;
 mod utils;
+mod walker;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
 use by_address::ByAddress;
@@ -78,7 +78,7 @@ use core::{
 use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
-use pointer::Pointer;
+use walker::Walker;
 use str_overlap::Overlap;
 use utils::debug_unreachable;
 
@@ -188,99 +188,99 @@ pub struct WordFilter<'a> {
 }
 
 impl<'a> WordFilter<'a> {
-    /// Create new `Pointer`s for the aliases at the `pointer`'s `current_node`.
+    /// Create new `Walker`s for the aliases at the `walker`'s `current_node`.
     fn push_aliases(
         &self,
-        pointer: &Pointer<'a>,
-        new_pointers: &mut Vec<Pointer<'a>>,
+        walker: &Walker<'a>,
+        new_walkers: &mut Vec<Walker<'a>>,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) {
-        for (alias_node, return_node) in &pointer.current_node.aliases {
+        for (alias_node, return_node) in &walker.current_node.aliases {
             if visited.contains(&ByAddress(alias_node)) {
                 continue;
             }
-            let mut return_nodes = pointer.return_nodes.clone();
+            let mut return_nodes = walker.return_nodes.clone();
             return_nodes.push(return_node);
-            let alias_pointer =
-                Pointer::new(alias_node, return_nodes, pointer.start, pointer.len, false);
+            let alias_walker =
+                Walker::new(alias_node, return_nodes, walker.start, walker.len, false);
             visited.insert(ByAddress(alias_node));
-            self.push_aliases(&alias_pointer, new_pointers, visited);
+            self.push_aliases(&alias_walker, new_walkers, visited);
             visited.remove(&ByAddress(alias_node));
-            new_pointers.push(alias_pointer);
+            new_walkers.push(alias_walker);
         }
     }
 
-    /// Finds all `Pointer`s that encounter matches.
+    /// Finds all `Walker`s that encounter matches.
     ///
-    /// This also excludes all `Pointer`s that encountered matches but whose ranges also are
-    /// contained within ranges are `Pointer`s who encountered exceptions.
-    fn find_pointers(&self, input: &str) -> impl Iterator<Item = Pointer<'_>> {
-        let root_pointer = Pointer::new(&self.root, Vec::new(), 0, 0, false);
-        let mut pointers = Vec::new();
-        self.push_aliases(&root_pointer, &mut pointers, &mut HashSet::new());
-        pointers.push(root_pointer);
+    /// This also excludes all `Walker`s that encountered matches but whose ranges also are
+    /// contained within ranges are `Walker`s who encountered exceptions.
+    fn find_walkers(&self, input: &str) -> impl Iterator<Item = Walker<'_>> {
+        let root_walker = Walker::new(&self.root, Vec::new(), 0, 0, false);
+        let mut walkers = Vec::new();
+        self.push_aliases(&root_walker, &mut walkers, &mut HashSet::new());
+        walkers.push(root_walker);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
-            let mut new_pointers = Vec::new();
-            for mut pointer in pointers.drain(..) {
-                let mut last_pointer = pointer.clone();
-                if pointer.step(c) {
+            let mut new_walkers = Vec::new();
+            for mut walker in walkers.drain(..) {
+                let mut last_walker = walker.clone();
+                if walker.step(c) {
                     // Aliases.
-                    self.push_aliases(&pointer, &mut new_pointers, &mut HashSet::new());
+                    self.push_aliases(&walker, &mut new_walkers, &mut HashSet::new());
                     // Separators.
-                    let mut return_nodes = pointer.return_nodes.clone();
-                    return_nodes.push(pointer.current_node);
-                    new_pointers.push(Pointer::new(
+                    let mut return_nodes = walker.return_nodes.clone();
+                    return_nodes.push(walker.current_node);
+                    new_walkers.push(Walker::new(
                         &self.separator_root,
                         return_nodes,
-                        pointer.start,
-                        pointer.len,
+                        walker.start,
+                        walker.len,
                         true,
                     ));
 
                     // Direct path.
-                    new_pointers.push(pointer);
+                    new_walkers.push(walker);
 
                     // Repeated characters.
                     if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
                         self.repeated_character_match_mode
                     {
-                        last_pointer.len += 1;
+                        last_walker.len += 1;
 
                         // Separators.
-                        let mut return_nodes = last_pointer.return_nodes.clone();
-                        return_nodes.push(last_pointer.current_node);
-                        new_pointers.push(Pointer::new(
+                        let mut return_nodes = last_walker.return_nodes.clone();
+                        return_nodes.push(last_walker.current_node);
+                        new_walkers.push(Walker::new(
                             &self.separator_root,
                             return_nodes,
-                            last_pointer.start,
-                            last_pointer.len,
+                            last_walker.start,
+                            last_walker.len,
                             true,
                         ));
 
-                        new_pointers.push(last_pointer);
+                        new_walkers.push(last_walker);
                     }
-                } else if let pointer::Status::Match(_) = pointer.status {
-                    found.push(pointer);
-                } else if let pointer::Status::Exception(_) = pointer.status {
-                    found.push(pointer);
+                } else if let walker::Status::Match(_) = walker.status {
+                    found.push(walker);
+                } else if let walker::Status::Exception(_) = walker.status {
+                    found.push(walker);
                 }
             }
 
             // Add root again.
-            new_pointers.push(Pointer::new(&self.root, Vec::new(), i + 1, 0, false));
-            new_pointers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
-                Pointer::new(alias_node, vec![return_node], i + 1, 0, false)
+            new_walkers.push(Walker::new(&self.root, Vec::new(), i + 1, 0, false));
+            new_walkers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
+                Walker::new(alias_node, vec![return_node], i + 1, 0, false)
             }));
 
-            pointers = new_pointers;
+            walkers = new_walkers;
         }
 
-        // Evaluate all remaining pointers.
-        for pointer in pointers.drain(..) {
-            match pointer.status {
-                pointer::Status::Match(_) | pointer::Status::Exception(_) => found.push(pointer),
-                pointer::Status::None => {}
+        // Evaluate all remaining walkers.
+        for walker in walkers.drain(..) {
+            match walker.status {
+                walker::Status::Match(_) | walker::Status::Exception(_) => found.push(walker),
+                walker::Status::None => {}
             }
         }
 
@@ -289,7 +289,7 @@ impl<'a> WordFilter<'a> {
             .into_iter()
             .filter_map(|element| {
                 let p = element.value;
-                if let pointer::Status::Match(_) = p.status {
+                if let walker::Status::Match(_) = p.status {
                     Some(p)
                 } else {
                     None
@@ -312,13 +312,13 @@ impl<'a> WordFilter<'a> {
     /// ```
     #[must_use]
     pub fn find(&self, input: &str) -> Box<[&str]> {
-        self.find_pointers(input)
-            .map(|pointer| {
-                if let pointer::Status::Match(s) = pointer.status {
+        self.find_walkers(input)
+            .map(|walker| {
+                if let walker::Status::Match(s) = walker.status {
                     s
                 } else {
                     unsafe {
-                        // SAFETY: All `Pointer`s returned from ``find_pointers()` are guaranteed to
+                        // SAFETY: All `Walker`s returned from ``find_walkers()` are guaranteed to
                         // be matches. In the event that this changes in the future, this call will
                         // panic when `debug_assertions` is on.
                         debug_unreachable()
@@ -344,7 +344,7 @@ impl<'a> WordFilter<'a> {
     /// ```
     #[must_use]
     pub fn check(&self, input: &str) -> bool {
-        self.find_pointers(input).next().is_some()
+        self.find_walkers(input).next().is_some()
     }
 
     /// Censor all filtered words within `input`.
@@ -366,20 +366,20 @@ impl<'a> WordFilter<'a> {
     pub fn censor(&self, input: &str) -> String {
         let mut output = String::with_capacity(input.len());
         let mut input_char_indices = input.char_indices();
-        // Pointers are sorted on both start and end, due to use of NestedContainmentList.
+        // Walkers are sorted on both start and end, due to use of NestedContainmentList.
         let mut prev_end = 0;
-        for pointer in self.find_pointers(input) {
+        for walker in self.find_walkers(input) {
             // Insert un-censored characters.
-            if pointer.start > prev_end {
-                for _ in 0..(pointer.start - prev_end) {
+            if walker.start > prev_end {
+                for _ in 0..(walker.start - prev_end) {
                     output.push(match input_char_indices.next().map(|(_i, c)| c) {
                         Some(c) => c,
                         None => unsafe {
-                            // SAFETY: Each `pointer` within `pointers` is guaranteed to be within
-                            // the bounds of `input`. Additionally, since the `pointer`s are ordered
+                            // SAFETY: Each `walker` within `walkers` is guaranteed to be within
+                            // the bounds of `input`. Additionally, since the `walker`s are ordered
                             // by the ordering provided by the `NestedContainmentList` and are
                             // guaranteed by that same data structure to not include any nested
-                            // `pointer`s, each subsequent `pointer` will cover a new set of `input`
+                            // `walker`s, each subsequent `walker` will cover a new set of `input`
                             // characters. Thus, `input_char_indices.next()` will always return a
                             // value, and the `None` branch will never be reached.
                             debug_unreachable()
@@ -387,15 +387,15 @@ impl<'a> WordFilter<'a> {
                     })
                 }
             }
-            // Censor the covered characters for this pointer.
-            let len = match pointer.end_bound() {
+            // Censor the covered characters for this walker.
+            let len = match walker.end_bound() {
                 Bound::Included(end) => end + 1,
                 _ => unsafe {
-                    // SAFETY: The `RangeBounds` on a `Pointer` will always be `Bound::Included`, so
+                    // SAFETY: The `RangeBounds` on a `Walker` will always be `Bound::Included`, so
                     // we will never reach any other branch.
                     debug_unreachable()
                 },
-            } - core::cmp::max(pointer.start, prev_end);
+            } - core::cmp::max(walker.start, prev_end);
             match self.censor_mode {
                 CensorMode::ReplaceAllWith(c) => {
                     for _ in 0..len {
@@ -405,10 +405,10 @@ impl<'a> WordFilter<'a> {
                 }
             }
 
-            prev_end = match pointer.end_bound() {
+            prev_end = match walker.end_bound() {
                 Bound::Included(end) => end + 1,
                 _ => unsafe {
-                    // SAFETY: The `RangeBounds` on a `Pointer` will always be `Bound::Included`, so
+                    // SAFETY: The `RangeBounds` on a `Walker` will always be `Bound::Included`, so
                     // we will never reach any other branch.
                     debug_unreachable()
                 },

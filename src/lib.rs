@@ -492,6 +492,7 @@ impl<'a> WordFilterBuilder<'a> {
     /// let builder = WordFilterBuilder::new();
     /// ```
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             words: Vec::new(),
@@ -761,6 +762,13 @@ impl<'a> WordFilterBuilder<'a> {
     }
 }
 
+impl Default for WordFilterBuilder<'_> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
@@ -917,5 +925,12 @@ mod tests {
         let filter = WordFilterBuilder::new().words(&["foo"]).separators(&[" "]).build();
 
         assert_eq!(filter.censor("bar foo bar"), "bar *** bar");
+    }
+
+    #[test]
+    fn default_builder() {
+        let filter = WordFilterBuilder::default().words(&["foo"]).build();
+
+        assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
     }
 }

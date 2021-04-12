@@ -13,7 +13,7 @@
 //! words.
 //!
 //! # Usage
-//! A [`WordFilter`] can be created using the [`WordFilterBuilder`] as follows:
+//! A [`WordFilter`] can be created using a [`WordFilterBuilder`] as follows:
 //!
 //! ```
 //! use word_filter::WordFilterBuilder;
@@ -26,19 +26,15 @@
 //!     .build();
 //!
 //! // The word filter will both identify and censor the word "foo".
-//! assert!(filter.check("Should censor foo"));
 //! assert_eq!(filter.censor("Should censor foo"), "Should censor ***");
 //!
-//! // The word filter does not identify or censor the word "foobar".
-//! assert!(!filter.check("Should not censor foobar"));
+//! // The word filter does not identify or censor the exception "foobar".
 //! assert_eq!(filter.censor("Should not censor foobar"), "Should not censor foobar");
 //!
 //! // The word filter will ignore separators while matching.
-//! assert!(filter.check("Should censor f o_o"));
 //! assert_eq!(filter.censor("Should censor f o_o"), "Should censor *****");
 //!
 //! // The word filter checks for aliases while matching.
-//! assert!(filter.check("Should censor Foo"));
 //! assert_eq!(filter.censor("Should censor Foo"), "Should censor ***");
 //! ```
 

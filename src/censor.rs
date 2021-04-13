@@ -32,7 +32,7 @@
 //! [`WordFilter`]: crate::WordFilter
 
 #[doc(hidden)]
-pub use alloc::string::String;
+pub use alloc::{borrow::ToOwned, string::String};
 #[cfg(feature = "unicode-segmentation")]
 #[doc(hidden)]
 pub use unicode_segmentation::UnicodeSegmentation;
@@ -102,9 +102,35 @@ macro_rules! _replace_graphemes_with {
 #[doc(inline)]
 pub use _replace_graphemes_with as replace_graphemes_with;
 
+/// Creates a sensor replacing the full matched words with the given string.
+///
+/// # Example
+/// ```
+/// use word_filter::{censor, WordFilterBuilder};
+///
+/// let filter = WordFilterBuilder::new()
+///     .words(&["foo"])
+///     .censor(censor::replace_words_with!("<censored>"))
+///     .build();
+///
+/// assert_eq!(filter.censor("Should censor foo."), "Should censor <censored>.");
+/// ```
+#[macro_export]
+macro_rules! _replace_words_with {
+    ($s:literal) => {
+        |_| {
+            use $crate::censor::ToOwned;
+            $s.to_owned()
+        }
+    }
+}
+
+#[doc(inline)]
+pub use _replace_words_with as replace_words_with;
+
 #[cfg(test)]
 mod tests {
-    use crate::censor::replace_chars_with;
+    use crate::censor::{replace_chars_with, replace_words_with};
     #[cfg(feature = "unicode-segmentation")]
     use crate::censor::replace_graphemes_with;
 
@@ -119,5 +145,10 @@ mod tests {
     fn replace_graphemes() {
         assert_eq!(replace_graphemes_with!("#")("foo"), "###");
         assert_eq!(replace_graphemes_with!("#")("ã"), "#");
+    }
+
+    #[test]
+    fn replace_words() {
+        assert_eq!(replace_words_with!("bar")("foo"), "bar");
     }
 }

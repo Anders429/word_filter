@@ -6,6 +6,8 @@
 //! Use of a `Walker` allows for multiple simultaneous searches to all maintain their own context.
 //! This allows for splitting of paths at aliases, searching for separators, and searching at
 //! different start locations within the string simultaneously.
+//!
+//! [`WordFilter`]: crate::WordFilter
 
 use crate::node::{self, Node};
 use alloc::vec::Vec;

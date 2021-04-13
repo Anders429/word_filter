@@ -68,8 +68,11 @@ mod node;
 mod utils;
 mod walker;
 
+pub mod censor;
+
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
 use by_address::ByAddress;
+use censor::replace_chars_with;
 use core::{
     iter::FromIterator,
     ops::{Bound, RangeBounds},
@@ -141,7 +144,7 @@ impl Default for RepeatedCharacterMatchMode {
 /// Example usage:
 ///
 /// ```
-/// use word_filter::{RepeatedCharacterMatchMode, WordFilterBuilder};
+/// use word_filter::{censor, RepeatedCharacterMatchMode, WordFilterBuilder};
 ///
 /// let filter = WordFilterBuilder::new()
 ///     .words(&["foo"])
@@ -149,7 +152,7 @@ impl Default for RepeatedCharacterMatchMode {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor(|_| "censored".to_owned())
+///     .censor(censor::replace_chars_with!("#"))
 ///     .build();
 /// ```
 pub struct WordFilter<'a> {
@@ -426,8 +429,8 @@ impl<'a> WordFilter<'a> {
 /// strings in words and exceptions.
 /// - **[`repeated_character_match_mode`]** - The [`RepeatedCharacterMatchMode`] to be used. By default
 /// this is set to `RepeatedCharacterMatchMode::AllowRepeatedCharacters`.
-/// - **[`censor_mode`]** - The [`CensorMode`] to be used. By default this is set to
-/// `CensorMode::ReplaceAllWith('*')`.
+/// - **[`censor`]** - The censor to be used. By default this is set to
+/// [`censor::replace_chars_with!("*")`].
 ///
 /// These methods can be chained on each other, allowing construction to be performed in a single
 /// statement if desired.
@@ -437,7 +440,7 @@ impl<'a> WordFilter<'a> {
 /// follows:
 ///
 /// ```
-/// use word_filter::{RepeatedCharacterMatchMode, WordFilterBuilder};
+/// use word_filter::{censor, RepeatedCharacterMatchMode, WordFilterBuilder};
 ///
 /// let filter = WordFilterBuilder::new()
 ///     .words(&["foo"])
@@ -445,7 +448,7 @@ impl<'a> WordFilter<'a> {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor(|_| "censored".to_owned())
+///     .censor(censor::replace_chars_with!("#"))
 ///     .build();
 /// ```
 ///
@@ -454,7 +457,8 @@ impl<'a> WordFilter<'a> {
 /// [`separators`]: Self::separators
 /// [`aliases`]: Self::aliases
 /// [`repeated_character_match_mode`]: Self::repeated_character_match_mode
-/// [`censor_mode`]: Self::censor_mode
+/// [`censor`]: Self::censor
+/// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
 #[derive(Clone)]
 pub struct WordFilterBuilder<'a> {
     words: Vec<&'a str>,
@@ -483,7 +487,7 @@ impl<'a> WordFilterBuilder<'a> {
             separators: Vec::new(),
             aliases: Vec::new(),
             repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-            censor: |s| s.chars().fold(String::with_capacity(s.len()), |mut acc, _| {acc.push('*'); acc}),
+            censor: replace_chars_with!("*"),
         }
     }
 
@@ -580,14 +584,16 @@ impl<'a> WordFilterBuilder<'a> {
     /// Sets the censor to be used by the [`WordFilter`].
     ///
     /// A censor is a function mapping from the word to be censored to the censored result. The 
-    /// default censor simply replaces every character with `'*'`.
+    /// default censor is [`censor::replace_chars_with!("*")`].
     ///
     /// # Example
     /// ```
-    /// use word_filter::WordFilterBuilder;
+    /// use word_filter::{censor, WordFilterBuilder};
     ///
-    /// let filter = WordFilterBuilder::new().censor(|_| "censored".to_owned()).build();
+    /// let filter = WordFilterBuilder::new().censor(censor::replace_chars_with!("#")).build();
     /// ```
+    ///
+    /// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
     #[inline]
     pub fn censor(&mut self, censor: fn(&str) -> String) -> &mut Self {
         self.censor = censor;
@@ -755,8 +761,8 @@ impl Default for WordFilterBuilder<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{RepeatedCharacterMatchMode, WordFilterBuilder};
-    use alloc::{string::String, vec, vec::Vec};
+    use crate::{replace_chars_with, RepeatedCharacterMatchMode, WordFilterBuilder};
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn find() {
@@ -899,7 +905,7 @@ mod tests {
 
     #[test]
     fn custom_censor() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).censor(|s| s.chars().fold(String::with_capacity(s.len()), |mut acc, _| {acc.push('#'); acc})).build();
+        let filter = WordFilterBuilder::new().words(&["foo"]).censor(replace_chars_with!("#")).build();
 
         assert_eq!(filter.censor("foo"), "###");
     }

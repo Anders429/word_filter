@@ -168,7 +168,7 @@ impl RangeBounds<usize> for Walker<'_> {
 #[cfg(test)]
 mod tests {
     use crate::node::Node;
-    use crate::walker::{Walker, Status};
+    use crate::walker::{Status, Walker};
     use alloc::{vec, vec::Vec};
     use claim::assert_matches;
 

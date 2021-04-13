@@ -54,11 +54,13 @@ pub use unicode_segmentation::UnicodeSegmentation;
 macro_rules! _replace_chars_with {
     ($s:literal) => {
         |word: &str| {
-            word.chars()
-                .fold($crate::censor::String::with_capacity(word.len()), |mut accumulator, _char| {
+            word.chars().fold(
+                $crate::censor::String::with_capacity(word.len()),
+                |mut accumulator, _char| {
                     accumulator.push_str($s);
                     accumulator
-                })
+                },
+            )
         }
     };
 }
@@ -85,11 +87,13 @@ macro_rules! _replace_graphemes_with {
     ($s:literal) => {
         |word: &str| {
             use $crate::censor::UnicodeSegmentation;
-            word.graphemes(true)
-                .fold($crate::censor::String::with_capacity(word.len()), |mut accumulator, _cluster| {
+            word.graphemes(true).fold(
+                $crate::censor::String::with_capacity(word.len()),
+                |mut accumulator, _cluster| {
                     accumulator.push_str($s);
                     accumulator
-                })
+                },
+            )
         }
     };
 }

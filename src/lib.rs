@@ -373,20 +373,20 @@ impl<'a> WordFilter<'a> {
                 },
             } - core::cmp::max(walker.start, prev_end);
 
-            let substring_start = match input_char_indices.next() {
-                Some((start, _)) => start,
+            let (substring_start, current_char) = match input_char_indices.next() {
+                Some((start, c)) => (start, c),
                 None => unsafe { debug_unreachable() },
             };
             let substring_end = if len > 1 {
                 match input_char_indices.nth(len - 2) {
-                    Some((end, _)) => end,
+                    Some((end, c)) => end + c.len_utf8(),
                     None => unsafe { debug_unreachable() },
                 }
             } else {
-                substring_start
+                substring_start + current_char.len_utf8()
             };
 
-            output.push_str(&(self.censor)(&input[substring_start..=substring_end]));
+            output.push_str(&(self.censor)(&input[substring_start..substring_end]));
 
             prev_end = match walker.end_bound() {
                 Bound::Included(end) => end + 1,

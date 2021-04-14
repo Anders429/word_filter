@@ -971,4 +971,11 @@ mod tests {
 
         assert_eq!(filter.censor("fbar"), "f***");
     }
+
+    #[test]
+    fn censor_repeated_alias() {
+        let filter = WordFilterBuilder::new().words(&["foo", "bar"]).aliases(&[("a", "A")]).build();
+
+        assert_eq!(filter.censor("fbAaaAaAar"), "f*********");
+    }
 }

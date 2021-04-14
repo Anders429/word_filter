@@ -226,14 +226,17 @@ impl<'a> WordFilter<'a> {
                         // Separators.
                         let mut return_nodes = last_walker.return_nodes.clone();
                         return_nodes.push(last_walker.current_node);
-                        new_walkers.push(Walker::new(
+                        let mut separator_walker = Walker::new(
                             &self.separator_root,
                             return_nodes,
                             last_walker.start,
                             last_walker.len,
                             true,
-                        ));
+                        );
+                        separator_walker.repeated_character = Some(c);
+                        new_walkers.push(separator_walker);
 
+                        last_walker.repeated_character = Some(c);
                         new_walkers.push(last_walker);
                     }
                 } else if let walker::Status::Match(_) = walker.status {
@@ -259,6 +262,28 @@ impl<'a> WordFilter<'a> {
                 walker::Status::None => {}
             }
         }
+
+        // extern crate std;
+        // use std::dbg;
+        // dbg!(&found.iter().filter_map(|element| if let walker::Status::Match(s) = element.status {
+        //     Some((s, element.start_bound(), element.end_bound()))
+        // } else {
+        //     None
+        // }).collect::<Vec<_>>());
+
+        // dbg!(NestedContainmentList::from_iter(found.clone()).into_iter().filter_map(|element| 
+        //     if let walker::Status::Match(s) = element.value.status {
+        //         Some((s, element.value.start, element.value.len))
+        //     } else {
+        //         None
+        //     }).collect::<Vec<_>>());
+
+        // dbg!(NestedContainmentList::from_iter(found.clone()).into_iter().next().unwrap().sublist().filter_map(|element| 
+        //     if let walker::Status::Match(s) = element.value.status {
+        //         Some((s, element.value.start, element.value.len))
+        //     } else {
+        //         None
+        //     }).collect::<Vec<_>>());
 
         // Only return outer-most matched words which aren't part of a longer exception.
         NestedContainmentList::from_iter(found)
@@ -960,5 +985,12 @@ mod tests {
         let filter = WordFilterBuilder::default().words(&["foo"]).build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
+    }
+
+    #[test]
+    fn censor_repeating() {
+        let filter = WordFilterBuilder::new().words(&["foo", "bar"]).build();
+
+        assert_eq!(filter.censor("fbar"), "f***");
     }
 }

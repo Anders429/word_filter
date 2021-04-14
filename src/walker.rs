@@ -51,6 +51,8 @@ pub(crate) struct Walker<'a> {
     pub(crate) found_end: Option<usize>,
 
     pub(crate) in_separator: bool,
+
+    pub(crate) repeated_character: Option<char>
 }
 
 impl<'a> Walker<'a> {
@@ -72,6 +74,7 @@ impl<'a> Walker<'a> {
             len,
             found_end: None,
             in_separator,
+            repeated_character: None,
         }
     }
 
@@ -116,6 +119,12 @@ impl<'a> Walker<'a> {
     /// If the `Walker` has reached a dead-end, this method returns `false`. Otherwise, it returns
     /// `true` to indicate the `Walker` is still active in the `WordFilter` graph.
     pub(crate) fn step(&mut self, c: char) -> bool {
+        match self.repeated_character {
+            Some(stored_c) => if c != stored_c && !self.in_separator {
+                return false;
+            }
+            None => {},
+        }
         self.current_node = match self.current_node.children.get(&c) {
             Some(node) => match node.node_type {
                 node::Type::Standard => node,
@@ -140,6 +149,9 @@ impl<'a> Walker<'a> {
             None => return false,
         };
         self.len += 1;
+        if !self.in_separator {
+            self.repeated_character = None;
+        }
         true
     }
 }

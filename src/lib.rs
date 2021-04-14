@@ -263,28 +263,6 @@ impl<'a> WordFilter<'a> {
             }
         }
 
-        // extern crate std;
-        // use std::dbg;
-        // dbg!(&found.iter().filter_map(|element| if let walker::Status::Match(s) = element.status {
-        //     Some((s, element.start_bound(), element.end_bound()))
-        // } else {
-        //     None
-        // }).collect::<Vec<_>>());
-
-        // dbg!(NestedContainmentList::from_iter(found.clone()).into_iter().filter_map(|element| 
-        //     if let walker::Status::Match(s) = element.value.status {
-        //         Some((s, element.value.start, element.value.len))
-        //     } else {
-        //         None
-        //     }).collect::<Vec<_>>());
-
-        // dbg!(NestedContainmentList::from_iter(found.clone()).into_iter().next().unwrap().sublist().filter_map(|element| 
-        //     if let walker::Status::Match(s) = element.value.status {
-        //         Some((s, element.value.start, element.value.len))
-        //     } else {
-        //         None
-        //     }).collect::<Vec<_>>());
-
         // Only return outer-most matched words which aren't part of a longer exception.
         NestedContainmentList::from_iter(found)
             .into_iter()

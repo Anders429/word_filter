@@ -2,6 +2,7 @@ use crate::node::{self, Node};
 use alloc::vec::{self, Vec};
 use by_address::ByAddress;
 use core::{
+    fmt,
     ops::{Bound, RangeBounds},
     ptr,
 };
@@ -10,7 +11,7 @@ use hashbrown::HashSet;
 /// The current status of the `Walker`.
 ///
 /// This indicates whether the `Walker` has reached a `Match` or an `Exception` node.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum Status<'a> {
     /// Indicates the `Walker` has found no `Match` or `Exception` nodes yet.
     None,
@@ -26,6 +27,21 @@ pub(crate) enum Status<'a> {
 pub(crate) enum ContextualizedNode<'a> {
     InDirectPath(&'a Node<'a>),
     InSubgraph(&'a Node<'a>),
+}
+
+impl fmt::Debug for ContextualizedNode<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ContextualizedNode::InDirectPath(node) => f
+                .debug_tuple("InDirectPath")
+                .field(&(*node as *const Node))
+                .finish(),
+            ContextualizedNode::InSubgraph(node) => f
+                .debug_tuple("InSubgraph")
+                .field(&(*node as *const Node))
+                .finish(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -233,6 +249,27 @@ impl RangeBounds<usize> for Walker<'_> {
     }
 }
 
+impl fmt::Debug for Walker<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Walker")
+            .field("node", &(self.node as *const Node))
+            .field("status", &self.status)
+            .field("start", &self.start)
+            .field("len", &self.len)
+            .field("in_separator", &self.in_separator)
+            .field(
+                "returns",
+                &self.returns
+                    .iter()
+                    .map(|node| *node as *const Node)
+                    .collect::<Vec<_>>(),
+            )
+            .field("callbacks", &self.callbacks)
+            .field("targets", &self.targets)
+            .finish()
+    }
+}
+
 pub(crate) struct WalkerBuilder<'a> {
     node: &'a Node<'a>,
     status: Status<'a>,
@@ -333,6 +370,7 @@ mod tests {
     use crate::node::Node;
     use alloc::{vec, vec::Vec};
     use by_address::ByAddress;
+    use claim::{assert_err, assert_matches, assert_ok};
     use core::{
         ops::{Bound, RangeBounds},
         ptr,
@@ -478,5 +516,152 @@ mod tests {
         assert!(ptr::eq(branches[1].node, &alias_node));
         assert_eq!(branches[1].returns.len(), 1);
         assert!(ptr::eq(branches[1].returns[0], &return_node));
+    }
+
+    #[test]
+    fn step() {
+        let mut node = Node::new();
+        node.add_match("foo");
+
+        let mut walker = WalkerBuilder::new(&node).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert_err!(walker.step('o'));
+    }
+
+    #[test]
+    fn step_match() {
+        let mut node = Node::new();
+        node.add_match("foo");
+
+        let mut walker = WalkerBuilder::new(&node).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert_matches!(walker.status, Status::Match(3, "foo"));
+    }
+
+    #[test]
+    fn step_exception() {
+        let mut node = Node::new();
+        node.add_exception("foo");
+
+        let mut walker = WalkerBuilder::new(&node).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert_matches!(walker.status, Status::Exception(3, "foo"));
+    }
+
+    #[test]
+    fn step_return() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let return_node = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node]).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert!(ptr::eq(walker.node, &return_node));
+    }
+
+    #[test]
+    fn step_no_return_node() {
+        let mut node = Node::new();
+        node.add_return("foo");
+
+        let mut walker = WalkerBuilder::new(&node).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_err!(walker.step('o'));
+    }
+
+    #[test]
+    fn step_return_to_match() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let mut return_node = Node::new();
+        return_node.add_match("");
+
+        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node]).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert!(ptr::eq(walker.node, &return_node));
+        assert_matches!(walker.status, Status::Match(3, ""));
+    }
+
+    #[test]
+    fn step_return_to_exception() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let mut return_node = Node::new();
+        return_node.add_exception("");
+
+        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node]).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert!(ptr::eq(walker.node, &return_node));
+        assert_matches!(walker.status, Status::Exception(3, ""));
+    }
+
+    #[test]
+    fn step_return_to_match_in_separator() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let mut return_node = Node::new();
+        return_node.add_match("");
+
+        let mut walker = WalkerBuilder::new(&node).in_separator(true).returns(vec![&return_node]).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert!(ptr::eq(walker.node, &return_node));
+        assert!(!walker.in_separator);
+        assert_matches!(walker.status, Status::None);
+    }
+
+    #[test]
+    fn step_return_to_exception_in_separator() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let mut return_node = Node::new();
+        return_node.add_exception("");
+
+        let mut walker = WalkerBuilder::new(&node).in_separator(true).returns(vec![&return_node]).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert!(ptr::eq(walker.node, &return_node));
+        assert!(!walker.in_separator);
+        assert_matches!(walker.status, Status::None);
+    }
+
+    #[test]
+    fn step_return_twice() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let mut return_node_a = Node::new();
+        return_node_a.add_return("");
+        let return_node_b = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node_b, &return_node_a]).build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert!(ptr::eq(walker.node, &return_node_b));
     }
 }

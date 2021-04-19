@@ -1,191 +1,204 @@
-//! Walker for [`WordFilter`]'s internal searching.
-//!
-//! [`Walker`] provides an efficient way for the `WordFilter` to search its own directional graph for
-//! matches to a given string.
-//!
-//! Use of a `Walker` allows for multiple simultaneous searches to all maintain their own context.
-//! This allows for splitting of paths at aliases, searching for separators, and searching at
-//! different start locations within the string simultaneously.
-//!
-//! [`WordFilter`]: crate::WordFilter
-
 use crate::node::{self, Node};
-use alloc::vec::Vec;
+use alloc::vec::{self, Vec};
+use by_address::ByAddress;
 use core::{
     ops::{Bound, RangeBounds},
     ptr,
 };
+use hashbrown::HashSet;
 
 /// The current status of the `Walker`.
 ///
 /// This indicates whether the `Walker` has reached a `Match` or an `Exception` node.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) enum Status<'a> {
     /// Indicates the `Walker` has found no `Match` or `Exception` nodes yet.
     None,
-    /// Indicates the `Walker` has found a `Match` node containing the stored string.
-    Match(&'a str),
-    /// Indicates the `Walker` has found an `Exception` node containing the stored string.
-    Exception(&'a str),
+    /// Indicates the `Walker` has found a `Match` node containing the end index and the stored
+    /// string.
+    Match(usize, &'a str),
+    /// Indicates the `Walker` has found an `Exception` node containing the end index and the stored
+    /// string.
+    Exception(usize, &'a str),
 }
 
 #[derive(Clone)]
-pub(crate) enum NodeWithSubgraphContext<'a> {
+pub(crate) enum ContextualizedNode<'a> {
+    InDirectPath(&'a Node<'a>),
     InSubgraph(&'a Node<'a>),
-    NotInSubgraph(&'a Node<'a>),
 }
 
-/// A specialized walker for traveling through the `WordFilter`'s `Node` graph.
-///
-/// The `Walker` keeps track of the current context within the `Node` (as in, the current walker
-/// location, a stack of return nodes, etc.), as well as information about the `Walker`'s location
-/// within the original source string passed into the `WordFilter`.
-///
-/// In order to progress the `Walker` forward, the `step()` method is provided, which allows the
-/// user to step the `Walker` through each character in a string.
 #[derive(Clone)]
 pub(crate) struct Walker<'a> {
-    /// The current node.
-    pub(crate) current_node: &'a Node<'a>,
-    /// A stack of return nodes (indicating the `Walker`'s context within subgraphs).
-    pub(crate) return_nodes: Vec<&'a Node<'a>>,
-    /// This `Walker`'s current status.
+    pub(crate) node: &'a Node<'a>,
     pub(crate) status: Status<'a>,
 
-    /// The start index within the original source string.
     pub(crate) start: usize,
-    /// The length which this `Walker` has traveled.
-    pub(crate) len: usize,
-    /// The end index where the last `Match` or `Exception` node was found.
-    pub(crate) found_end: Option<usize>,
+    len: usize,
 
-    /// Indicates whether the walker is operating within a separator.
-    ///
-    /// This allows exclusion of trailing separator characters from matches and exceptions.
     pub(crate) in_separator: bool,
 
-    pub(crate) repeated_character_stack: Vec<Option<&'a Node<'a>>>,
-
-    pub(crate) callbacks: Vec<NodeWithSubgraphContext<'a>>,
-    pub(crate) targets: Vec<NodeWithSubgraphContext<'a>>,
-    pub(crate) new_walkers: Vec<Walker<'a>>,
+    pub(crate) returns: Vec<&'a Node<'a>>,
+    pub(crate) callbacks: Vec<ContextualizedNode<'a>>,
+    targets: Vec<ContextualizedNode<'a>>,
 }
 
 impl<'a> Walker<'a> {
-    /// Creates a new `Walker` with the provided attributes.
-    ///
-    /// This also sets `status` to `Status::None` and `found_len` to `None`.
-    pub(crate) fn new(
-        current_node: &'a Node<'a>,
-        return_nodes: Vec<&'a Node<'a>>,
-        start: usize,
-        len: usize,
-        in_separator: bool,
-        repeated_character_stack: Vec<Option<&'a Node<'a>>>,
-    ) -> Self {
-        Self {
-            current_node,
-            return_nodes,
-            status: Status::None,
-            start,
-            len,
-            found_end: None,
-            in_separator,
-            repeated_character_stack,
-            callbacks: Vec::new(),
-            targets: Vec::new(),
-            new_walkers: Vec::new(),
+    pub(crate) fn branch_to_aliases(
+        &self,
+        visited: &mut HashSet<ByAddress<&Node<'a>>>,
+    ) -> vec::IntoIter<Walker<'a>> {
+        let mut result = Vec::new();
+
+        for (alias_node, return_node) in &self.node.aliases {
+            if visited.contains(&ByAddress(alias_node)) {
+                continue;
+            }
+            let mut alias_walker = self.clone();
+            alias_walker.node = alias_node;
+            alias_walker.returns.push(return_node);
+
+            visited.insert(ByAddress(alias_node));
+            result.extend(alias_walker.branch_to_aliases(visited));
+            visited.remove(&ByAddress(alias_node));
+
+            result.push(alias_walker);
         }
+
+        result.into_iter()
     }
 
-    /// Processes a return node.
-    ///
-    /// This evaluation is evaluated recursively if there are multiple return nodes. If the node is
-    /// not actually a return node, the node is itself returned. This will happen when the final
-    /// node in the return chain, which is itself not a return node, is encountered.
-    ///
-    /// If the node *is* a return node, and the `return_nodes` stack is empty, then `None` is
-    /// returned. Otherwise, the new node where the `Walker` should be located is returned.
-    fn evaluate_return_node(&mut self, node: &'a Node<'a>) -> Option<&'a Node<'a>> {
-        match node.node_type {
-            node::Type::Standard => Some(node),
+    fn evaluate_return_node(&mut self) -> Result<vec::IntoIter<Walker<'a>>, ()> {
+        let mut result = Vec::new();
+
+        match self.node.node_type {
+            node::Type::Standard => {}
             node::Type::Return => {
-                if let Some(target) = self.targets.pop() {}
-                self.return_nodes
-                    .pop()
-                    .and_then(|return_node| self.evaluate_return_node(return_node))
+                self.node = match self.returns.pop() {
+                    Some(node) => node,
+                    None => return Err(()),
+                };
+
+                if let Some(ContextualizedNode::InSubgraph(target_node)) = self.targets.last() {
+                    if !ptr::eq(self.node, *target_node) {
+                        return Err(());
+                    }
+                    self.targets.pop();
+                }
+                if let Some(ContextualizedNode::InSubgraph(callback_node)) = self.callbacks.last() {
+                    let mut callback_walker = self.clone();
+                    callback_walker.node = callback_node;
+                    callback_walker.len += 1;
+
+                    result.extend(
+                        callback_walker
+                            .branch_to_aliases(&mut HashSet::new())
+                            .into_iter()
+                            .map(|mut walker| {
+                                walker
+                                    .targets
+                                    .push(ContextualizedNode::InSubgraph(self.node));
+                                walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
+                                walker
+                            }),
+                    );
+
+                    callback_walker
+                        .targets
+                        .push(ContextualizedNode::InDirectPath(self.node));
+                    callback_walker.callbacks.push(ContextualizedNode::InDirectPath(callback_node));
+                    result.push(callback_walker);
+
+                    self.callbacks.pop();
+                }
+
+                result.extend(self.evaluate_return_node()?);
             }
             node::Type::Match(word) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
-                    self.status = Status::Match(word);
-                    self.found_end = Some(self.start + self.len);
+                    self.status = Status::Match(self.start + self.len, word);
                 }
-                Some(node)
             }
-            node::Type::Exception(word) => {
+            node::Type::Exception(exception) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
-                    self.status = Status::Exception(word);
-                    self.found_end = Some(self.start + self.len);
+                    self.status = Status::Exception(self.start + self.len, exception);
                 }
-                Some(node)
             }
         }
+
+        Ok(result.into_iter())
     }
 
-    /// Step the `Walker` along the character `c`.
-    ///
-    /// If the `Walker` has reached a dead-end, this method returns `false`. Otherwise, it returns
-    /// `true` to indicate the `Walker` is still active in the `WordFilter` graph.
-    pub(crate) fn step(&mut self, c: char) -> bool {
-        self.current_node = match self.current_node.children.get(&c) {
+    pub(crate) fn step(&mut self, c: char) -> Result<vec::IntoIter<Walker<'a>>, ()> {
+        let mut branches = Vec::new();
+
+        match self.node.children.get(&c) {
             Some(node) => {
-                match self.repeated_character_stack.last().cloned().flatten() {
-                    Some(repeated_target_node) => {
-                        extern crate std;
-                        std::println!("{}", c);
-                        std::println!("{:p}", node.as_ref().get_ref());
-                        std::println!("{:p}", repeated_target_node);
-                        if !ptr::eq(node.as_ref().get_ref(), repeated_target_node) {
-                            return false;
+                match node.node_type {
+                    node::Type::Return => {}
+                    _ => {
+                        if let Some(ContextualizedNode::InDirectPath(target_node)) =
+                            self.targets.last()
+                        {
+                            if !ptr::eq(node.as_ref().get_ref(), *target_node) {
+                                return Err(());
+                            }
+                            self.targets.pop();
+                        }
+                        if let Some(ContextualizedNode::InDirectPath(callback_node)) =
+                            self.callbacks.last()
+                        {
+                            let mut callback_walker = self.clone();
+                            callback_walker.node = callback_node;
+                            callback_walker.len += 1;
+
+                            branches.extend(
+                                callback_walker
+                                    .branch_to_aliases(&mut HashSet::new())
+                                    .into_iter()
+                                    .map(|mut walker| {
+                                        walker.targets.push(ContextualizedNode::InSubgraph(node));
+                                        walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
+                                        walker
+                                    }),
+                            );
+
+                            callback_walker
+                                .targets
+                                .push(ContextualizedNode::InDirectPath(node));
+                            callback_walker.callbacks.push(ContextualizedNode::InDirectPath(callback_node));
+                            branches.push(callback_walker);
+
+                            self.callbacks.pop();
                         }
                     }
-                    None => {}
                 }
+                self.node = node;
                 match node.node_type {
-                    node::Type::Standard => node,
+                    node::Type::Standard => {}
                     node::Type::Return => {
-                        if let Some(return_node) = self.evaluate_return_node(node) {
-                            return_node
-                        } else {
-                            return false;
-                        }
+                        self.node = node;
+                        branches.extend(self.evaluate_return_node()?);
                     }
                     node::Type::Match(word) => {
-                        self.status = Status::Match(word);
-                        self.found_end = Some(self.start + self.len);
-                        node
+                        self.status = Status::Match(self.start + self.len, word);
                     }
                     node::Type::Exception(exception) => {
-                        self.status = Status::Exception(exception);
-                        self.found_end = Some(self.start + self.len);
-                        node
+                        self.status = Status::Exception(self.start + self.len, exception);
                     }
                 }
             }
-            None => return false,
+            None => return Err(()),
         };
-
         self.len += 1;
-        if let Some(repeated_character) = self.repeated_character_stack.last_mut() {
-            *repeated_character = None;
-        }
-        extern crate std;
-        std::println!("{} passed", c);
-        true
+
+        // branches.extend(self.branch_to_aliases(&mut HashSet::new()));
+
+        Ok(branches.into_iter())
     }
 }
 
@@ -206,163 +219,105 @@ impl RangeBounds<usize> for Walker<'_> {
 
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
-        Bound::Included(self.found_end.as_ref().unwrap_or(&self.start))
+        match self.status {
+            Status::None => Bound::Excluded(&self.start),
+            Status::Match(ref found_len, _) | Status::Exception(ref found_len, _) => {
+                Bound::Included(found_len)
+            }
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::node::Node;
-    use crate::walker::{Status, Walker};
-    use alloc::{vec, vec::Vec};
-    use claim::assert_matches;
+pub(crate) struct WalkerBuilder<'a> {
+    node: &'a Node<'a>,
+    status: Status<'a>,
 
-    #[test]
-    fn step() {
-        let mut node = Node::new();
-        node.add_match("foo");
+    start: usize,
+    len: usize,
 
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
+    in_separator: bool,
 
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-        assert!(!walker.step('o'));
+    returns: Vec<&'a Node<'a>>,
+    callbacks: Vec<ContextualizedNode<'a>>,
+    targets: Vec<ContextualizedNode<'a>>,
+}
+
+impl<'a> WalkerBuilder<'a> {
+    #[inline]
+    #[must_use]
+    pub(crate) fn new(node: &'a Node<'a>) -> Self {
+        Self {
+            node: node,
+            status: Status::None,
+
+            start: 0,
+            len: 0,
+
+            in_separator: false,
+
+            returns: Vec::new(),
+            callbacks: Vec::new(),
+            targets: Vec::new(),
+        }
     }
 
-    #[test]
-    fn step_match() {
-        let mut node = Node::new();
-        node.add_match("foo");
-
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert_matches!(walker.status, Status::Match("foo"));
+    #[inline]
+    pub(crate) fn status(mut self, status: Status<'a>) -> Self {
+        self.status = status;
+        self
     }
 
-    #[test]
-    fn step_exception() {
-        let mut node = Node::new();
-        node.add_exception("foo");
-
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert_matches!(walker.status, Status::Exception("foo"));
+    #[inline]
+    pub(crate) fn start(mut self, start: usize) -> Self {
+        self.start = start;
+        self
     }
 
-    #[test]
-    fn step_return() {
-        let mut node = Node::new();
-        node.add_return("foo");
-
-        let return_node = Node::new();
-
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert!(core::ptr::eq(walker.current_node, &return_node));
+    #[inline]
+    pub(crate) fn len(mut self, len: usize) -> Self {
+        self.len = len;
+        self
     }
 
-    #[test]
-    fn step_return_no_return_node() {
-        let mut node = Node::new();
-        node.add_return("foo");
-
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(!walker.step('o'));
+    #[inline]
+    pub(crate) fn in_separator(mut self, in_separator: bool) -> Self {
+        self.in_separator = in_separator;
+        self
     }
 
-    #[test]
-    fn step_return_in_separator() {
-        let mut node = Node::new();
-        node.add_return("foo");
-
-        let mut return_node = Node::new();
-        return_node.add_match("");
-
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert!(core::ptr::eq(walker.current_node, &return_node));
-        assert!(!walker.in_separator);
-        assert_eq!(walker.found_end, None);
+    #[inline]
+    pub(crate) fn returns(mut self, returns: Vec<&'a Node<'a>>) -> Self {
+        self.returns = returns;
+        self
     }
 
-    #[test]
-    fn step_return_to_exception() {
-        let mut node = Node::new();
-        node.add_return("foo");
-
-        let mut return_node = Node::new();
-        return_node.add_exception("");
-
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert!(core::ptr::eq(walker.current_node, &return_node));
+    #[inline]
+    pub(crate) fn callbacks(mut self, callbacks: Vec<ContextualizedNode<'a>>) -> Self {
+        self.callbacks = callbacks;
+        self
     }
 
-    #[test]
-    fn step_return_to_exception_in_separator() {
-        let mut node = Node::new();
-        node.add_return("foo");
-
-        let mut return_node = Node::new();
-        return_node.add_exception("");
-
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true, vec![None]);
-
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert!(core::ptr::eq(walker.current_node, &return_node));
-        assert!(!walker.in_separator);
-        assert_eq!(walker.found_end, None);
+    #[inline]
+    pub(crate) fn targets(mut self, targets: Vec<ContextualizedNode<'a>>) -> Self {
+        self.targets = targets;
+        self
     }
 
-    #[test]
-    fn step_return_twice() {
-        let mut node = Node::new();
-        node.add_return("foo");
+    #[inline]
+    #[must_use]
+    pub(crate) fn build(self) -> Walker<'a> {
+        Walker {
+            node: self.node,
+            status: self.status,
 
-        let mut first_return_node = Node::new();
-        first_return_node.add_return("");
-        let second_return_node = Node::new();
+            start: self.start,
+            len: self.len,
 
-        let mut walker = Walker::new(
-            &node,
-            vec![&second_return_node, &first_return_node],
-            0,
-            0,
-            false,
-            vec![None],
-        );
+            in_separator: self.in_separator,
 
-        assert!(walker.step('f'));
-        assert!(walker.step('o'));
-        assert!(walker.step('o'));
-
-        assert!(core::ptr::eq(walker.current_node, &second_return_node));
+            returns: self.returns,
+            callbacks: self.callbacks,
+            targets: self.targets,
+        }
     }
 }

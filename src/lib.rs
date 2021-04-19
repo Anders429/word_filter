@@ -64,10 +64,9 @@
 
 extern crate alloc;
 
-mod new_walker;
 mod node;
 mod utils;
-//mod walker;
+mod walker;
 
 pub mod censor;
 
@@ -83,8 +82,7 @@ use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
 use utils::debug_unreachable;
-// use walker::Walker;
-use new_walker::{ContextualizedNode, Walker, WalkerBuilder};
+use walker::{ContextualizedNode, Walker, WalkerBuilder};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 #[derive(Clone, Copy, Debug)]
@@ -263,10 +261,10 @@ impl WordFilter<'_> {
         // Evaluate all remaining walkers.
         for walker in walkers.drain(..) {
             match walker.status {
-                new_walker::Status::Match(_, _) | new_walker::Status::Exception(_, _) => {
+                walker::Status::Match(_, _) | walker::Status::Exception(_, _) => {
                     found.push(walker)
                 }
-                new_walker::Status::None => {}
+                walker::Status::None => {}
             }
         }
 
@@ -275,7 +273,7 @@ impl WordFilter<'_> {
             .into_iter()
             .filter_map(|element| {
                 let p = element.value;
-                if let new_walker::Status::Match(_, _) = p.status {
+                if let walker::Status::Match(_, _) = p.status {
                     Some(p)
                 } else {
                     None
@@ -300,7 +298,7 @@ impl WordFilter<'_> {
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_walkers(input)
             .map(|walker| {
-                if let new_walker::Status::Match(_, s) = walker.status {
+                if let walker::Status::Match(_, s) = walker.status {
                     s
                 } else {
                     unsafe {

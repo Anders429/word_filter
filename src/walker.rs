@@ -57,6 +57,7 @@ impl<'a> Walker<'a> {
             let mut alias_walker = self.clone();
             alias_walker.node = alias_node;
             alias_walker.returns.push(return_node);
+            alias_walker.in_separator = false;
 
             visited.insert(ByAddress(alias_node));
             result.extend(alias_walker.branch_to_aliases(visited));
@@ -115,17 +116,19 @@ impl<'a> Walker<'a> {
                 result.extend(self.evaluate_return_node()?);
             }
             node::Type::Match(word) => {
+                extern crate std;
+                std::println!("FOUND MATCH!");
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
-                    self.status = Status::Match(self.start + self.len, word);
+                    self.status = Status::Match(self.start + self.len + 1, word);
                 }
             }
             node::Type::Exception(exception) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
-                    self.status = Status::Exception(self.start + self.len, exception);
+                    self.status = Status::Exception(self.start + self.len + 1, exception);
                 }
             }
         }
@@ -178,25 +181,24 @@ impl<'a> Walker<'a> {
                     }
                 }
                 self.node = node;
-                match node.node_type {
+                match self.node.node_type {
                     node::Type::Standard => {}
                     node::Type::Return => {
-                        self.node = node;
+                        extern crate std;
+                        std::println!("HERE");
                         branches.extend(self.evaluate_return_node()?);
                     }
                     node::Type::Match(word) => {
-                        self.status = Status::Match(self.start + self.len, word);
+                        self.status = Status::Match(self.start + self.len + 1, word);
                     }
                     node::Type::Exception(exception) => {
-                        self.status = Status::Exception(self.start + self.len, exception);
+                        self.status = Status::Exception(self.start + self.len + 1, exception);
                     }
                 }
             }
             None => return Err(()),
         };
         self.len += 1;
-
-        // branches.extend(self.branch_to_aliases(&mut HashSet::new()));
 
         Ok(branches.into_iter())
     }
@@ -221,8 +223,9 @@ impl RangeBounds<usize> for Walker<'_> {
     fn end_bound(&self) -> Bound<&usize> {
         match self.status {
             Status::None => Bound::Excluded(&self.start),
-            Status::Match(ref found_len, _) | Status::Exception(ref found_len, _) => {
-                Bound::Included(found_len)
+            Status::Match(ref end, _) => Bound::Excluded(end),
+            Status::Exception(ref end, _) => {
+                Bound::Included(end)
             }
         }
     }

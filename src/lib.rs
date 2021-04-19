@@ -246,7 +246,10 @@ impl WordFilter<'_> {
                         }
                         new_walkers.push(walker);
                     }
-                    Err(_) => found.push(walker),
+                    Err(_) => match walker.status {
+                        walker::Status::Match(_, _) | walker::Status::Exception(_, _) => found.push(walker),
+                        _ => {},
+                    }
                 }
             }
 
@@ -373,7 +376,7 @@ impl WordFilter<'_> {
             }
             // Censor the covered characters for this walker.
             let len = match walker.end_bound() {
-                Bound::Included(end) => end + 1,
+                Bound::Excluded(end) => end + 1,
                 _ => continue,
             } - core::cmp::max(walker.start, prev_end);
 
@@ -381,8 +384,8 @@ impl WordFilter<'_> {
                 Some((start, c)) => (start, c),
                 None => unsafe { debug_unreachable() },
             };
-            let substring_end = if len > 1 {
-                match input_char_indices.nth(len - 2) {
+            let substring_end = if len > 2 {
+                match input_char_indices.nth(len - 3) {
                     Some((end, c)) => end + c.len_utf8(),
                     None => unsafe { debug_unreachable() },
                 }
@@ -393,9 +396,9 @@ impl WordFilter<'_> {
             output.push_str(&(self.censor)(&input[substring_start..substring_end]));
 
             prev_end = match walker.end_bound() {
-                Bound::Included(end) => end + 1,
+                Bound::Excluded(end) => end + 1,
                 _ => unsafe {
-                    // SAFETY: The `end_bound` on the `walker` will always be `Bound::Included`,
+                    // SAFETY: The `end_bound` on the `walker` will always be `Bound::Excluded`,
                     // since any other branch resulted in a `continue` above.
                     debug_unreachable()
                 },
@@ -981,5 +984,16 @@ mod tests {
             .build();
 
         assert_eq!(filter.censor("fbaAaAaAar"), "f*********");
+    }
+
+    #[test]
+    fn separator_in_match_filled_with_smaller_match() {
+        let filter =WordFilterBuilder::new()
+            .words(&["foobar"])
+            .separators(&[" "])
+            .aliases(&[("bar", "baz")])
+            .build();
+
+        assert_eq!(filter.find("foo baz"), vec!["foobar"].into_boxed_slice());
     }
 }

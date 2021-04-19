@@ -64,14 +64,14 @@
 
 extern crate alloc;
 
+mod new_walker;
 mod node;
 mod utils;
-mod walker;
+//mod walker;
 
 pub mod censor;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
-use by_address::ByAddress;
 use censor::replace_chars_with;
 use core::{
     iter::FromIterator,
@@ -83,7 +83,8 @@ use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
 use utils::debug_unreachable;
-use walker::Walker;
+// use walker::Walker;
+use new_walker::{ContextualizedNode, Walker, WalkerBuilder};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 #[derive(Clone, Copy, Debug)]
@@ -163,94 +164,98 @@ pub struct WordFilter<'a> {
     censor: fn(&str) -> String,
 }
 
-impl<'a> WordFilter<'a> {
-    /// Create new `Walker`s for the aliases at the `walker`'s `current_node`.
-    fn push_aliases(
-        &self,
-        walker: &Walker<'a>,
-        new_walkers: &mut Vec<Walker<'a>>,
-        visited: &mut HashSet<ByAddress<&Node<'a>>>,
-    ) {
-        for (alias_node, return_node) in &walker.current_node.aliases {
-            if visited.contains(&ByAddress(alias_node)) {
-                continue;
-            }
-            let mut return_nodes = walker.return_nodes.clone();
-            return_nodes.push(return_node);
-            let alias_walker =
-                Walker::new(alias_node, return_nodes, walker.start, walker.len, false);
-            visited.insert(ByAddress(alias_node));
-            self.push_aliases(&alias_walker, new_walkers, visited);
-            visited.remove(&ByAddress(alias_node));
-            new_walkers.push(alias_walker);
-        }
-    }
-
+impl WordFilter<'_> {
     /// Finds all `Walker`s that encounter matches.
     ///
     /// This also excludes all `Walker`s that encountered matches but whose ranges also are
     /// contained within ranges are `Walker`s who encountered exceptions.
     fn find_walkers(&self, input: &str) -> impl Iterator<Item = Walker<'_>> {
-        let root_walker = Walker::new(&self.root, Vec::new(), 0, 0, false);
-        let mut walkers = Vec::new();
-        self.push_aliases(&root_walker, &mut walkers, &mut HashSet::new());
+        let mut root_walker_builder = WalkerBuilder::new(&self.root);
+        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+            self.repeated_character_match_mode
+        {
+            root_walker_builder =
+                root_walker_builder.callbacks(vec![ContextualizedNode::InDirectPath(&self.root)]);
+        }
+        let root_walker = root_walker_builder.build();
+        let alias_walkers = root_walker.branch_to_aliases(&mut HashSet::new());
+        let mut walkers = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+            self.repeated_character_match_mode
+        {
+            Vec::from_iter(alias_walkers.map(|mut walker| {
+                walker
+                    .callbacks
+                    .push(ContextualizedNode::InSubgraph(&self.root));
+                walker
+            }))
+        } else {
+            Vec::from_iter(root_walker.branch_to_aliases(&mut HashSet::new()))
+        };
         walkers.push(root_walker);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
             let mut new_walkers = Vec::new();
             for mut walker in walkers.drain(..) {
-                let mut last_walker = walker.clone();
-                if walker.step(c) {
-                    // Aliases.
-                    self.push_aliases(&walker, &mut new_walkers, &mut HashSet::new());
-                    // Separators.
-                    let mut return_nodes = walker.return_nodes.clone();
-                    return_nodes.push(walker.current_node);
-                    new_walkers.push(Walker::new(
-                        &self.separator_root,
-                        return_nodes,
-                        walker.start,
-                        walker.len,
-                        true,
-                    ));
-
-                    // Direct path.
-                    new_walkers.push(walker);
-
-                    // Repeated characters.
-                    if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
-                        self.repeated_character_match_mode
-                    {
-                        last_walker.len += 1;
+                match walker.step(c) {
+                    Ok(branches) => {
+                        new_walkers.extend(branches.clone().map(|walker| {
+                            let mut separator_walker = walker.clone();
+                            separator_walker.node = &self.separator_root;
+                            separator_walker.returns.push(walker.node);
+                            separator_walker.in_separator = true;
+                            separator_walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(walker.node));
+                            separator_walker
+                        }));
+                        new_walkers.extend(branches);
+                        // Aliases.
+                        let alias_walkers = walker.branch_to_aliases(&mut HashSet::new());
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            new_walkers.extend(alias_walkers.map(|mut walker| {
+                                walker
+                                    .callbacks
+                                    .push(ContextualizedNode::InSubgraph(walker.node));
+                                walker
+                            }));
+                        } else {
+                            new_walkers.extend(alias_walkers);
+                        }
 
                         // Separators.
-                        let mut return_nodes = last_walker.return_nodes.clone();
-                        return_nodes.push(last_walker.current_node);
-                        let mut separator_walker = Walker::new(
-                            &self.separator_root,
-                            return_nodes,
-                            last_walker.start,
-                            last_walker.len,
-                            true,
-                        );
-                        separator_walker.repeated_character = Some(c);
+                        let mut separator_walker = walker.clone();
+                        separator_walker.node = &self.separator_root;
+                        separator_walker.returns.push(walker.node);
+                        separator_walker.in_separator = true;
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            separator_walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(walker.node));
+                        }
                         new_walkers.push(separator_walker);
 
-                        last_walker.repeated_character = Some(c);
-                        new_walkers.push(last_walker);
+                        // Direct path.
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            walker
+                                .callbacks
+                                .push(ContextualizedNode::InDirectPath(walker.node));
+                        }
+                        new_walkers.push(walker);
                     }
-                } else if let walker::Status::Match(_) = walker.status {
-                    found.push(walker);
-                } else if let walker::Status::Exception(_) = walker.status {
-                    found.push(walker);
+                    Err(_) => found.push(walker),
                 }
             }
 
             // Add root again.
-            new_walkers.push(Walker::new(&self.root, Vec::new(), i + 1, 0, false));
-            new_walkers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
-                Walker::new(alias_node, vec![return_node], i + 1, 0, false)
-            }));
+            let root_walker = WalkerBuilder::new(&self.root).start(i + 1).build();
+            new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
+            new_walkers.push(root_walker);
 
             walkers = new_walkers;
         }
@@ -258,8 +263,10 @@ impl<'a> WordFilter<'a> {
         // Evaluate all remaining walkers.
         for walker in walkers.drain(..) {
             match walker.status {
-                walker::Status::Match(_) | walker::Status::Exception(_) => found.push(walker),
-                walker::Status::None => {}
+                new_walker::Status::Match(_, _) | new_walker::Status::Exception(_, _) => {
+                    found.push(walker)
+                }
+                new_walker::Status::None => {}
             }
         }
 
@@ -268,7 +275,7 @@ impl<'a> WordFilter<'a> {
             .into_iter()
             .filter_map(|element| {
                 let p = element.value;
-                if let walker::Status::Match(_) = p.status {
+                if let new_walker::Status::Match(_, _) = p.status {
                     Some(p)
                 } else {
                     None
@@ -293,7 +300,7 @@ impl<'a> WordFilter<'a> {
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_walkers(input)
             .map(|walker| {
-                if let walker::Status::Match(s) = walker.status {
+                if let new_walker::Status::Match(_, s) = walker.status {
                     s
                 } else {
                     unsafe {
@@ -369,11 +376,7 @@ impl<'a> WordFilter<'a> {
             // Censor the covered characters for this walker.
             let len = match walker.end_bound() {
                 Bound::Included(end) => end + 1,
-                _ => unsafe {
-                    // SAFETY: The `RangeBounds` on a `Walker` will always be `Bound::Included`, so
-                    // we will never reach any other branch.
-                    debug_unreachable()
-                },
+                _ => continue,
             } - core::cmp::max(walker.start, prev_end);
 
             let (substring_start, current_char) = match input_char_indices.next() {
@@ -394,8 +397,8 @@ impl<'a> WordFilter<'a> {
             prev_end = match walker.end_bound() {
                 Bound::Included(end) => end + 1,
                 _ => unsafe {
-                    // SAFETY: The `RangeBounds` on a `Walker` will always be `Bound::Included`, so
-                    // we will never reach any other branch.
+                    // SAFETY: The `end_bound` on the `walker` will always be `Bound::Included`,
+                    // since any other branch resulted in a `continue` above.
                     debug_unreachable()
                 },
             };
@@ -974,8 +977,11 @@ mod tests {
 
     #[test]
     fn censor_repeated_alias() {
-        let filter = WordFilterBuilder::new().words(&["foo", "bar"]).aliases(&[("a", "A")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["foo", "bar"])
+            .aliases(&[("a", "A")])
+            .build();
 
-        assert_eq!(filter.censor("fbAaaAaAar"), "f*********");
+        assert_eq!(filter.censor("fbaAaAaAar"), "f*********");
     }
 }

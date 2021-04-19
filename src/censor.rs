@@ -122,7 +122,7 @@ macro_rules! _replace_words_with {
             use $crate::censor::ToOwned;
             $s.to_owned()
         }
-    }
+    };
 }
 
 #[doc(inline)]
@@ -130,9 +130,9 @@ pub use _replace_words_with as replace_words_with;
 
 #[cfg(test)]
 mod tests {
-    use crate::censor::{replace_chars_with, replace_words_with};
     #[cfg(feature = "unicode-segmentation")]
     use crate::censor::replace_graphemes_with;
+    use crate::censor::{replace_chars_with, replace_words_with};
 
     #[test]
     fn replace_chars() {

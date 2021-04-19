@@ -11,7 +11,10 @@
 
 use crate::node::{self, Node};
 use alloc::vec::Vec;
-use core::ops::{Bound, RangeBounds};
+use core::{
+    ops::{Bound, RangeBounds},
+    ptr,
+};
 
 /// The current status of the `Walker`.
 ///
@@ -24,6 +27,12 @@ pub(crate) enum Status<'a> {
     Match(&'a str),
     /// Indicates the `Walker` has found an `Exception` node containing the stored string.
     Exception(&'a str),
+}
+
+#[derive(Clone)]
+pub(crate) enum NodeWithSubgraphContext<'a> {
+    InSubgraph(&'a Node<'a>),
+    NotInSubgraph(&'a Node<'a>),
 }
 
 /// A specialized walker for traveling through the `WordFilter`'s `Node` graph.
@@ -50,9 +59,16 @@ pub(crate) struct Walker<'a> {
     /// The end index where the last `Match` or `Exception` node was found.
     pub(crate) found_end: Option<usize>,
 
+    /// Indicates whether the walker is operating within a separator.
+    ///
+    /// This allows exclusion of trailing separator characters from matches and exceptions.
     pub(crate) in_separator: bool,
 
-    pub(crate) repeated_character: Option<char>
+    pub(crate) repeated_character_stack: Vec<Option<&'a Node<'a>>>,
+
+    pub(crate) callbacks: Vec<NodeWithSubgraphContext<'a>>,
+    pub(crate) targets: Vec<NodeWithSubgraphContext<'a>>,
+    pub(crate) new_walkers: Vec<Walker<'a>>,
 }
 
 impl<'a> Walker<'a> {
@@ -65,6 +81,7 @@ impl<'a> Walker<'a> {
         start: usize,
         len: usize,
         in_separator: bool,
+        repeated_character_stack: Vec<Option<&'a Node<'a>>>,
     ) -> Self {
         Self {
             current_node,
@@ -74,7 +91,10 @@ impl<'a> Walker<'a> {
             len,
             found_end: None,
             in_separator,
-            repeated_character: None,
+            repeated_character_stack,
+            callbacks: Vec::new(),
+            targets: Vec::new(),
+            new_walkers: Vec::new(),
         }
     }
 
@@ -89,10 +109,12 @@ impl<'a> Walker<'a> {
     fn evaluate_return_node(&mut self, node: &'a Node<'a>) -> Option<&'a Node<'a>> {
         match node.node_type {
             node::Type::Standard => Some(node),
-            node::Type::Return => self
-                .return_nodes
-                .pop()
-                .and_then(|return_node| self.evaluate_return_node(return_node)),
+            node::Type::Return => {
+                if let Some(target) = self.targets.pop() {}
+                self.return_nodes
+                    .pop()
+                    .and_then(|return_node| self.evaluate_return_node(return_node))
+            }
             node::Type::Match(word) => {
                 if self.in_separator {
                     self.in_separator = false;
@@ -119,39 +141,50 @@ impl<'a> Walker<'a> {
     /// If the `Walker` has reached a dead-end, this method returns `false`. Otherwise, it returns
     /// `true` to indicate the `Walker` is still active in the `WordFilter` graph.
     pub(crate) fn step(&mut self, c: char) -> bool {
-        match self.repeated_character {
-            Some(stored_c) => if c != stored_c && !self.in_separator {
-                return false;
-            }
-            None => {},
-        }
         self.current_node = match self.current_node.children.get(&c) {
-            Some(node) => match node.node_type {
-                node::Type::Standard => node,
-                node::Type::Return => {
-                    if let Some(return_node) = self.evaluate_return_node(node) {
-                        return_node
-                    } else {
-                        return false;
+            Some(node) => {
+                match self.repeated_character_stack.last().cloned().flatten() {
+                    Some(repeated_target_node) => {
+                        extern crate std;
+                        std::println!("{}", c);
+                        std::println!("{:p}", node.as_ref().get_ref());
+                        std::println!("{:p}", repeated_target_node);
+                        if !ptr::eq(node.as_ref().get_ref(), repeated_target_node) {
+                            return false;
+                        }
+                    }
+                    None => {}
+                }
+                match node.node_type {
+                    node::Type::Standard => node,
+                    node::Type::Return => {
+                        if let Some(return_node) = self.evaluate_return_node(node) {
+                            return_node
+                        } else {
+                            return false;
+                        }
+                    }
+                    node::Type::Match(word) => {
+                        self.status = Status::Match(word);
+                        self.found_end = Some(self.start + self.len);
+                        node
+                    }
+                    node::Type::Exception(exception) => {
+                        self.status = Status::Exception(exception);
+                        self.found_end = Some(self.start + self.len);
+                        node
                     }
                 }
-                node::Type::Match(word) => {
-                    self.status = Status::Match(word);
-                    self.found_end = Some(self.start + self.len);
-                    node
-                }
-                node::Type::Exception(word) => {
-                    self.status = Status::Exception(word);
-                    self.found_end = Some(self.start + self.len);
-                    node
-                }
-            },
+            }
             None => return false,
         };
+
         self.len += 1;
-        if !self.in_separator {
-            self.repeated_character = None;
+        if let Some(repeated_character) = self.repeated_character_stack.last_mut() {
+            *repeated_character = None;
         }
+        extern crate std;
+        std::println!("{} passed", c);
         true
     }
 }
@@ -189,7 +222,7 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -202,7 +235,7 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -216,7 +249,7 @@ mod tests {
         let mut node = Node::new();
         node.add_exception("foo");
 
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -232,7 +265,7 @@ mod tests {
 
         let return_node = Node::new();
 
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -246,7 +279,7 @@ mod tests {
         let mut node = Node::new();
         node.add_return("foo");
 
-        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false);
+        let mut walker = Walker::new(&node, Vec::new(), 0, 0, false, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -261,7 +294,7 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_match("");
 
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -280,7 +313,7 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_exception("");
 
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, false, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -297,7 +330,7 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_exception("");
 
-        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true);
+        let mut walker = Walker::new(&node, vec![&return_node], 0, 0, true, vec![None]);
 
         assert!(walker.step('f'));
         assert!(walker.step('o'));
@@ -323,6 +356,7 @@ mod tests {
             0,
             0,
             false,
+            vec![None],
         );
 
         assert!(walker.step('f'));

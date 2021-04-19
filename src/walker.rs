@@ -331,7 +331,13 @@ impl<'a> WalkerBuilder<'a> {
 mod tests {
     use super::{Status, WalkerBuilder};
     use crate::node::Node;
-    use core::ops::{Bound, RangeBounds};
+    use alloc::{vec, vec::Vec};
+    use by_address::ByAddress;
+    use core::{
+        ops::{Bound, RangeBounds},
+        ptr,
+    };
+    use hashbrown::HashSet;
 
     #[test]
     fn range_bounds_status_none() {
@@ -362,5 +368,115 @@ mod tests {
 
         assert_eq!(walker.start_bound(), Bound::Included(&0));
         assert_eq!(walker.end_bound(), Bound::Included(&2));
+    }
+
+    #[test]
+    fn branch_to_aliases_no_aliases() {
+        let node = Node::new();
+        let walker = WalkerBuilder::new(&node).build();
+
+        assert_eq!(walker.branch_to_aliases(&mut HashSet::new()).count(), 0);
+    }
+
+    #[test]
+    fn branch_to_aliases() {
+        let alias_node = Node::new();
+        let return_node = Node::new();
+        let mut node = Node::new();
+        node.aliases.push((&alias_node, &return_node));
+        let walker = WalkerBuilder::new(&node).build();
+
+        let branches = walker
+            .branch_to_aliases(&mut HashSet::new())
+            .collect::<Vec<_>>();
+        assert_eq!(branches.len(), 1);
+        assert!(ptr::eq(branches[0].node, &alias_node));
+        assert_eq!(branches[0].returns.len(), 1);
+        assert!(ptr::eq(branches[0].returns[0], &return_node));
+    }
+
+    #[test]
+    fn branch_to_aliases_already_visited() {
+        let alias_node = Node::new();
+        let return_node = Node::new();
+        let mut node = Node::new();
+        node.aliases.push((&alias_node, &return_node));
+        let walker = WalkerBuilder::new(&node).build();
+
+        let mut visited = HashSet::new();
+        visited.insert(ByAddress(&alias_node));
+        assert_eq!(walker.branch_to_aliases(&mut visited).count(), 0);
+    }
+
+    #[test]
+    fn branch_to_aliases_chained() {
+        let chained_alias_node = Node::new();
+        let chained_return_node = Node::new();
+        let mut alias_node = Node::new();
+        alias_node
+            .aliases
+            .push((&chained_alias_node, &chained_return_node));
+        let return_node = Node::new();
+        let mut node = Node::new();
+        node.aliases.push((&alias_node, &return_node));
+        let walker = WalkerBuilder::new(&node).build();
+
+        let branches = walker
+            .branch_to_aliases(&mut HashSet::new())
+            .collect::<Vec<_>>();
+        assert_eq!(branches.len(), 2);
+        assert!(ptr::eq(branches[0].node, &chained_alias_node));
+        assert_eq!(branches[0].returns.len(), 2);
+        assert!(ptr::eq(branches[0].returns[0], &return_node));
+        assert!(ptr::eq(branches[0].returns[1], &chained_return_node));
+        assert!(ptr::eq(branches[1].node, &alias_node));
+        assert_eq!(branches[1].returns.len(), 1);
+        assert!(ptr::eq(branches[1].returns[0], &return_node));
+    }
+
+    #[test]
+    fn branch_to_aliases_chained_already_visited() {
+        let mut chained_alias_node = Node::new();
+        let chained_return_node = Node::new();
+        let mut alias_node = Node::new();
+        alias_node.aliases.push((
+            unsafe {
+                // Just evading lifetimes to allow these Nodes to reference each other, don't mind
+                // me... (this same thing happens in the actual WordFilter code, but in a much safer
+                // fashion with Pins to guarantee validity of the references).
+                (&chained_alias_node as *const Node as *const u8 as *const Node)
+                    .as_ref()
+                    .unwrap()
+            },
+            &chained_return_node,
+        ));
+        let return_node = Node::new();
+        chained_alias_node.aliases.push((
+            unsafe {
+                (&alias_node as *const Node as *const u8 as *const Node)
+                    .as_ref()
+                    .unwrap()
+            },
+            unsafe {
+                (&return_node as *const Node as *const u8 as *const Node)
+                    .as_ref()
+                    .unwrap()
+            },
+        ));
+        let mut node = Node::new();
+        node.aliases.push((&alias_node, &return_node));
+        let walker = WalkerBuilder::new(&node).build();
+
+        let branches = walker
+            .branch_to_aliases(&mut HashSet::new())
+            .collect::<Vec<_>>();
+        assert_eq!(branches.len(), 2);
+        assert!(ptr::eq(branches[0].node, &chained_alias_node));
+        assert_eq!(branches[0].returns.len(), 2);
+        assert!(ptr::eq(branches[0].returns[0], &return_node));
+        assert!(ptr::eq(branches[0].returns[1], &chained_return_node));
+        assert!(ptr::eq(branches[1].node, &alias_node));
+        assert_eq!(branches[1].returns.len(), 1);
+        assert!(ptr::eq(branches[1].returns[0], &return_node));
     }
 }

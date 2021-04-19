@@ -177,17 +177,19 @@ impl WordFilter<'_> {
         }
         let root_walker = root_walker_builder.build();
         let alias_walkers = root_walker.branch_to_aliases(&mut HashSet::new());
-        let mut walkers = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+        let mut walkers: Vec<Walker> = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
             self.repeated_character_match_mode
         {
-            Vec::from_iter(alias_walkers.map(|mut walker| {
-                walker
-                    .callbacks
-                    .push(ContextualizedNode::InSubgraph(&self.root));
-                walker
-            }))
+            alias_walkers
+                .map(|mut walker| {
+                    walker
+                        .callbacks
+                        .push(ContextualizedNode::InSubgraph(&self.root));
+                    walker
+                })
+                .collect()
         } else {
-            Vec::from_iter(root_walker.branch_to_aliases(&mut HashSet::new()))
+            root_walker.branch_to_aliases(&mut HashSet::new()).collect()
         };
         walkers.push(root_walker);
         let mut found = Vec::new();
@@ -196,6 +198,7 @@ impl WordFilter<'_> {
             for mut walker in walkers.drain(..) {
                 match walker.step(c) {
                     Ok(branches) => {
+                        // New branches.
                         new_walkers.extend(branches.clone().map(|walker| {
                             let mut separator_walker = walker.clone();
                             separator_walker.node = &self.separator_root;
@@ -207,6 +210,7 @@ impl WordFilter<'_> {
                             separator_walker
                         }));
                         new_walkers.extend(branches);
+
                         // Aliases.
                         let alias_walkers = walker.branch_to_aliases(&mut HashSet::new());
                         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
@@ -247,9 +251,11 @@ impl WordFilter<'_> {
                         new_walkers.push(walker);
                     }
                     Err(_) => match walker.status {
-                        walker::Status::Match(_, _) | walker::Status::Exception(_, _) => found.push(walker),
-                        _ => {},
-                    }
+                        walker::Status::Match(_, _) | walker::Status::Exception(_, _) => {
+                            found.push(walker)
+                        }
+                        _ => {}
+                    },
                 }
             }
 
@@ -264,9 +270,7 @@ impl WordFilter<'_> {
         // Evaluate all remaining walkers.
         for walker in walkers.drain(..) {
             match walker.status {
-                walker::Status::Match(_, _) | walker::Status::Exception(_, _) => {
-                    found.push(walker)
-                }
+                walker::Status::Match(_, _) | walker::Status::Exception(_, _) => found.push(walker),
                 walker::Status::None => {}
             }
         }
@@ -988,7 +992,7 @@ mod tests {
 
     #[test]
     fn separator_in_match_filled_with_smaller_match() {
-        let filter =WordFilterBuilder::new()
+        let filter = WordFilterBuilder::new()
             .words(&["foobar"])
             .separators(&[" "])
             .aliases(&[("bar", "baz")])

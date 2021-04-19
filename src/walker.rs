@@ -99,7 +99,9 @@ impl<'a> Walker<'a> {
                                 walker
                                     .targets
                                     .push(ContextualizedNode::InSubgraph(self.node));
-                                walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
+                                walker
+                                    .callbacks
+                                    .push(ContextualizedNode::InSubgraph(callback_node));
                                 walker
                             }),
                     );
@@ -107,7 +109,9 @@ impl<'a> Walker<'a> {
                     callback_walker
                         .targets
                         .push(ContextualizedNode::InDirectPath(self.node));
-                    callback_walker.callbacks.push(ContextualizedNode::InDirectPath(callback_node));
+                    callback_walker
+                        .callbacks
+                        .push(ContextualizedNode::InDirectPath(callback_node));
                     result.push(callback_walker);
 
                     self.callbacks.pop();
@@ -163,7 +167,9 @@ impl<'a> Walker<'a> {
                                     .into_iter()
                                     .map(|mut walker| {
                                         walker.targets.push(ContextualizedNode::InSubgraph(node));
-                                        walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
+                                        walker
+                                            .callbacks
+                                            .push(ContextualizedNode::InSubgraph(callback_node));
                                         walker
                                     }),
                             );
@@ -171,7 +177,9 @@ impl<'a> Walker<'a> {
                             callback_walker
                                 .targets
                                 .push(ContextualizedNode::InDirectPath(node));
-                            callback_walker.callbacks.push(ContextualizedNode::InDirectPath(callback_node));
+                            callback_walker
+                                .callbacks
+                                .push(ContextualizedNode::InDirectPath(callback_node));
                             branches.push(callback_walker);
 
                             self.callbacks.pop();
@@ -220,9 +228,7 @@ impl RangeBounds<usize> for Walker<'_> {
         match self.status {
             Status::None => Bound::Excluded(&self.start),
             Status::Match(ref end, _) => Bound::Excluded(end),
-            Status::Exception(ref end, _) => {
-                Bound::Included(end)
-            }
+            Status::Exception(ref end, _) => Bound::Included(end),
         }
     }
 }
@@ -323,9 +329,9 @@ impl<'a> WalkerBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use core::ops::{Bound, RangeBounds};
     use super::{Status, WalkerBuilder};
     use crate::node::Node;
+    use core::ops::{Bound, RangeBounds};
 
     #[test]
     fn range_bounds_status_none() {
@@ -339,7 +345,9 @@ mod tests {
     #[test]
     fn range_bounds_status_match() {
         let node = Node::new();
-        let walker = WalkerBuilder::new(&node).status(Status::Match(2, "foo")).build();
+        let walker = WalkerBuilder::new(&node)
+            .status(Status::Match(2, "foo"))
+            .build();
 
         assert_eq!(walker.start_bound(), Bound::Included(&0));
         assert_eq!(walker.end_bound(), Bound::Excluded(&2));
@@ -348,7 +356,9 @@ mod tests {
     #[test]
     fn range_bounds_status_exception() {
         let node = Node::new();
-        let walker = WalkerBuilder::new(&node).status(Status::Exception(2, "foo")).build();
+        let walker = WalkerBuilder::new(&node)
+            .status(Status::Exception(2, "foo"))
+            .build();
 
         assert_eq!(walker.start_bound(), Bound::Included(&0));
         assert_eq!(walker.end_bound(), Bound::Included(&2));

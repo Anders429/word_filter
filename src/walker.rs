@@ -259,7 +259,8 @@ impl fmt::Debug for Walker<'_> {
             .field("in_separator", &self.in_separator)
             .field(
                 "returns",
-                &self.returns
+                &self
+                    .returns
                     .iter()
                     .map(|node| *node as *const Node)
                     .collect::<Vec<_>>(),
@@ -366,11 +367,11 @@ impl<'a> WalkerBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Status, WalkerBuilder};
+    use super::{ContextualizedNode, Status, WalkerBuilder};
     use crate::node::Node;
     use alloc::{vec, vec::Vec};
     use by_address::ByAddress;
-    use claim::{assert_err, assert_matches, assert_ok};
+    use claim::{assert_err, assert_matches, assert_ok, assert_ok_eq};
     use core::{
         ops::{Bound, RangeBounds},
         ptr,
@@ -563,7 +564,9 @@ mod tests {
         node.add_return("foo");
         let return_node = Node::new();
 
-        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node]).build();
+        let mut walker = WalkerBuilder::new(&node)
+            .returns(vec![&return_node])
+            .build();
 
         assert_ok!(walker.step('f'));
         assert_ok!(walker.step('o'));
@@ -590,7 +593,9 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_match("");
 
-        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node]).build();
+        let mut walker = WalkerBuilder::new(&node)
+            .returns(vec![&return_node])
+            .build();
 
         assert_ok!(walker.step('f'));
         assert_ok!(walker.step('o'));
@@ -606,7 +611,9 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_exception("");
 
-        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node]).build();
+        let mut walker = WalkerBuilder::new(&node)
+            .returns(vec![&return_node])
+            .build();
 
         assert_ok!(walker.step('f'));
         assert_ok!(walker.step('o'));
@@ -622,7 +629,10 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_match("");
 
-        let mut walker = WalkerBuilder::new(&node).in_separator(true).returns(vec![&return_node]).build();
+        let mut walker = WalkerBuilder::new(&node)
+            .in_separator(true)
+            .returns(vec![&return_node])
+            .build();
 
         assert_ok!(walker.step('f'));
         assert_ok!(walker.step('o'));
@@ -639,7 +649,10 @@ mod tests {
         let mut return_node = Node::new();
         return_node.add_exception("");
 
-        let mut walker = WalkerBuilder::new(&node).in_separator(true).returns(vec![&return_node]).build();
+        let mut walker = WalkerBuilder::new(&node)
+            .in_separator(true)
+            .returns(vec![&return_node])
+            .build();
 
         assert_ok!(walker.step('f'));
         assert_ok!(walker.step('o'));
@@ -657,11 +670,119 @@ mod tests {
         return_node_a.add_return("");
         let return_node_b = Node::new();
 
-        let mut walker = WalkerBuilder::new(&node).returns(vec![&return_node_b, &return_node_a]).build();
+        let mut walker = WalkerBuilder::new(&node)
+            .returns(vec![&return_node_b, &return_node_a])
+            .build();
 
         assert_ok!(walker.step('f'));
         assert_ok!(walker.step('o'));
         assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node_b));
+    }
+
+    #[test]
+    fn step_callback_in_direct_path() {
+        let mut node = Node::new();
+        node.add_match("foo");
+        let callback_node = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node)
+            .callbacks(vec![ContextualizedNode::InDirectPath(&callback_node)])
+            .build();
+
+        let branched_walkers = walker.step('f').unwrap().collect::<Vec<_>>();
+        assert_eq!(branched_walkers.len(), 1);
+        assert!(ptr::eq(branched_walkers[0].node, &callback_node));
+        match branched_walkers[0].targets[0] {
+            ContextualizedNode::InDirectPath(target_node) => {
+                assert!(ptr::eq(target_node, &*node.children[&'f']))
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn step_callback_in_subgraph() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let return_node = Node::new();
+        let callback_node = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node)
+            .callbacks(vec![ContextualizedNode::InSubgraph(&callback_node)])
+            .returns(vec![&return_node])
+            .build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        let branched_walkers = walker.step('o').unwrap().collect::<Vec<_>>();
+        assert_eq!(branched_walkers.len(), 1);
+        assert!(ptr::eq(branched_walkers[0].node, &callback_node));
+        match branched_walkers[0].targets[0] {
+            ContextualizedNode::InDirectPath(target_node) => {
+                assert!(ptr::eq(target_node, &return_node))
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn step_target_in_direct_path() {
+        let mut node = Node::new();
+        node.add_match("foo");
+
+        let mut walker = WalkerBuilder::new(&node)
+            .targets(vec![ContextualizedNode::InDirectPath(&*node.children[&'f'])])
+            .build();
+
+        assert_ok!(walker.step('f'));
+        assert_eq!(walker.targets.len(), 0);
+    }
+
+    #[test]
+    fn step_target_in_subgraph() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let return_node = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node)
+            .targets(vec![ContextualizedNode::InSubgraph(&return_node)])
+            .returns(vec![&return_node])
+            .build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert_eq!(walker.targets.len(), 0);
+    }
+
+    #[test]
+    fn step_wrong_target_in_direct_path() {
+        let mut node = Node::new();
+        node.add_match("foo");
+        let target_node = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node)
+            .targets(vec![ContextualizedNode::InDirectPath(&target_node)])
+            .build();
+
+        assert_err!(walker.step('f'));
+    }
+
+    #[test]
+    fn step_wrong_target_in_subgraph() {
+        let mut node = Node::new();
+        node.add_return("foo");
+        let return_node = Node::new();
+        let target_node = Node::new();
+
+        let mut walker = WalkerBuilder::new(&node)
+            .targets(vec![ContextualizedNode::InSubgraph(&target_node)])
+            .returns(vec![&return_node])
+            .build();
+
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_err!(walker.step('o'));
     }
 }

@@ -116,8 +116,6 @@ impl<'a> Walker<'a> {
                 result.extend(self.evaluate_return_node()?);
             }
             node::Type::Match(word) => {
-                extern crate std;
-                std::println!("FOUND MATCH!");
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
@@ -184,8 +182,6 @@ impl<'a> Walker<'a> {
                 match self.node.node_type {
                     node::Type::Standard => {}
                     node::Type::Return => {
-                        extern crate std;
-                        std::println!("HERE");
                         branches.extend(self.evaluate_return_node()?);
                     }
                     node::Type::Match(word) => {

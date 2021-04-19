@@ -320,3 +320,37 @@ impl<'a> WalkerBuilder<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::ops::{Bound, RangeBounds};
+    use super::{Status, WalkerBuilder};
+    use crate::node::Node;
+
+    #[test]
+    fn range_bounds_status_none() {
+        let node = Node::new();
+        let walker = WalkerBuilder::new(&node).start(2).build();
+
+        assert_eq!(walker.start_bound(), Bound::Included(&2));
+        assert_eq!(walker.end_bound(), Bound::Excluded(&2));
+    }
+
+    #[test]
+    fn range_bounds_status_match() {
+        let node = Node::new();
+        let walker = WalkerBuilder::new(&node).status(Status::Match(2, "foo")).build();
+
+        assert_eq!(walker.start_bound(), Bound::Included(&0));
+        assert_eq!(walker.end_bound(), Bound::Excluded(&2));
+    }
+
+    #[test]
+    fn range_bounds_status_exception() {
+        let node = Node::new();
+        let walker = WalkerBuilder::new(&node).status(Status::Exception(2, "foo")).build();
+
+        assert_eq!(walker.start_bound(), Bound::Included(&0));
+        assert_eq!(walker.end_bound(), Bound::Included(&2));
+    }
+}

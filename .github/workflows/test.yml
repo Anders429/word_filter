@@ -53,6 +53,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/tarpaulin@v0.1
-      with:
-        args: --all-features
     - uses: codecov/codecov-action@v1

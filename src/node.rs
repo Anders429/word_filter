@@ -18,9 +18,10 @@
 //! the code are dedicated to upholding that invariant.
 
 use crate::utils::debug_unreachable;
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 use core::{marker::PhantomPinned, pin::Pin};
 use hashbrown::HashMap;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// The different possible node variants.
 #[derive(Debug)]
@@ -53,7 +54,7 @@ pub(crate) enum Type<'a> {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub(crate) struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>>,
+    pub(crate) children: HashMap<String, Pin<Box<Node<'a>>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
@@ -96,14 +97,14 @@ impl<'a> Node<'a> {
             return;
         }
 
-        let mut char_indices = word.char_indices();
+        let mut graphemes = word.graphemes(true);
         unsafe {
             self.children
-                .entry(match char_indices.next().map(|(_index, c)| c) {
-                    Some(c) => c,
+                .entry(match graphemes.next() {
+                    Some(g) => g.to_owned(),
                     None => {
-                        // SAFETY: We guarantee above that `word` is non-empty, and therefore
-                        // `char_indices.next()` will always return a value.
+                        // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+                        // `graphemes.next()` will always return a value.
                         debug_unreachable()
                     }
                 })
@@ -113,15 +114,7 @@ impl<'a> Node<'a> {
                 // mutation of the `Node` will uphold pin invariants.
                 .get_unchecked_mut()
                 .add_path(
-                    // SAFETY: Since `char_indices` is created from `word`, its indices will always
-                    // fall on character bounds of `word`. Therefore, this usage of
-                    // `get_unchecked()` is sound.
-                    word.get_unchecked(
-                        char_indices
-                            .next()
-                            .map_or_else(|| word.len(), |(index, _c)| index)..,
-                    ),
-                    node_type,
+                    graphemes.as_str(), node_type
                 );
         }
     }
@@ -159,22 +152,18 @@ impl<'a> Node<'a> {
             };
         }
 
-        let mut char_indices = value.char_indices();
+        let mut graphemes = value.graphemes(true);
         self.children
-            .get(&match char_indices.next().map(|(_index, c)| c) {
-                Some(c) => c,
+            .get(match graphemes.next() {
+                Some(g) => g,
                 None => unsafe {
-                    // SAFETY: `value` is verified above to be non-empty. Therefore, `char_indices` will
-                    // always return a value on `next()`.
+                    // SAFETY: `value` is verified above to be non-empty. Therefore, `graphemes`
+                    // will always return a value on `next()`.
                     debug_unreachable()
-                },
+                }
             })
             .and_then(|node| {
-                node.find_alias_return_node(
-                    &value[char_indices
-                        .next()
-                        .map_or_else(|| value.len(), |(index, _c)| index)..],
-                )
+                node.find_alias_return_node(graphemes.as_str())
             })
     }
 
@@ -185,7 +174,7 @@ impl<'a> Node<'a> {
     /// as it may leave some dangling references.
     pub(crate) fn add_alias(&mut self, value: &str, sub_graph_node: &'a Node<'a>) {
         // Head recursion.
-        for child in self.children.iter_mut().map(|(_c, node)| node) {
+        for child in self.children.iter_mut().map(|(_g, node)| node) {
             unsafe {
                 // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
                 // mutation of the `Node` will uphold pin invariants.
@@ -209,15 +198,13 @@ impl<'a> Node<'a> {
         if word.is_empty() {
             return Some(self);
         }
-        let mut char_indices = word.char_indices();
+
+        let mut graphemes = word.graphemes(true);
         self.children
-            .get(&char_indices.next().map(|(_index, c)| c).unwrap())
+            .get(graphemes.next().unwrap())
             .and_then(|node| {
                 node.search(
-                    &word[char_indices
-                        .next()
-                        .map(|(index, _c)| index)
-                        .unwrap_or_else(|| word.len())..],
+                    graphemes.as_str()
                 )
             })
     }

@@ -187,13 +187,13 @@ impl<'a> Walker<'a> {
         Ok(result.into_iter())
     }
 
-    /// Step the `Walker` along the character `c`.
+    /// Step the `Walker` along the grapheme `g`.
     ///
     /// If successful, returns an iterator of branched `Walker`s.
-    pub(crate) fn step(&mut self, c: char) -> Result<vec::IntoIter<Walker<'a>>, ()> {
+    pub(crate) fn step(&mut self, g: &str) -> Result<vec::IntoIter<Walker<'a>>, ()> {
         let mut branches = Vec::new();
 
-        match self.node.children.get(&c) {
+        match self.node.children.get(g) {
             Some(node) => {
                 match node.node_type {
                     node::Type::Return => {}
@@ -562,10 +562,10 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
-        assert_err!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
+        assert_err!(walker.step("o"));
     }
 
     #[test]
@@ -575,9 +575,9 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert_matches!(walker.status, Status::Match(3, "foo"));
     }
 
@@ -588,9 +588,9 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert_matches!(walker.status, Status::Exception(3, "foo"));
     }
 
@@ -604,9 +604,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert!(ptr::eq(walker.node, &return_node));
     }
 
@@ -617,9 +617,9 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_err!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_err!(walker.step("o"));
     }
 
     #[test]
@@ -633,9 +633,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert!(ptr::eq(walker.node, &return_node));
         assert_matches!(walker.status, Status::Match(3, ""));
     }
@@ -651,9 +651,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert!(ptr::eq(walker.node, &return_node));
         assert_matches!(walker.status, Status::Exception(3, ""));
     }
@@ -670,9 +670,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert!(ptr::eq(walker.node, &return_node));
         assert!(!walker.in_separator);
         assert_matches!(walker.status, Status::None);
@@ -690,9 +690,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert!(ptr::eq(walker.node, &return_node));
         assert!(!walker.in_separator);
         assert_matches!(walker.status, Status::None);
@@ -710,9 +710,9 @@ mod tests {
             .returns(vec![&return_node_b, &return_node_a])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert!(ptr::eq(walker.node, &return_node_b));
     }
 
@@ -726,12 +726,12 @@ mod tests {
             .callbacks(vec![ContextualizedNode::InDirectPath(&callback_node)])
             .build();
 
-        let branched_walkers = walker.step('f').unwrap().collect::<Vec<_>>();
+        let branched_walkers = walker.step("f").unwrap().collect::<Vec<_>>();
         assert_eq!(branched_walkers.len(), 1);
         assert!(ptr::eq(branched_walkers[0].node, &callback_node));
         match branched_walkers[0].targets[0] {
             ContextualizedNode::InDirectPath(target_node) => {
-                assert!(ptr::eq(target_node, &*node.children[&'f']))
+                assert!(ptr::eq(target_node, &*node.children["f"]))
             }
             _ => unreachable!(),
         }
@@ -749,9 +749,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        let branched_walkers = walker.step('o').unwrap().collect::<Vec<_>>();
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        let branched_walkers = walker.step("o").unwrap().collect::<Vec<_>>();
         assert_eq!(branched_walkers.len(), 1);
         assert!(ptr::eq(branched_walkers[0].node, &callback_node));
         match branched_walkers[0].targets[0] {
@@ -768,10 +768,10 @@ mod tests {
         node.add_match("foo");
 
         let mut walker = WalkerBuilder::new(&node)
-            .targets(vec![ContextualizedNode::InDirectPath(&*node.children[&'f'])])
+            .targets(vec![ContextualizedNode::InDirectPath(&*node.children["f"])])
             .build();
 
-        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step("f"));
         assert_eq!(walker.targets.len(), 0);
     }
 
@@ -786,9 +786,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step("o"));
         assert_eq!(walker.targets.len(), 0);
     }
 
@@ -802,7 +802,7 @@ mod tests {
             .targets(vec![ContextualizedNode::InDirectPath(&target_node)])
             .build();
 
-        assert_err!(walker.step('f'));
+        assert_err!(walker.step("f"));
     }
 
     #[test]
@@ -817,8 +817,8 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step('f'));
-        assert_ok!(walker.step('o'));
-        assert_err!(walker.step('o'));
+        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step("o"));
+        assert_err!(walker.step("o"));
     }
 }

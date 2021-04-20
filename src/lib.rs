@@ -71,7 +71,7 @@ mod walker;
 pub mod censor;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
-use censor::replace_chars_with;
+use censor::replace_graphemes_with;
 use core::{
     iter::FromIterator,
     ops::{Bound, RangeBounds},
@@ -81,6 +81,7 @@ use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
+use unicode_segmentation::UnicodeSegmentation;
 use utils::debug_unreachable;
 use walker::{ContextualizedNode, Walker, WalkerBuilder};
 
@@ -151,7 +152,7 @@ impl Default for RepeatedCharacterMatchMode {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor(censor::replace_chars_with!("#"))
+///     .censor(censor::replace_graphemes_with!("#"))
 ///     .build();
 /// ```
 pub struct WordFilter<'a> {
@@ -193,10 +194,10 @@ impl WordFilter<'_> {
         };
         walkers.push(root_walker);
         let mut found = Vec::new();
-        for (i, c) in input.chars().enumerate() {
+        for (i, g) in input.grapheme_indices(true) {
             let mut new_walkers = Vec::new();
             for mut walker in walkers.drain(..) {
-                match walker.step(c) {
+                match walker.step(g) {
                     Ok(branches) => {
                         // New branches.
                         new_walkers.extend(branches.clone().map(|walker| {
@@ -356,15 +357,15 @@ impl WordFilter<'_> {
     #[must_use]
     pub fn censor(&self, input: &str) -> String {
         let mut output = String::with_capacity(input.len());
-        let mut input_char_indices = input.char_indices();
+        let mut grapheme_indices = input.grapheme_indices(true);
         // Walkers are sorted on both start and end, due to use of NestedContainmentList.
         let mut prev_end = 0;
         for walker in self.find_walkers(input) {
             // Insert un-censored characters.
             if walker.start > prev_end {
                 for _ in 0..(walker.start - prev_end) {
-                    output.push(match input_char_indices.next().map(|(_i, c)| c) {
-                        Some(c) => c,
+                    output.push_str(match grapheme_indices.next().map(|(_i, g)| g) {
+                        Some(g) => g,
                         None => unsafe {
                             // SAFETY: Each `walker` within `walkers` is guaranteed to be within
                             // the bounds of `input`. Additionally, since the `walker`s are ordered
@@ -384,17 +385,17 @@ impl WordFilter<'_> {
                 _ => continue,
             } - core::cmp::max(walker.start, prev_end);
 
-            let (substring_start, current_char) = match input_char_indices.next() {
-                Some((start, c)) => (start, c),
+            let (substring_start, current_grapheme) = match grapheme_indices.next() {
+                Some((start, g)) => (start, g),
                 None => unsafe { debug_unreachable() },
             };
             let substring_end = if len > 2 {
-                match input_char_indices.nth(len - 3) {
-                    Some((end, c)) => end + c.len_utf8(),
+                match grapheme_indices.nth(len - 3) {
+                    Some((end, g)) => end + g.len(),
                     None => unsafe { debug_unreachable() },
                 }
             } else {
-                substring_start + current_char.len_utf8()
+                substring_start + current_grapheme.len()
             };
 
             output.push_str(&(self.censor)(&input[substring_start..substring_end]));
@@ -410,16 +411,9 @@ impl WordFilter<'_> {
         }
 
         // Add the rest of the characters.
-        output.push_str(unsafe {
-            // SAFETY: Since the index is obtained from a `CharIndices` `Iterator` over `input`, the
-            // index used here will always be on character bounds of `input`, and will never be
-            // outside the bounds. Therefore, this usage of `get_unchecked()` is sound.
-            input.get_unchecked(
-                input_char_indices
-                    .next()
-                    .map_or_else(|| input.len(), |(i, _c)| i)..,
-            )
-        });
+        output.push_str(
+            grapheme_indices.as_str(),
+        );
 
         output
     }
@@ -438,7 +432,7 @@ impl WordFilter<'_> {
 /// - **[`repeated_character_match_mode`]** - The [`RepeatedCharacterMatchMode`] to be used. By default
 /// this is set to `RepeatedCharacterMatchMode::AllowRepeatedCharacters`.
 /// - **[`censor`]** - The censor to be used. By default this is set to
-/// [`censor::replace_chars_with!("*")`].
+/// [`censor::replace_graphemes_with!("*")`].
 ///
 /// These methods can be chained on each other, allowing construction to be performed in a single
 /// statement if desired.
@@ -456,7 +450,7 @@ impl WordFilter<'_> {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor(censor::replace_chars_with!("#"))
+///     .censor(censor::replace_graphemes_with!("#"))
 ///     .build();
 /// ```
 ///
@@ -466,7 +460,7 @@ impl WordFilter<'_> {
 /// [`aliases`]: Self::aliases
 /// [`repeated_character_match_mode`]: Self::repeated_character_match_mode
 /// [`censor`]: Self::censor
-/// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
+/// [`censor::replace_graphemes_with!("*")`]: censor/macro.replace_graphemes_with.html
 #[derive(Clone)]
 pub struct WordFilterBuilder<'a> {
     words: Vec<&'a str>,
@@ -495,7 +489,7 @@ impl<'a> WordFilterBuilder<'a> {
             separators: Vec::new(),
             aliases: Vec::new(),
             repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-            censor: replace_chars_with!("*"),
+            censor: replace_graphemes_with!("*"),
         }
     }
 
@@ -592,16 +586,16 @@ impl<'a> WordFilterBuilder<'a> {
     /// Sets the censor to be used by the [`WordFilter`].
     ///
     /// A censor is a function mapping from the word to be censored to the censored result. The
-    /// default censor is [`censor::replace_chars_with!("*")`].
+    /// default censor is [`censor::replace_graphemes_with!("*")`].
     ///
     /// # Example
     /// ```
     /// use word_filter::{censor, WordFilterBuilder};
     ///
-    /// let filter = WordFilterBuilder::new().censor(censor::replace_chars_with!("#")).build();
+    /// let filter = WordFilterBuilder::new().censor(censor::replace_graphemes_with!("#")).build();
     /// ```
     ///
-    /// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
+    /// [`censor::replace_graphemes_with!("*")`]: censor/macro.replace_graphemes_with.html
     #[inline]
     pub fn censor(&mut self, censor: fn(&str) -> String) -> &mut Self {
         self.censor = censor;
@@ -769,7 +763,7 @@ impl Default for WordFilterBuilder<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{replace_chars_with, RepeatedCharacterMatchMode, WordFilterBuilder};
+    use crate::{replace_graphemes_with, RepeatedCharacterMatchMode, WordFilterBuilder};
     use alloc::{vec, vec::Vec};
 
     #[test]
@@ -950,7 +944,7 @@ mod tests {
     fn custom_censor() {
         let filter = WordFilterBuilder::new()
             .words(&["foo"])
-            .censor(replace_chars_with!("#"))
+            .censor(replace_graphemes_with!("#"))
             .build();
 
         assert_eq!(filter.censor("foo"), "###");
@@ -999,5 +993,12 @@ mod tests {
             .build();
 
         assert_eq!(filter.find("foo baz"), vec!["foobar"].into_boxed_slice());
+    }
+
+    #[test]
+    fn repeated_graphemes() {
+        let filter = WordFilterBuilder::new().words(&["bãr"]).build();
+
+        assert_eq!(filter.find("bããr"), vec!["bãr"].into_boxed_slice());
     }
 }

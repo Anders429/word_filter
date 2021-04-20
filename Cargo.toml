@@ -12,7 +12,6 @@ keywords = ["wordfilter", "word", "filter", "censor", "string"]
 exclude = [".github/*", "clippy.toml"]
 
 [package.metadata.docs.rs]
-all-features = true
 rustdoc-args = ["--html-after-content", "doc/remove_root_module.html"]
 
 [dependencies]
@@ -20,7 +19,7 @@ by_address = "1.0.4"
 hashbrown = "0.9.1"
 nested_containment_list = "0.3.0"
 str_overlap = "0.4.3"
-unicode-segmentation = {version = "1.7.1", optional = true}
+unicode-segmentation = "1.7.1"
 
 [dev-dependencies]
 claim = "0.5.0"

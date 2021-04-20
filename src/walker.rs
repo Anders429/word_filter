@@ -1,3 +1,14 @@
+//! Walker for [`WordFilter`] internal searching.
+//!
+//! [`Walker`] provides an efficient way for the `WordFilter` to search its own directional graph
+//! for matches to a given string.
+//!
+//! Use of a `Walker` allows for multiple simultaneous searches to all maintain their own context.
+//! This allows for splitting of paths at aliases, searching for separators, and searching at
+//! different start locations within the string simultaneously.
+//!
+//! [`WordFilter`]: crate::WordFilter
+
 use crate::node::{self, Node};
 use alloc::vec::{self, Vec};
 use by_address::ByAddress;
@@ -23,9 +34,16 @@ pub(crate) enum Status<'a> {
     Exception(usize, &'a str),
 }
 
+/// A contextualizing wrapper for a [`Node`].
+///
+/// Indicates what context the `Node` should be evaluated in. 
+///
+/// [`Node`]: crate::node::Node
 #[derive(Clone)]
 pub(crate) enum ContextualizedNode<'a> {
+    /// The `Node` should be evaluated in a direct path context.
     InDirectPath(&'a Node<'a>),
+    /// The `Node` should be evaluated in a subgraph context.
     InSubgraph(&'a Node<'a>),
 }
 
@@ -44,6 +62,14 @@ impl fmt::Debug for ContextualizedNode<'_> {
     }
 }
 
+/// A specialized walker for traveling through the `WordFilter`'s `Node` graph.
+///
+/// The `Walker` keeps track of the current context within the `Node` (as in, the current walker
+/// location, a stack of return nodes, etc.), as well as information about the `Walker`'s location
+/// within the original source string passed into the `WordFilter`.
+///
+/// In order to progress the `Walker` forward, the `step()` method is provided, which allows the
+/// user to step the `Walker` through each character in a string.
 #[derive(Clone)]
 pub(crate) struct Walker<'a> {
     pub(crate) node: &'a Node<'a>,
@@ -60,6 +86,7 @@ pub(crate) struct Walker<'a> {
 }
 
 impl<'a> Walker<'a> {
+    /// Create new `Walker`s pointing to alias paths connected to the current node.
     pub(crate) fn branch_to_aliases(
         &self,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
@@ -85,6 +112,12 @@ impl<'a> Walker<'a> {
         result.into_iter()
     }
 
+    /// Processes a return node.
+    ///
+    /// If the return node returns to another node which is itself a return node, it will be
+    /// evaluated recursively.
+    ///
+    /// If successful, this will return an iterator containing branched `Walker`s from the evaluation.
     fn evaluate_return_node(&mut self) -> Result<vec::IntoIter<Walker<'a>>, ()> {
         let mut result = Vec::new();
 
@@ -154,6 +187,9 @@ impl<'a> Walker<'a> {
         Ok(result.into_iter())
     }
 
+    /// Step the `Walker` along the character `c`.
+    ///
+    /// If successful, returns an iterator of branched `Walker`s.
     pub(crate) fn step(&mut self, c: char) -> Result<vec::IntoIter<Walker<'a>>, ()> {
         let mut branches = Vec::new();
 
@@ -228,9 +264,9 @@ impl<'a> Walker<'a> {
 ///
 /// The bounds correspond with the matched word or exception's start and end character positions.
 ///
-/// Note that this only defines a usable interval if a match or exception was found. If nothing was
-/// found, there is no usable interval, and the `Walker` shouldn't be used in contexts needing
-/// `RangeBounds`.
+/// A match will always have an excluded `end_bound()`, while an exception will always have an
+/// included `end_bound()`. This ensures that exceptions will always trump matches when `Walker`s 
+/// are evaluated in a NestedContainmentList.
 ///
 /// [`RangeBounds`]: core::ops::RangeBounds
 impl RangeBounds<usize> for Walker<'_> {

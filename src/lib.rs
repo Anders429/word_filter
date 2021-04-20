@@ -81,6 +81,7 @@ use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
+use unicode_segmentation::UnicodeSegmentation;
 use utils::debug_unreachable;
 use walker::{ContextualizedNode, Walker, WalkerBuilder};
 
@@ -193,10 +194,10 @@ impl WordFilter<'_> {
         };
         walkers.push(root_walker);
         let mut found = Vec::new();
-        for (i, c) in input.chars().enumerate() {
+        for (i, g) in input.grapheme_indices(true) {
             let mut new_walkers = Vec::new();
             for mut walker in walkers.drain(..) {
-                match walker.step(c) {
+                match walker.step(g) {
                     Ok(branches) => {
                         // New branches.
                         new_walkers.extend(branches.clone().map(|walker| {
@@ -356,15 +357,15 @@ impl WordFilter<'_> {
     #[must_use]
     pub fn censor(&self, input: &str) -> String {
         let mut output = String::with_capacity(input.len());
-        let mut input_char_indices = input.char_indices();
+        let mut grapheme_indices = input.grapheme_indices(true);
         // Walkers are sorted on both start and end, due to use of NestedContainmentList.
         let mut prev_end = 0;
         for walker in self.find_walkers(input) {
             // Insert un-censored characters.
             if walker.start > prev_end {
                 for _ in 0..(walker.start - prev_end) {
-                    output.push(match input_char_indices.next().map(|(_i, c)| c) {
-                        Some(c) => c,
+                    output.push_str(match grapheme_indices.next().map(|(_i, g)| g) {
+                        Some(g) => g,
                         None => unsafe {
                             // SAFETY: Each `walker` within `walkers` is guaranteed to be within
                             // the bounds of `input`. Additionally, since the `walker`s are ordered
@@ -384,17 +385,17 @@ impl WordFilter<'_> {
                 _ => continue,
             } - core::cmp::max(walker.start, prev_end);
 
-            let (substring_start, current_char) = match input_char_indices.next() {
-                Some((start, c)) => (start, c),
+            let (substring_start, current_grapheme) = match grapheme_indices.next() {
+                Some((start, g)) => (start, g),
                 None => unsafe { debug_unreachable() },
             };
             let substring_end = if len > 2 {
-                match input_char_indices.nth(len - 3) {
-                    Some((end, c)) => end + c.len_utf8(),
+                match grapheme_indices.nth(len - 3) {
+                    Some((end, g)) => end + g.len(),
                     None => unsafe { debug_unreachable() },
                 }
             } else {
-                substring_start + current_char.len_utf8()
+                substring_start + current_grapheme.len()
             };
 
             output.push_str(&(self.censor)(&input[substring_start..substring_end]));
@@ -410,16 +411,9 @@ impl WordFilter<'_> {
         }
 
         // Add the rest of the characters.
-        output.push_str(unsafe {
-            // SAFETY: Since the index is obtained from a `CharIndices` `Iterator` over `input`, the
-            // index used here will always be on character bounds of `input`, and will never be
-            // outside the bounds. Therefore, this usage of `get_unchecked()` is sound.
-            input.get_unchecked(
-                input_char_indices
-                    .next()
-                    .map_or_else(|| input.len(), |(i, _c)| i)..,
-            )
-        });
+        output.push_str(
+            grapheme_indices.as_str(),
+        );
 
         output
     }

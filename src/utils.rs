@@ -10,6 +10,7 @@ use core::hint::unreachable_unchecked;
 ///
 /// # Safety
 /// The caller must make sure this is never run.
+#[track_caller]
 #[allow(clippy::inline_always)]
 #[inline(always)]
 pub(crate) unsafe fn debug_unreachable() -> ! {

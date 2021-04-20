@@ -33,7 +33,6 @@
 
 #[doc(hidden)]
 pub use alloc::{borrow::ToOwned, string::String};
-#[cfg(feature = "unicode-segmentation")]
 #[doc(hidden)]
 pub use unicode_segmentation::UnicodeSegmentation;
 
@@ -81,7 +80,6 @@ pub use _replace_chars_with as replace_chars_with;
 ///
 /// assert_eq!(filter.censor("bãr"), "###");
 /// ```
-#[cfg(feature = "unicode-segmentation")]
 #[macro_export]
 macro_rules! _replace_graphemes_with {
     ($s:literal) => {
@@ -98,7 +96,6 @@ macro_rules! _replace_graphemes_with {
     };
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[doc(inline)]
 pub use _replace_graphemes_with as replace_graphemes_with;
 
@@ -130,7 +127,6 @@ pub use _replace_words_with as replace_words_with;
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "unicode-segmentation")]
     use crate::censor::replace_graphemes_with;
     use crate::censor::{replace_chars_with, replace_words_with};
 
@@ -140,7 +136,6 @@ mod tests {
         assert_eq!(replace_chars_with!("#")("ã"), "##");
     }
 
-    #[cfg(feature = "unicode-segmentation")]
     #[test]
     fn replace_graphemes() {
         assert_eq!(replace_graphemes_with!("#")("foo"), "###");

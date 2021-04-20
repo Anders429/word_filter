@@ -68,8 +68,10 @@ mod node;
 mod utils;
 mod walker;
 
+pub mod censor;
+
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
-use by_address::ByAddress;
+use censor::replace_chars_with;
 use core::{
     iter::FromIterator,
     ops::{Bound, RangeBounds},
@@ -78,9 +80,9 @@ use core::{
 use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
-use walker::Walker;
 use str_overlap::Overlap;
 use utils::debug_unreachable;
+use walker::{ContextualizedNode, Walker, WalkerBuilder};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
 #[derive(Clone, Copy, Debug)]
@@ -124,33 +126,6 @@ impl Default for RepeatedCharacterMatchMode {
     }
 }
 
-/// The strategy for censoring in a `WordFilter`.
-#[derive(Clone, Copy, Debug)]
-pub enum CensorMode {
-    /// Replace all matched characters with the character indicated.
-    ///
-    /// Example usage:
-    ///
-    /// ```
-    /// use word_filter::{CensorMode, WordFilterBuilder};
-    ///
-    /// let filter = WordFilterBuilder::new()
-    ///     .words(&["foo"])
-    ///     .censor_mode(CensorMode::ReplaceAllWith('*'))
-    ///     .build();
-    ///
-    /// assert_eq!(filter.censor("foo"), "***");
-    /// ```
-    ReplaceAllWith(char),
-}
-
-impl Default for CensorMode {
-    /// Returns the default mode, which is `ReplaceAllWith('*')`.
-    fn default() -> Self {
-        CensorMode::ReplaceAllWith('*')
-    }
-}
-
 /// A word filter for identifying filtered words within strings.
 ///
 /// A `WordFilter` is constructed by passing **filtered words**, **exceptions**, **separators**,
@@ -168,7 +143,7 @@ impl Default for CensorMode {
 /// Example usage:
 ///
 /// ```
-/// use word_filter::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
+/// use word_filter::{censor, RepeatedCharacterMatchMode, WordFilterBuilder};
 ///
 /// let filter = WordFilterBuilder::new()
 ///     .words(&["foo"])
@@ -176,7 +151,7 @@ impl Default for CensorMode {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor_mode(CensorMode::ReplaceAllWith('#'))
+///     .censor(censor::replace_chars_with!("#"))
 ///     .build();
 /// ```
 pub struct WordFilter<'a> {
@@ -184,94 +159,110 @@ pub struct WordFilter<'a> {
     separator_root: Node<'a>,
     _alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
-    censor_mode: CensorMode,
+    censor: fn(&str) -> String,
 }
 
-impl<'a> WordFilter<'a> {
-    /// Create new `Walker`s for the aliases at the `walker`'s `current_node`.
-    fn push_aliases(
-        &self,
-        walker: &Walker<'a>,
-        new_walkers: &mut Vec<Walker<'a>>,
-        visited: &mut HashSet<ByAddress<&Node<'a>>>,
-    ) {
-        for (alias_node, return_node) in &walker.current_node.aliases {
-            if visited.contains(&ByAddress(alias_node)) {
-                continue;
-            }
-            let mut return_nodes = walker.return_nodes.clone();
-            return_nodes.push(return_node);
-            let alias_walker =
-                Walker::new(alias_node, return_nodes, walker.start, walker.len, false);
-            visited.insert(ByAddress(alias_node));
-            self.push_aliases(&alias_walker, new_walkers, visited);
-            visited.remove(&ByAddress(alias_node));
-            new_walkers.push(alias_walker);
-        }
-    }
-
+impl WordFilter<'_> {
     /// Finds all `Walker`s that encounter matches.
     ///
     /// This also excludes all `Walker`s that encountered matches but whose ranges also are
     /// contained within ranges are `Walker`s who encountered exceptions.
     fn find_walkers(&self, input: &str) -> impl Iterator<Item = Walker<'_>> {
-        let root_walker = Walker::new(&self.root, Vec::new(), 0, 0, false);
-        let mut walkers = Vec::new();
-        self.push_aliases(&root_walker, &mut walkers, &mut HashSet::new());
+        let mut root_walker_builder = WalkerBuilder::new(&self.root);
+        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+            self.repeated_character_match_mode
+        {
+            root_walker_builder =
+                root_walker_builder.callbacks(vec![ContextualizedNode::InDirectPath(&self.root)]);
+        }
+        let root_walker = root_walker_builder.build();
+        let alias_walkers = root_walker.branch_to_aliases(&mut HashSet::new());
+        let mut walkers: Vec<Walker> = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+            self.repeated_character_match_mode
+        {
+            alias_walkers
+                .map(|mut walker| {
+                    walker
+                        .callbacks
+                        .push(ContextualizedNode::InSubgraph(&self.root));
+                    walker
+                })
+                .collect()
+        } else {
+            root_walker.branch_to_aliases(&mut HashSet::new()).collect()
+        };
         walkers.push(root_walker);
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
             let mut new_walkers = Vec::new();
             for mut walker in walkers.drain(..) {
-                let mut last_walker = walker.clone();
-                if walker.step(c) {
-                    // Aliases.
-                    self.push_aliases(&walker, &mut new_walkers, &mut HashSet::new());
-                    // Separators.
-                    let mut return_nodes = walker.return_nodes.clone();
-                    return_nodes.push(walker.current_node);
-                    new_walkers.push(Walker::new(
-                        &self.separator_root,
-                        return_nodes,
-                        walker.start,
-                        walker.len,
-                        true,
-                    ));
+                match walker.step(c) {
+                    Ok(branches) => {
+                        // New branches.
+                        new_walkers.extend(branches.clone().map(|walker| {
+                            let mut separator_walker = walker.clone();
+                            separator_walker.node = &self.separator_root;
+                            separator_walker.returns.push(walker.node);
+                            separator_walker.in_separator = true;
+                            separator_walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(walker.node));
+                            separator_walker
+                        }));
+                        new_walkers.extend(branches);
 
-                    // Direct path.
-                    new_walkers.push(walker);
-
-                    // Repeated characters.
-                    if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
-                        self.repeated_character_match_mode
-                    {
-                        last_walker.len += 1;
+                        // Aliases.
+                        let alias_walkers = walker.branch_to_aliases(&mut HashSet::new());
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            new_walkers.extend(alias_walkers.map(|mut walker| {
+                                walker
+                                    .callbacks
+                                    .push(ContextualizedNode::InSubgraph(walker.node));
+                                walker
+                            }));
+                        } else {
+                            new_walkers.extend(alias_walkers);
+                        }
 
                         // Separators.
-                        let mut return_nodes = last_walker.return_nodes.clone();
-                        return_nodes.push(last_walker.current_node);
-                        new_walkers.push(Walker::new(
-                            &self.separator_root,
-                            return_nodes,
-                            last_walker.start,
-                            last_walker.len,
-                            true,
-                        ));
+                        let mut separator_walker = walker.clone();
+                        separator_walker.node = &self.separator_root;
+                        separator_walker.returns.push(walker.node);
+                        separator_walker.in_separator = true;
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            separator_walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(walker.node));
+                        }
+                        new_walkers.push(separator_walker);
 
-                        new_walkers.push(last_walker);
+                        // Direct path.
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            walker
+                                .callbacks
+                                .push(ContextualizedNode::InDirectPath(walker.node));
+                        }
+                        new_walkers.push(walker);
                     }
-                } else if let walker::Status::Match(_) = walker.status {
-                    found.push(walker);
-                } else if let walker::Status::Exception(_) = walker.status {
-                    found.push(walker);
+                    Err(_) => match walker.status {
+                        walker::Status::Match(_, _) | walker::Status::Exception(_, _) => {
+                            found.push(walker)
+                        }
+                        _ => {}
+                    },
                 }
             }
 
             // Add root again.
-            new_walkers.push(Walker::new(&self.root, Vec::new(), i + 1, 0, false));
-            new_walkers.extend(self.root.aliases.iter().map(|(alias_node, return_node)| {
-                Walker::new(alias_node, vec![return_node], i + 1, 0, false)
-            }));
+            let root_walker = WalkerBuilder::new(&self.root).start(i + 1).build();
+            new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
+            new_walkers.push(root_walker);
 
             walkers = new_walkers;
         }
@@ -279,7 +270,7 @@ impl<'a> WordFilter<'a> {
         // Evaluate all remaining walkers.
         for walker in walkers.drain(..) {
             match walker.status {
-                walker::Status::Match(_) | walker::Status::Exception(_) => found.push(walker),
+                walker::Status::Match(_, _) | walker::Status::Exception(_, _) => found.push(walker),
                 walker::Status::None => {}
             }
         }
@@ -289,7 +280,7 @@ impl<'a> WordFilter<'a> {
             .into_iter()
             .filter_map(|element| {
                 let p = element.value;
-                if let walker::Status::Match(_) = p.status {
+                if let walker::Status::Match(_, _) = p.status {
                     Some(p)
                 } else {
                     None
@@ -314,7 +305,7 @@ impl<'a> WordFilter<'a> {
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_walkers(input)
             .map(|walker| {
-                if let walker::Status::Match(s) = walker.status {
+                if let walker::Status::Match(_, s) = walker.status {
                     s
                 } else {
                     unsafe {
@@ -389,27 +380,30 @@ impl<'a> WordFilter<'a> {
             }
             // Censor the covered characters for this walker.
             let len = match walker.end_bound() {
-                Bound::Included(end) => end + 1,
-                _ => unsafe {
-                    // SAFETY: The `RangeBounds` on a `Walker` will always be `Bound::Included`, so
-                    // we will never reach any other branch.
-                    debug_unreachable()
-                },
+                Bound::Excluded(end) => end + 1,
+                _ => continue,
             } - core::cmp::max(walker.start, prev_end);
-            match self.censor_mode {
-                CensorMode::ReplaceAllWith(c) => {
-                    for _ in 0..len {
-                        output.push(c);
-                        input_char_indices.next();
-                    }
+
+            let (substring_start, current_char) = match input_char_indices.next() {
+                Some((start, c)) => (start, c),
+                None => unsafe { debug_unreachable() },
+            };
+            let substring_end = if len > 2 {
+                match input_char_indices.nth(len - 3) {
+                    Some((end, c)) => end + c.len_utf8(),
+                    None => unsafe { debug_unreachable() },
                 }
-            }
+            } else {
+                substring_start + current_char.len_utf8()
+            };
+
+            output.push_str(&(self.censor)(&input[substring_start..substring_end]));
 
             prev_end = match walker.end_bound() {
-                Bound::Included(end) => end + 1,
+                Bound::Excluded(end) => end + 1,
                 _ => unsafe {
-                    // SAFETY: The `RangeBounds` on a `Walker` will always be `Bound::Included`, so
-                    // we will never reach any other branch.
+                    // SAFETY: The `end_bound` on the `walker` will always be `Bound::Excluded`,
+                    // since any other branch resulted in a `continue` above.
                     debug_unreachable()
                 },
             };
@@ -439,12 +433,12 @@ impl<'a> WordFilter<'a> {
 /// - **[`words`]** - Words to be filtered.
 /// - **[`exceptions`]** - Words that are not to be filtered.
 /// - **[`separators`]** - Values that may appear between characters of words or exceptions.
-/// - **[`aliases`]** - Pairs of alias strings and source strings. Alias strings may replace source 
+/// - **[`aliases`]** - Pairs of alias strings and source strings. Alias strings may replace source
 /// strings in words and exceptions.
 /// - **[`repeated_character_match_mode`]** - The [`RepeatedCharacterMatchMode`] to be used. By default
 /// this is set to `RepeatedCharacterMatchMode::AllowRepeatedCharacters`.
-/// - **[`censor_mode`]** - The [`CensorMode`] to be used. By default this is set to
-/// `CensorMode::ReplaceAllWith('*')`.
+/// - **[`censor`]** - The censor to be used. By default this is set to
+/// [`censor::replace_chars_with!("*")`].
 ///
 /// These methods can be chained on each other, allowing construction to be performed in a single
 /// statement if desired.
@@ -454,7 +448,7 @@ impl<'a> WordFilter<'a> {
 /// follows:
 ///
 /// ```
-/// use word_filter::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
+/// use word_filter::{censor, RepeatedCharacterMatchMode, WordFilterBuilder};
 ///
 /// let filter = WordFilterBuilder::new()
 ///     .words(&["foo"])
@@ -462,7 +456,7 @@ impl<'a> WordFilter<'a> {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor_mode(CensorMode::ReplaceAllWith('#'))
+///     .censor(censor::replace_chars_with!("#"))
 ///     .build();
 /// ```
 ///
@@ -471,15 +465,16 @@ impl<'a> WordFilter<'a> {
 /// [`separators`]: Self::separators
 /// [`aliases`]: Self::aliases
 /// [`repeated_character_match_mode`]: Self::repeated_character_match_mode
-/// [`censor_mode`]: Self::censor_mode
-#[derive(Clone, Debug)]
+/// [`censor`]: Self::censor
+/// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
+#[derive(Clone)]
 pub struct WordFilterBuilder<'a> {
     words: Vec<&'a str>,
     exceptions: Vec<&'a str>,
     separators: Vec<&'a str>,
     aliases: Vec<(&'a str, &'a str)>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
-    censor_mode: CensorMode,
+    censor: fn(&str) -> String,
 }
 
 impl<'a> WordFilterBuilder<'a> {
@@ -500,7 +495,7 @@ impl<'a> WordFilterBuilder<'a> {
             separators: Vec::new(),
             aliases: Vec::new(),
             repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-            censor_mode: CensorMode::ReplaceAllWith('*'),
+            censor: replace_chars_with!("*"),
         }
     }
 
@@ -594,19 +589,22 @@ impl<'a> WordFilterBuilder<'a> {
         self
     }
 
-    /// Sets the [`CensorMode`] to be used by the [`WordFilter`].
+    /// Sets the censor to be used by the [`WordFilter`].
     ///
-    /// If this is not provided, it will default to `CensorMode::ReplaceAllWith('*')`.
+    /// A censor is a function mapping from the word to be censored to the censored result. The
+    /// default censor is [`censor::replace_chars_with!("*")`].
     ///
     /// # Example
     /// ```
-    /// use word_filter::{CensorMode, WordFilterBuilder};
+    /// use word_filter::{censor, WordFilterBuilder};
     ///
-    /// let filter = WordFilterBuilder::new().censor_mode(CensorMode::ReplaceAllWith('#')).build();
+    /// let filter = WordFilterBuilder::new().censor(censor::replace_chars_with!("#")).build();
     /// ```
+    ///
+    /// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
     #[inline]
-    pub fn censor_mode(&mut self, mode: CensorMode) -> &mut Self {
-        self.censor_mode = mode;
+    pub fn censor(&mut self, censor: fn(&str) -> String) -> &mut Self {
+        self.censor = censor;
         self
     }
 
@@ -757,7 +755,7 @@ impl<'a> WordFilterBuilder<'a> {
             separator_root,
             _alias_map: alias_map,
             repeated_character_match_mode: self.repeated_character_match_mode,
-            censor_mode: self.censor_mode,
+            censor: self.censor,
         }
     }
 }
@@ -771,7 +769,7 @@ impl Default for WordFilterBuilder<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CensorMode, RepeatedCharacterMatchMode, WordFilterBuilder};
+    use crate::{replace_chars_with, RepeatedCharacterMatchMode, WordFilterBuilder};
     use alloc::{vec, vec::Vec};
 
     #[test]
@@ -828,14 +826,20 @@ mod tests {
 
     #[test]
     fn separators() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).separators(&[" "]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .separators(&[" "])
+            .build();
 
         assert_eq!(filter.find("f oo"), vec!["foo"].into_boxed_slice());
     }
 
     #[test]
     fn separator_between_repeated_characters() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).separators(&[" "]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .separators(&[" "])
+            .build();
 
         assert_eq!(filter.find("b a a r"), vec!["bar"].into_boxed_slice());
         assert_eq!(filter.censor(" b a a r "), " ******* ");
@@ -843,7 +847,10 @@ mod tests {
 
     #[test]
     fn aliases() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).aliases(&[("o", "a")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .aliases(&[("o", "a")])
+            .build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
         assert_eq!(filter.find("fao"), vec!["foo"].into_boxed_slice());
@@ -853,7 +860,10 @@ mod tests {
 
     #[test]
     fn aliases_on_aliases() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).aliases(&[("o", "a"), ("a", "b")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .aliases(&[("o", "a"), ("a", "b")])
+            .build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
         assert_eq!(filter.find("fbo"), vec!["foo"].into_boxed_slice());
@@ -863,14 +873,20 @@ mod tests {
 
     #[test]
     fn merged_aliases() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("b", "cd"), ("a", "ef"), ("de", "g")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .aliases(&[("b", "cd"), ("a", "ef"), ("de", "g")])
+            .build();
 
         assert_eq!(filter.find("cgfr"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]
     fn merged_aliases_contiguous() {
-        let filter = WordFilterBuilder::new().words(&["ahj"]).aliases(&[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["ahj"])
+            .aliases(&[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")])
+            .build();
 
         assert_eq!(filter.find("bcdefi"), vec!["ahj"].into_boxed_slice());
         assert_eq!(filter.find("bgi"), vec!["ahj"].into_boxed_slice());
@@ -878,7 +894,10 @@ mod tests {
 
     #[test]
     fn merged_aliases_over_full_match() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("b", "x"), ("a", "y"), ("r", "z"), ("xyz", "w")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .aliases(&[("b", "x"), ("a", "y"), ("r", "z"), ("xyz", "w")])
+            .build();
 
         assert_eq!(filter.find("w"), vec!["bar"].into_boxed_slice());
     }
@@ -886,21 +905,32 @@ mod tests {
     #[test]
     fn recursive_alias_no_overflow() {
         // Make sure recursive aliases don't cause a stack overflow.
-        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("a", "b"), ("b", "a")]).repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .aliases(&[("a", "b"), ("b", "a")])
+            .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
+            .build();
 
         assert_eq!(filter.find("abr"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]
     fn alias_after_separator() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).separators(&[" "]).aliases(&[("a", "A")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .separators(&[" "])
+            .aliases(&[("a", "A")])
+            .build();
 
         assert_eq!(filter.find("b Ar"), vec!["bar"].into_boxed_slice());
     }
 
     #[test]
     fn repeated_characters_allowed() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).repeated_character_match_mode(RepeatedCharacterMatchMode::AllowRepeatedCharacters).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .repeated_character_match_mode(RepeatedCharacterMatchMode::AllowRepeatedCharacters)
+            .build();
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec!["bar"].into_boxed_slice());
         assert_eq!(filter.censor("baaar"), "*****");
@@ -908,21 +938,30 @@ mod tests {
 
     #[test]
     fn repeated_characters_disallowed() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
+            .build();
 
         assert_eq!(filter.find("bbbaaaarrrr"), vec![].into_boxed_slice());
     }
 
     #[test]
-    fn censor_mode() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).censor_mode(CensorMode::ReplaceAllWith('#')).build();
+    fn custom_censor() {
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .censor(replace_chars_with!("#"))
+            .build();
 
         assert_eq!(filter.censor("foo"), "###");
     }
 
     #[test]
     fn separator_at_front_and_back_of_match() {
-        let filter = WordFilterBuilder::new().words(&["foo"]).separators(&[" "]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["foo"])
+            .separators(&[" "])
+            .build();
 
         assert_eq!(filter.censor("bar foo bar"), "bar *** bar");
     }
@@ -932,5 +971,33 @@ mod tests {
         let filter = WordFilterBuilder::default().words(&["foo"]).build();
 
         assert_eq!(filter.find("foo"), vec!["foo"].into_boxed_slice());
+    }
+
+    #[test]
+    fn censor_repeating() {
+        let filter = WordFilterBuilder::new().words(&["foo", "bar"]).build();
+
+        assert_eq!(filter.censor("fbar"), "f***");
+    }
+
+    #[test]
+    fn censor_repeated_alias() {
+        let filter = WordFilterBuilder::new()
+            .words(&["foo", "bar"])
+            .aliases(&[("a", "A")])
+            .build();
+
+        assert_eq!(filter.censor("fbaAaAaAar"), "f*********");
+    }
+
+    #[test]
+    fn separator_in_match_filled_with_smaller_match() {
+        let filter = WordFilterBuilder::new()
+            .words(&["foobar"])
+            .separators(&[" "])
+            .aliases(&[("bar", "baz")])
+            .build();
+
+        assert_eq!(filter.find("foo baz"), vec!["foobar"].into_boxed_slice());
     }
 }

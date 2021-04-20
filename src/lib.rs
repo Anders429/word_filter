@@ -71,7 +71,7 @@ mod walker;
 pub mod censor;
 
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
-use censor::replace_chars_with;
+use censor::replace_graphemes_with;
 use core::{
     iter::FromIterator,
     ops::{Bound, RangeBounds},
@@ -152,7 +152,7 @@ impl Default for RepeatedCharacterMatchMode {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor(censor::replace_chars_with!("#"))
+///     .censor(censor::replace_graphemes_with!("#"))
 ///     .build();
 /// ```
 pub struct WordFilter<'a> {
@@ -432,7 +432,7 @@ impl WordFilter<'_> {
 /// - **[`repeated_character_match_mode`]** - The [`RepeatedCharacterMatchMode`] to be used. By default
 /// this is set to `RepeatedCharacterMatchMode::AllowRepeatedCharacters`.
 /// - **[`censor`]** - The censor to be used. By default this is set to
-/// [`censor::replace_chars_with!("*")`].
+/// [`censor::replace_graphemes_with!("*")`].
 ///
 /// These methods can be chained on each other, allowing construction to be performed in a single
 /// statement if desired.
@@ -450,7 +450,7 @@ impl WordFilter<'_> {
 ///     .separators(&[" ", "_"])
 ///     .aliases(&[("f", "F")])
 ///     .repeated_character_match_mode(RepeatedCharacterMatchMode::DisallowRepeatedCharacters)
-///     .censor(censor::replace_chars_with!("#"))
+///     .censor(censor::replace_graphemes_with!("#"))
 ///     .build();
 /// ```
 ///
@@ -460,7 +460,7 @@ impl WordFilter<'_> {
 /// [`aliases`]: Self::aliases
 /// [`repeated_character_match_mode`]: Self::repeated_character_match_mode
 /// [`censor`]: Self::censor
-/// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
+/// [`censor::replace_graphemes_with!("*")`]: censor/macro.replace_graphemes_with.html
 #[derive(Clone)]
 pub struct WordFilterBuilder<'a> {
     words: Vec<&'a str>,
@@ -489,7 +489,7 @@ impl<'a> WordFilterBuilder<'a> {
             separators: Vec::new(),
             aliases: Vec::new(),
             repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
-            censor: replace_chars_with!("*"),
+            censor: replace_graphemes_with!("*"),
         }
     }
 
@@ -586,16 +586,16 @@ impl<'a> WordFilterBuilder<'a> {
     /// Sets the censor to be used by the [`WordFilter`].
     ///
     /// A censor is a function mapping from the word to be censored to the censored result. The
-    /// default censor is [`censor::replace_chars_with!("*")`].
+    /// default censor is [`censor::replace_graphemes_with!("*")`].
     ///
     /// # Example
     /// ```
     /// use word_filter::{censor, WordFilterBuilder};
     ///
-    /// let filter = WordFilterBuilder::new().censor(censor::replace_chars_with!("#")).build();
+    /// let filter = WordFilterBuilder::new().censor(censor::replace_graphemes_with!("#")).build();
     /// ```
     ///
-    /// [`censor::replace_chars_with!("*")`]: censor/macro.replace_chars_with.html
+    /// [`censor::replace_graphemes_with!("*")`]: censor/macro.replace_graphemes_with.html
     #[inline]
     pub fn censor(&mut self, censor: fn(&str) -> String) -> &mut Self {
         self.censor = censor;
@@ -763,7 +763,7 @@ impl Default for WordFilterBuilder<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{replace_chars_with, RepeatedCharacterMatchMode, WordFilterBuilder};
+    use crate::{replace_graphemes_with, RepeatedCharacterMatchMode, WordFilterBuilder};
     use alloc::{vec, vec::Vec};
 
     #[test]
@@ -944,7 +944,7 @@ mod tests {
     fn custom_censor() {
         let filter = WordFilterBuilder::new()
             .words(&["foo"])
-            .censor(replace_chars_with!("#"))
+            .censor(replace_graphemes_with!("#"))
             .build();
 
         assert_eq!(filter.censor("foo"), "###");

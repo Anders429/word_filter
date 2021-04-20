@@ -10,7 +10,7 @@
 //! ```
 //! use word_filter::{censor, WordFilterBuilder};
 //!
-//! let filter = WordFilterBuilder::new().censor(censor::replace_chars_with!("#")).build();
+//! let filter = WordFilterBuilder::new().censor(censor::replace_graphemes_with!("#")).build();
 //! ```
 //!
 //! Note that if the options here do not suite your use case, you can provide a custom function with
@@ -35,37 +35,6 @@
 pub use alloc::{borrow::ToOwned, string::String};
 #[doc(hidden)]
 pub use unicode_segmentation::UnicodeSegmentation;
-
-/// Creates a censor replacing every character with the given string.
-///
-/// # Example
-/// ```
-/// use word_filter::{censor, WordFilterBuilder};
-///
-/// let filter = WordFilterBuilder::new()
-///     .words(&["foo"])
-///     .censor(censor::replace_chars_with!("#"))
-///     .build();
-///
-/// assert_eq!(filter.censor("foo"), "###");
-/// ```
-#[macro_export]
-macro_rules! _replace_chars_with {
-    ($s:literal) => {
-        |word: &str| {
-            word.chars().fold(
-                $crate::censor::String::with_capacity(word.len()),
-                |mut accumulator, _char| {
-                    accumulator.push_str($s);
-                    accumulator
-                },
-            )
-        }
-    };
-}
-
-#[doc(inline)]
-pub use _replace_chars_with as replace_chars_with;
 
 /// Creates a censor replacing every grapheme with the given string.
 ///
@@ -127,14 +96,7 @@ pub use _replace_words_with as replace_words_with;
 
 #[cfg(test)]
 mod tests {
-    use crate::censor::replace_graphemes_with;
-    use crate::censor::{replace_chars_with, replace_words_with};
-
-    #[test]
-    fn replace_chars() {
-        assert_eq!(replace_chars_with!("#")("foo"), "###");
-        assert_eq!(replace_chars_with!("#")("ã"), "##");
-    }
+    use crate::censor::{replace_graphemes_with, replace_words_with};
 
     #[test]
     fn replace_graphemes() {

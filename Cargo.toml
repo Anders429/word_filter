@@ -12,7 +12,6 @@ keywords = ["wordfilter", "word", "filter", "censor", "string"]
 exclude = [".github/*", "clippy.toml"]
 
 [package.metadata.docs.rs]
-all-features = true
 rustdoc-args = ["--html-after-content", "doc/remove_root_module.html"]
 
 [dependencies]

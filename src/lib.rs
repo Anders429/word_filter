@@ -1000,4 +1000,11 @@ mod tests {
 
         assert_eq!(filter.find("foo baz"), vec!["foobar"].into_boxed_slice());
     }
+
+    #[test]
+    fn repeated_graphemes() {
+        let filter = WordFilterBuilder::new().words(&["bãr"]).build();
+
+        assert_eq!(filter.find("bããr"), vec!["bãr"].into_boxed_slice());
+    }
 }

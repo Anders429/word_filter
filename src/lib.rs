@@ -65,7 +65,6 @@
 extern crate alloc;
 
 mod node;
-mod utils;
 mod walker;
 
 pub mod censor;
@@ -77,12 +76,12 @@ use core::{
     ops::{Bound, RangeBounds},
     pin::Pin,
 };
+use debug_unreachable::debug_unreachable;
 use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
 use unicode_segmentation::UnicodeSegmentation;
-use utils::debug_unreachable;
 use walker::{ContextualizedNode, Walker, WalkerBuilder};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
@@ -313,7 +312,7 @@ impl WordFilter<'_> {
                         // SAFETY: All `Walker`s returned from ``find_walkers()` are guaranteed to
                         // be matches. In the event that this changes in the future, this call will
                         // panic when `debug_assertions` is on.
-                        debug_unreachable()
+                        debug_unreachable!()
                     }
                 }
             })
@@ -374,7 +373,7 @@ impl WordFilter<'_> {
                             // `walker`s, each subsequent `walker` will cover a new set of `input`
                             // characters. Thus, `input_char_indices.next()` will always return a
                             // value, and the `None` branch will never be reached.
-                            debug_unreachable()
+                            debug_unreachable!()
                         },
                     })
                 }
@@ -387,12 +386,12 @@ impl WordFilter<'_> {
 
             let (substring_start, current_grapheme) = match grapheme_indices.next() {
                 Some((start, g)) => (start, g),
-                None => unsafe { debug_unreachable() },
+                None => unsafe { debug_unreachable!() },
             };
             let substring_end = if len > 2 {
                 match grapheme_indices.nth(len - 3) {
                     Some((end, g)) => end + g.len(),
-                    None => unsafe { debug_unreachable() },
+                    None => unsafe { debug_unreachable!() },
                 }
             } else {
                 substring_start + current_grapheme.len()
@@ -405,7 +404,7 @@ impl WordFilter<'_> {
                 _ => unsafe {
                     // SAFETY: The `end_bound` on the `walker` will always be `Bound::Excluded`,
                     // since any other branch resulted in a `continue` above.
-                    debug_unreachable()
+                    debug_unreachable!()
                 },
             };
         }
@@ -720,7 +719,7 @@ impl<'a> WordFilterBuilder<'a> {
                         None => {
                             // SAFETY: We know that `value` is a valid key in `alias_map`, and
                             // therefore `get_mut()` will always return a value.
-                            debug_unreachable()
+                            debug_unreachable!()
                         }
                     }
                     .as_mut()

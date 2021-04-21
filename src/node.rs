@@ -17,9 +17,9 @@
 //! the values will result in invalidating any references to that `Node`. Most `unsafe` calls within
 //! the code are dedicated to upholding that invariant.
 
-use crate::utils::debug_unreachable;
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 use core::{marker::PhantomPinned, pin::Pin};
+use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -105,7 +105,7 @@ impl<'a> Node<'a> {
                     None => {
                         // SAFETY; We guaranteed above that `word` is non-empty, and therefore
                         // `graphemes.next()` will always return a value.
-                        debug_unreachable()
+                        debug_unreachable!()
                     }
                 })
                 .or_insert_with(|| Box::pin(Self::new()))
@@ -159,7 +159,7 @@ impl<'a> Node<'a> {
                 None => unsafe {
                     // SAFETY: `value` is verified above to be non-empty. Therefore, `graphemes`
                     // will always return a value on `next()`.
-                    debug_unreachable()
+                    debug_unreachable!()
                 }
             })
             .and_then(|node| {

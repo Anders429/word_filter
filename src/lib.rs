@@ -1031,4 +1031,11 @@ mod tests {
 
         assert_eq!(filter.find("bãr"), vec!["bar"].into_boxed_slice());
     }
+
+    #[test]
+    fn alias_on_grapheme() {
+        let filter = WordFilterBuilder::new().words(&["bãr"]).aliases(&[("ã", "õ")]).build();
+
+        assert_eq!(filter.find("bõr"), vec!["bãr"].into_boxed_slice());
+    }
 }

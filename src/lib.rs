@@ -72,6 +72,7 @@ pub mod censor;
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
 use censor::replace_graphemes_with;
 use core::{
+    fmt,
     iter::FromIterator,
     ops::{Bound, RangeBounds},
     pin::Pin,
@@ -439,6 +440,18 @@ impl WordFilter<'_> {
     }
 }
 
+impl fmt::Debug for WordFilter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WordFilter")
+            .field("root", &self.root)
+            .field("separator_root", &self.separator_root)
+            .field("_alias_map", &self._alias_map)
+            .field("repeated_character_match_mode", &self.repeated_character_match_mode)
+            .field("censor", &(self.censor as usize as *const ()))
+            .finish()
+    }
+}
+
 /// A non-consuming builder for a [`WordFilter`].
 ///
 /// Allows configuration of any of the following elements that make up a `WordFilter`, through the
@@ -778,6 +791,19 @@ impl Default for WordFilterBuilder<'_> {
     #[inline]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl fmt::Debug for WordFilterBuilder<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WordFilterBuilder")
+            .field("words", &self.words)
+            .field("exceptions", &self.exceptions)
+            .field("separators", &self.separators)
+            .field("aliases", &self.aliases)
+            .field("repeated_character_match_mode", &self.repeated_character_match_mode)
+            .field("censor", &(self.censor as usize as *const ()))
+            .finish()
     }
 }
 

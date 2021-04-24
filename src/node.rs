@@ -17,8 +17,8 @@
 //! the values will result in invalidating any references to that `Node`. Most `unsafe` calls within
 //! the code are dedicated to upholding that invariant.
 
-use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
-use core::{marker::PhantomPinned, pin::Pin};
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec, vec::Vec};
+use core::{fmt, marker::PhantomPinned, pin::Pin};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
@@ -54,7 +54,7 @@ pub(crate) enum Type<'a> {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub(crate) struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub(crate) children: HashMap<String, Pin<Box<Node<'a>>>>,
+    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
@@ -63,6 +63,11 @@ pub(crate) struct Node<'a> {
 
     /// The type of node.
     pub(crate) node_type: Type<'a>,
+
+    /// Grapheme subgraphs.
+    ///
+    /// These values are owned by this Node. They are tuples of `(sub_graph_node, return_node)`.
+    pub(crate) grapheme_subgraphs: Vec<(Node<'a>, Node<'a>)>,
 
     /// Mark as !Unpin.
     pub(crate) _pin: PhantomPinned,
@@ -77,6 +82,7 @@ impl<'a> Node<'a> {
             children: HashMap::new(),
             aliases: Vec::new(),
             node_type: Type::Standard,
+            grapheme_subgraphs: Vec::new(),
             _pin: PhantomPinned,
         }
     }
@@ -98,13 +104,63 @@ impl<'a> Node<'a> {
         }
 
         let mut graphemes = word.graphemes(true);
+        let grapheme = match graphemes.next() {
+            Some(g) => g,
+            None => unsafe {
+                // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+                // `graphemes.next()` will always return a value.
+                debug_unreachable!()
+            },
+        };
+        if grapheme.chars().count() > 1 {
+            let mut subgraph_node = Self::new();
+            subgraph_node.add_path_ignoring_graphemes(grapheme, Type::Return);
+
+            let mut return_node = Self::new();
+            return_node.add_path(graphemes.as_str(), node_type);
+
+            self.grapheme_subgraphs.push((subgraph_node, return_node));
+        } else {
+            let mut chars = word.chars();
+            unsafe {
+                self.children
+                    .entry(match chars.next() {
+                        Some(c) => c,
+                        None => {
+                            // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+                            // `chars.next()` will always return a value.
+                            debug_unreachable!()
+                        }
+                    })
+                    .or_insert_with(|| Box::pin(Self::new()))
+                    .as_mut()
+                    // SAFETY: Adding a path to a `Node` will not move the `Node`. Therefore, this
+                    // mutation of the `Node` will uphold pin invariants.
+                    .get_unchecked_mut()
+                    .add_path(chars.as_str(), node_type);
+            }
+        }
+    }
+
+    fn add_path_ignoring_graphemes(&mut self, word: &str, node_type: Type<'a>) {
+        if word.is_empty() {
+            if match self.node_type {
+                Type::Standard => true,
+                _ => false,
+            } {
+                self.node_type = node_type;
+            }
+            return;
+        }
+
+        let mut chars = word.chars();
         unsafe {
             self.children
-                .entry(match graphemes.next() {
-                    Some(g) => g.to_owned(),
+                .entry(match chars.next() {
+                    Some(c) => c,
                     None => {
                         // SAFETY; We guaranteed above that `word` is non-empty, and therefore
-                        // `graphemes.next()` will always return a value.
+                        // `chars.next()` will always return a value.
                         debug_unreachable!()
                     }
                 })
@@ -113,9 +169,7 @@ impl<'a> Node<'a> {
                 // SAFETY: Adding a path to a `Node` will not move the `Node`. Therefore, this
                 // mutation of the `Node` will uphold pin invariants.
                 .get_unchecked_mut()
-                .add_path(
-                    graphemes.as_str(), node_type
-                );
+                .add_path_ignoring_graphemes(chars.as_str(), node_type);
         }
     }
 
@@ -134,11 +188,34 @@ impl<'a> Node<'a> {
         self.add_path(word, Type::Return);
     }
 
+    fn consume_chars_until_return_node<'b>(&self, value: &'b str) -> Option<&'b str> {
+        match self.node_type {
+            Type::Return => return Some(value),
+            _ => {}
+        }
+
+        if value.is_empty() {
+            return None;
+        }
+
+        let mut chars = value.chars();
+        self.children
+            .get(&match chars.next() {
+                Some(c) => c,
+                None => unsafe {
+                    // SAFETY: `value` is verified above to be non-empty. Therefore, `chars` will always
+                    // return a value on `next()`.
+                    debug_unreachable!()
+                },
+            })
+            .and_then(|node| node.consume_chars_until_return_node(chars.as_str()))
+    }
+
     /// Finds the return node for an alias, if one exists.
     ///
     /// Travels along the node path using `value`, until it either reaches a dead end or consumes
     /// all of `value`. If a dead end is reached, `None` is returned instead.
-    fn find_alias_return_node(&self, value: &str) -> Option<&'a Node<'a>> {
+    fn find_alias_return_nodes(&self, value: &str) -> vec::IntoIter<&'a Node<'a>> {
         if value.is_empty() {
             return unsafe {
                 // SAFETY: The obtained reference to a Node is self-referential within the
@@ -148,23 +225,40 @@ impl<'a> Node<'a> {
                 // WordFilter is pinned in place in memory, meaning it will only ever move when the
                 // WordFilter is dropped. Therefore, this reference will be valid for as long as it
                 // is used by the WordFilter.
-                Some(&*(self as *const Node<'_>))
+                vec![&*(self as *const Node<'_>)].into_iter()
             };
         }
 
-        let mut graphemes = value.graphemes(true);
+        let mut return_nodes = Vec::new();
+
+        // Direct children.
+        let mut chars = value.chars();
         self.children
-            .get(match graphemes.next() {
-                Some(g) => g,
+            .get(&match chars.next() {
+                Some(c) => c,
                 None => unsafe {
-                    // SAFETY: `value` is verified above to be non-empty. Therefore, `graphemes`
-                    // will always return a value on `next()`.
+                    // SAFETY: `value` is verified above to be non-empty. Therefore, `chars` will
+                    // always return a value on `next()`.
                     debug_unreachable!()
-                }
+                },
             })
-            .and_then(|node| {
-                node.find_alias_return_node(graphemes.as_str())
-            })
+            .into_iter()
+            .for_each(|node| {
+                return_nodes.extend(node.find_alias_return_nodes(chars.as_str()));
+            });
+
+        // Grapheme subgraphs.
+        for (grapheme_subgraph_node, grapheme_return_node) in &self.grapheme_subgraphs {
+            grapheme_subgraph_node
+                .consume_chars_until_return_node(value)
+                .into_iter()
+                .for_each(|consumed_value| {
+                    return_nodes
+                        .extend(grapheme_return_node.find_alias_return_nodes(consumed_value))
+                });
+        }
+
+        return_nodes.into_iter()
     }
 
     /// Insert an alias pointing to `sub_graph_node` at all places where `value` exists in the
@@ -174,7 +268,7 @@ impl<'a> Node<'a> {
     /// as it may leave some dangling references.
     pub(crate) fn add_alias(&mut self, value: &str, sub_graph_node: &'a Node<'a>) {
         // Head recursion.
-        for child in self.children.iter_mut().map(|(_g, node)| node) {
+        for child in self.children.iter_mut().map(|(_c, node)| node) {
             unsafe {
                 // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
                 // mutation of the `Node` will uphold pin invariants.
@@ -185,7 +279,7 @@ impl<'a> Node<'a> {
             }
         }
 
-        if let Some(return_node) = self.find_alias_return_node(value) {
+        for return_node in self.find_alias_return_nodes(value) {
             self.aliases.push((sub_graph_node, return_node));
         }
     }
@@ -199,14 +293,21 @@ impl<'a> Node<'a> {
             return Some(self);
         }
 
-        let mut graphemes = word.graphemes(true);
+        let mut chars = word.chars();
         self.children
-            .get(graphemes.next().unwrap())
-            .and_then(|node| {
-                node.search(
-                    graphemes.as_str()
-                )
-            })
+            .get(&chars.next().unwrap())
+            .and_then(|node| node.search(chars.as_str()))
+    }
+}
+
+impl fmt::Debug for Node<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Node")
+            .field("children", &self.children)
+            .field("aliases", &self.aliases.iter().map(|(subgraph_node, return_node)| (*subgraph_node as *const Node, *return_node as *const Node)).collect::<Vec<_>>())
+            .field("node_type", &self.node_type)
+            .field("grapheme_subgraphs", &self.grapheme_subgraphs)
+            .finish()
     }
 }
 

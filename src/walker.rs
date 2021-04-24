@@ -36,30 +36,15 @@ pub(crate) enum Status<'a> {
 
 /// A contextualizing wrapper for a [`Node`].
 ///
-/// Indicates what context the `Node` should be evaluated in. 
+/// Indicates what context the `Node` should be evaluated in.
 ///
 /// [`Node`]: crate::node::Node
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum ContextualizedNode<'a> {
     /// The `Node` should be evaluated in a direct path context.
     InDirectPath(&'a Node<'a>),
     /// The `Node` should be evaluated in a subgraph context.
     InSubgraph(&'a Node<'a>),
-}
-
-impl fmt::Debug for ContextualizedNode<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ContextualizedNode::InDirectPath(node) => f
-                .debug_tuple("InDirectPath")
-                .field(&(*node as *const Node))
-                .finish(),
-            ContextualizedNode::InSubgraph(node) => f
-                .debug_tuple("InSubgraph")
-                .field(&(*node as *const Node))
-                .finish(),
-        }
-    }
 }
 
 /// A specialized walker for traveling through the `WordFilter`'s `Node` graph.
@@ -70,7 +55,7 @@ impl fmt::Debug for ContextualizedNode<'_> {
 ///
 /// In order to progress the `Walker` forward, the `step()` method is provided, which allows the
 /// user to step the `Walker` through each character in a string.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Walker<'a> {
     pub(crate) node: &'a Node<'a>,
     pub(crate) status: Status<'a>,
@@ -82,7 +67,7 @@ pub(crate) struct Walker<'a> {
 
     pub(crate) returns: Vec<&'a Node<'a>>,
     pub(crate) callbacks: Vec<ContextualizedNode<'a>>,
-    targets: Vec<ContextualizedNode<'a>>,
+    pub(crate) targets: Vec<ContextualizedNode<'a>>,
 }
 
 impl<'a> Walker<'a> {
@@ -104,9 +89,27 @@ impl<'a> Walker<'a> {
 
             visited.insert(ByAddress(alias_node));
             result.extend(alias_walker.branch_to_aliases(visited));
+            result.extend(alias_walker.branch_to_grapheme_subgraphs(visited));
             visited.remove(&ByAddress(alias_node));
 
             result.push(alias_walker);
+        }
+
+        result.into_iter()
+    }
+
+    pub(crate) fn branch_to_grapheme_subgraphs(&self, visited: &mut HashSet<ByAddress<&Node<'a>>>) -> vec::IntoIter<Walker<'a>> {
+        let mut result = Vec::new();
+
+        for (grapheme_subgraph_node, grapheme_return_node) in &self.node.grapheme_subgraphs {
+            let mut grapheme_walker = self.clone();
+            grapheme_walker.node = grapheme_subgraph_node;
+            grapheme_walker.returns.push(grapheme_return_node);
+            grapheme_walker.in_separator = false;
+
+            result.extend(grapheme_walker.branch_to_aliases(visited));
+
+            result.push(grapheme_walker);
         }
 
         result.into_iter()
@@ -139,11 +142,11 @@ impl<'a> Walker<'a> {
                     let mut callback_walker = self.clone();
                     callback_walker.node = callback_node;
                     callback_walker.len += 1;
+                    callback_walker.callbacks.pop();
 
                     result.extend(
                         callback_walker
                             .branch_to_aliases(&mut HashSet::new())
-                            .into_iter()
                             .map(|mut walker| {
                                 walker
                                     .targets
@@ -151,8 +154,20 @@ impl<'a> Walker<'a> {
                                 walker
                                     .callbacks
                                     .push(ContextualizedNode::InSubgraph(callback_node));
+                                walker.returns.push(self.node);
                                 walker
                             }),
+                    );
+
+                    result.extend(
+                        callback_walker
+                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                            .map(|mut walker| {
+                                walker.targets.push(ContextualizedNode::InSubgraph(self.node));
+                                walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
+                                walker.returns.push(self.node);
+                                walker
+                            })
                     );
 
                     callback_walker
@@ -187,16 +202,15 @@ impl<'a> Walker<'a> {
         Ok(result.into_iter())
     }
 
-    /// Step the `Walker` along the grapheme `g`.
+    /// Step the `Walker` along the character 'c'.
     ///
     /// If successful, returns an iterator of branched `Walker`s.
-    pub(crate) fn step(&mut self, g: &str) -> Result<vec::IntoIter<Walker<'a>>, ()> {
+    pub(crate) fn step(&mut self, c: char) -> Result<vec::IntoIter<Walker<'a>>, ()> {
         let mut branches = Vec::new();
 
-        match self.node.children.get(g) {
+        match self.node.children.get(&c) {
             Some(node) => {
                 match node.node_type {
-                    node::Type::Return => {}
                     _ => {
                         if let Some(ContextualizedNode::InDirectPath(target_node)) =
                             self.targets.last()
@@ -212,11 +226,11 @@ impl<'a> Walker<'a> {
                             let mut callback_walker = self.clone();
                             callback_walker.node = callback_node;
                             callback_walker.len += 1;
+                            callback_walker.callbacks.pop();
 
                             branches.extend(
                                 callback_walker
                                     .branch_to_aliases(&mut HashSet::new())
-                                    .into_iter()
                                     .map(|mut walker| {
                                         walker.targets.push(ContextualizedNode::InSubgraph(node));
                                         walker
@@ -224,6 +238,16 @@ impl<'a> Walker<'a> {
                                             .push(ContextualizedNode::InSubgraph(callback_node));
                                         walker
                                     }),
+                            );
+
+                            branches.extend(
+                                callback_walker
+                                    .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                                    .map(|mut walker| {
+                                        walker.targets.push(ContextualizedNode::InSubgraph(node));
+                                        walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
+                                        walker
+                                    })
                             );
 
                             callback_walker
@@ -265,7 +289,7 @@ impl<'a> Walker<'a> {
 /// The bounds correspond with the matched word or exception's start and end character positions.
 ///
 /// A match will always have an excluded `end_bound()`, while an exception will always have an
-/// included `end_bound()`. This ensures that exceptions will always trump matches when `Walker`s 
+/// included `end_bound()`. This ensures that exceptions will always trump matches when `Walker`s
 /// are evaluated in a NestedContainmentList.
 ///
 /// [`RangeBounds`]: core::ops::RangeBounds
@@ -282,28 +306,6 @@ impl RangeBounds<usize> for Walker<'_> {
             Status::Match(ref end, _) => Bound::Excluded(end),
             Status::Exception(ref end, _) => Bound::Included(end),
         }
-    }
-}
-
-impl fmt::Debug for Walker<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Walker")
-            .field("node", &(self.node as *const Node))
-            .field("status", &self.status)
-            .field("start", &self.start)
-            .field("len", &self.len)
-            .field("in_separator", &self.in_separator)
-            .field(
-                "returns",
-                &self
-                    .returns
-                    .iter()
-                    .map(|node| *node as *const Node)
-                    .collect::<Vec<_>>(),
-            )
-            .field("callbacks", &self.callbacks)
-            .field("targets", &self.targets)
-            .finish()
     }
 }
 
@@ -562,10 +564,10 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
-        assert_err!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
+        assert_err!(walker.step('o'));
     }
 
     #[test]
@@ -575,9 +577,9 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert_matches!(walker.status, Status::Match(3, "foo"));
     }
 
@@ -588,9 +590,9 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert_matches!(walker.status, Status::Exception(3, "foo"));
     }
 
@@ -604,9 +606,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node));
     }
 
@@ -617,9 +619,9 @@ mod tests {
 
         let mut walker = WalkerBuilder::new(&node).build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_err!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_err!(walker.step('o'));
     }
 
     #[test]
@@ -633,9 +635,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node));
         assert_matches!(walker.status, Status::Match(3, ""));
     }
@@ -651,9 +653,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node));
         assert_matches!(walker.status, Status::Exception(3, ""));
     }
@@ -670,9 +672,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node));
         assert!(!walker.in_separator);
         assert_matches!(walker.status, Status::None);
@@ -690,9 +692,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node));
         assert!(!walker.in_separator);
         assert_matches!(walker.status, Status::None);
@@ -710,9 +712,9 @@ mod tests {
             .returns(vec![&return_node_b, &return_node_a])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert!(ptr::eq(walker.node, &return_node_b));
     }
 
@@ -726,12 +728,12 @@ mod tests {
             .callbacks(vec![ContextualizedNode::InDirectPath(&callback_node)])
             .build();
 
-        let branched_walkers = walker.step("f").unwrap().collect::<Vec<_>>();
+        let branched_walkers = walker.step('f').unwrap().collect::<Vec<_>>();
         assert_eq!(branched_walkers.len(), 1);
         assert!(ptr::eq(branched_walkers[0].node, &callback_node));
         match branched_walkers[0].targets[0] {
             ContextualizedNode::InDirectPath(target_node) => {
-                assert!(ptr::eq(target_node, &*node.children["f"]))
+                assert!(ptr::eq(target_node, &*node.children[&'f']))
             }
             _ => unreachable!(),
         }
@@ -749,9 +751,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        let branched_walkers = walker.step("o").unwrap().collect::<Vec<_>>();
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        let branched_walkers = walker.step('o').unwrap().collect::<Vec<_>>();
         assert_eq!(branched_walkers.len(), 1);
         assert!(ptr::eq(branched_walkers[0].node, &callback_node));
         match branched_walkers[0].targets[0] {
@@ -768,10 +770,12 @@ mod tests {
         node.add_match("foo");
 
         let mut walker = WalkerBuilder::new(&node)
-            .targets(vec![ContextualizedNode::InDirectPath(&*node.children["f"])])
+            .targets(vec![ContextualizedNode::InDirectPath(
+                &*node.children[&'f'],
+            )])
             .build();
 
-        assert_ok!(walker.step("f"));
+        assert_ok!(walker.step('f'));
         assert_eq!(walker.targets.len(), 0);
     }
 
@@ -786,9 +790,9 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_ok!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_ok!(walker.step('o'));
         assert_eq!(walker.targets.len(), 0);
     }
 
@@ -802,7 +806,7 @@ mod tests {
             .targets(vec![ContextualizedNode::InDirectPath(&target_node)])
             .build();
 
-        assert_err!(walker.step("f"));
+        assert_err!(walker.step('f'));
     }
 
     #[test]
@@ -817,8 +821,8 @@ mod tests {
             .returns(vec![&return_node])
             .build();
 
-        assert_ok!(walker.step("f"));
-        assert_ok!(walker.step("o"));
-        assert_err!(walker.step("o"));
+        assert_ok!(walker.step('f'));
+        assert_ok!(walker.step('o'));
+        assert_err!(walker.step('o'));
     }
 }

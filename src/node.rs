@@ -304,7 +304,16 @@ impl fmt::Debug for Node<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Node")
             .field("children", &self.children)
-            .field("aliases", &self.aliases.iter().map(|(subgraph_node, return_node)| (*subgraph_node as *const Node, *return_node as *const Node)).collect::<Vec<_>>())
+            .field(
+                "aliases",
+                &self
+                    .aliases
+                    .iter()
+                    .map(|(subgraph_node, return_node)| {
+                        (*subgraph_node as *const Node, *return_node as *const Node)
+                    })
+                    .collect::<Vec<_>>(),
+            )
             .field("node_type", &self.node_type)
             .field("grapheme_subgraphs", &self.grapheme_subgraphs)
             .finish()

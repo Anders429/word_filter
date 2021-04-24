@@ -98,7 +98,10 @@ impl<'a> Walker<'a> {
         result.into_iter()
     }
 
-    pub(crate) fn branch_to_grapheme_subgraphs(&self, visited: &mut HashSet<ByAddress<&Node<'a>>>) -> vec::IntoIter<Walker<'a>> {
+    pub(crate) fn branch_to_grapheme_subgraphs(
+        &self,
+        visited: &mut HashSet<ByAddress<&Node<'a>>>,
+    ) -> vec::IntoIter<Walker<'a>> {
         let mut result = Vec::new();
 
         for (grapheme_subgraph_node, grapheme_return_node) in &self.node.grapheme_subgraphs {
@@ -144,9 +147,22 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
+                    result.extend(callback_walker.branch_to_aliases(&mut HashSet::new()).map(
+                        |mut walker| {
+                            walker
+                                .targets
+                                .push(ContextualizedNode::InSubgraph(self.node));
+                            walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(callback_node));
+                            walker.returns.push(self.node);
+                            walker
+                        },
+                    ));
+
                     result.extend(
                         callback_walker
-                            .branch_to_aliases(&mut HashSet::new())
+                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
                             .map(|mut walker| {
                                 walker
                                     .targets
@@ -157,17 +173,6 @@ impl<'a> Walker<'a> {
                                 walker.returns.push(self.node);
                                 walker
                             }),
-                    );
-
-                    result.extend(
-                        callback_walker
-                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
-                            .map(|mut walker| {
-                                walker.targets.push(ContextualizedNode::InSubgraph(self.node));
-                                walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
-                                walker.returns.push(self.node);
-                                walker
-                            })
                     );
 
                     callback_walker
@@ -210,57 +215,50 @@ impl<'a> Walker<'a> {
 
         match self.node.children.get(&c) {
             Some(node) => {
-                match node.node_type {
-                    _ => {
-                        if let Some(ContextualizedNode::InDirectPath(target_node)) =
-                            self.targets.last()
-                        {
-                            if !ptr::eq(node.as_ref().get_ref(), *target_node) {
-                                return Err(());
-                            }
-                            self.targets.pop();
-                        }
-                        if let Some(ContextualizedNode::InDirectPath(callback_node)) =
-                            self.callbacks.last()
-                        {
-                            let mut callback_walker = self.clone();
-                            callback_walker.node = callback_node;
-                            callback_walker.len += 1;
-                            callback_walker.callbacks.pop();
-
-                            branches.extend(
-                                callback_walker
-                                    .branch_to_aliases(&mut HashSet::new())
-                                    .map(|mut walker| {
-                                        walker.targets.push(ContextualizedNode::InSubgraph(node));
-                                        walker
-                                            .callbacks
-                                            .push(ContextualizedNode::InSubgraph(callback_node));
-                                        walker
-                                    }),
-                            );
-
-                            branches.extend(
-                                callback_walker
-                                    .branch_to_grapheme_subgraphs(&mut HashSet::new())
-                                    .map(|mut walker| {
-                                        walker.targets.push(ContextualizedNode::InSubgraph(node));
-                                        walker.callbacks.push(ContextualizedNode::InSubgraph(callback_node));
-                                        walker
-                                    })
-                            );
-
-                            callback_walker
-                                .targets
-                                .push(ContextualizedNode::InDirectPath(node));
-                            callback_walker
-                                .callbacks
-                                .push(ContextualizedNode::InDirectPath(callback_node));
-                            branches.push(callback_walker);
-
-                            self.callbacks.pop();
-                        }
+                if let Some(ContextualizedNode::InDirectPath(target_node)) = self.targets.last() {
+                    if !ptr::eq(node.as_ref().get_ref(), *target_node) {
+                        return Err(());
                     }
+                    self.targets.pop();
+                }
+                if let Some(ContextualizedNode::InDirectPath(callback_node)) = self.callbacks.last()
+                {
+                    let mut callback_walker = self.clone();
+                    callback_walker.node = callback_node;
+                    callback_walker.len += 1;
+                    callback_walker.callbacks.pop();
+
+                    branches.extend(callback_walker.branch_to_aliases(&mut HashSet::new()).map(
+                        |mut walker| {
+                            walker.targets.push(ContextualizedNode::InSubgraph(node));
+                            walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(callback_node));
+                            walker
+                        },
+                    ));
+
+                    branches.extend(
+                        callback_walker
+                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                            .map(|mut walker| {
+                                walker.targets.push(ContextualizedNode::InSubgraph(node));
+                                walker
+                                    .callbacks
+                                    .push(ContextualizedNode::InSubgraph(callback_node));
+                                walker
+                            }),
+                    );
+
+                    callback_walker
+                        .targets
+                        .push(ContextualizedNode::InDirectPath(node));
+                    callback_walker
+                        .callbacks
+                        .push(ContextualizedNode::InDirectPath(callback_node));
+                    branches.push(callback_walker);
+
+                    self.callbacks.pop();
                 }
                 self.node = node;
                 match self.node.node_type {

@@ -207,7 +207,9 @@ impl WordFilter<'_> {
                             separator_walker
                                 .callbacks
                                 .push(ContextualizedNode::InSubgraph(walker.node));
-                            separator_walker.targets.push(ContextualizedNode::InSubgraph(walker.node));
+                            separator_walker
+                                .targets
+                                .push(ContextualizedNode::InSubgraph(walker.node));
                             separator_walker
                         }));
                         new_walkers.extend(branches);
@@ -228,7 +230,8 @@ impl WordFilter<'_> {
                         }
 
                         // Graphemes.
-                        let grapheme_walkers = walker.branch_to_grapheme_subgraphs(&mut HashSet::new());
+                        let grapheme_walkers =
+                            walker.branch_to_grapheme_subgraphs(&mut HashSet::new());
                         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
                             self.repeated_character_match_mode
                         {
@@ -253,7 +256,9 @@ impl WordFilter<'_> {
                             separator_walker
                                 .callbacks
                                 .push(ContextualizedNode::InSubgraph(walker.node));
-                            separator_walker.targets.push(ContextualizedNode::InSubgraph(walker.node));
+                            separator_walker
+                                .targets
+                                .push(ContextualizedNode::InSubgraph(walker.node));
                         }
                         new_walkers.push(separator_walker);
 
@@ -1019,7 +1024,10 @@ mod tests {
 
     #[test]
     fn grapheme_in_alias() {
-        let filter = WordFilterBuilder::new().words(&["bar"]).aliases(&[("a", "ã")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .aliases(&[("a", "ã")])
+            .build();
 
         assert_eq!(filter.find("bãr"), vec!["bar"].into_boxed_slice());
     }

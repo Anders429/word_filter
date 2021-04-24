@@ -81,7 +81,6 @@ use hashbrown::{HashMap, HashSet};
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
-use unicode_segmentation::UnicodeSegmentation;
 use walker::{ContextualizedNode, Walker, WalkerBuilder};
 
 /// The strategy a `WordFilter` should use to match repeated characters.
@@ -192,11 +191,12 @@ impl WordFilter<'_> {
             root_walker.branch_to_aliases(&mut HashSet::new()).collect()
         };
         walkers.push(root_walker);
+
         let mut found = Vec::new();
-        for (i, g) in input.grapheme_indices(true) {
+        for (i, c) in input.chars().enumerate() {
             let mut new_walkers = Vec::new();
             for mut walker in walkers.drain(..) {
-                match walker.step(g) {
+                match walker.step(c) {
                     Ok(branches) => {
                         // New branches.
                         new_walkers.extend(branches.clone().map(|walker| {
@@ -208,6 +208,9 @@ impl WordFilter<'_> {
                                 .callbacks
                                 .push(ContextualizedNode::InSubgraph(walker.node));
                             separator_walker
+                                .targets
+                                .push(ContextualizedNode::InSubgraph(walker.node));
+                            separator_walker
                         }));
                         new_walkers.extend(branches);
 
@@ -216,14 +219,30 @@ impl WordFilter<'_> {
                         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
                             self.repeated_character_match_mode
                         {
-                            new_walkers.extend(alias_walkers.map(|mut walker| {
-                                walker
+                            new_walkers.extend(alias_walkers.map(|mut inner_walker| {
+                                inner_walker
                                     .callbacks
                                     .push(ContextualizedNode::InSubgraph(walker.node));
-                                walker
+                                inner_walker
                             }));
                         } else {
                             new_walkers.extend(alias_walkers);
+                        }
+
+                        // Graphemes.
+                        let grapheme_walkers =
+                            walker.branch_to_grapheme_subgraphs(&mut HashSet::new());
+                        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                            self.repeated_character_match_mode
+                        {
+                            new_walkers.extend(grapheme_walkers.map(|mut inner_walker| {
+                                inner_walker
+                                    .callbacks
+                                    .push(ContextualizedNode::InSubgraph(walker.node));
+                                inner_walker
+                            }))
+                        } else {
+                            new_walkers.extend(grapheme_walkers);
                         }
 
                         // Separators.
@@ -236,6 +255,9 @@ impl WordFilter<'_> {
                         {
                             separator_walker
                                 .callbacks
+                                .push(ContextualizedNode::InSubgraph(walker.node));
+                            separator_walker
+                                .targets
                                 .push(ContextualizedNode::InSubgraph(walker.node));
                         }
                         new_walkers.push(separator_walker);
@@ -262,6 +284,7 @@ impl WordFilter<'_> {
             // Add root again.
             let root_walker = WalkerBuilder::new(&self.root).start(i + 1).build();
             new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
+            new_walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
             new_walkers.push(root_walker);
 
             walkers = new_walkers;
@@ -356,15 +379,15 @@ impl WordFilter<'_> {
     #[must_use]
     pub fn censor(&self, input: &str) -> String {
         let mut output = String::with_capacity(input.len());
-        let mut grapheme_indices = input.grapheme_indices(true);
+        let mut char_indices = input.char_indices();
         // Walkers are sorted on both start and end, due to use of NestedContainmentList.
         let mut prev_end = 0;
         for walker in self.find_walkers(input) {
             // Insert un-censored characters.
             if walker.start > prev_end {
                 for _ in 0..(walker.start - prev_end) {
-                    output.push_str(match grapheme_indices.next().map(|(_i, g)| g) {
-                        Some(g) => g,
+                    output.push(match char_indices.next().map(|(_i, c)| c) {
+                        Some(c) => c,
                         None => unsafe {
                             // SAFETY: Each `walker` within `walkers` is guaranteed to be within
                             // the bounds of `input`. Additionally, since the `walker`s are ordered
@@ -384,17 +407,17 @@ impl WordFilter<'_> {
                 _ => continue,
             } - core::cmp::max(walker.start, prev_end);
 
-            let (substring_start, current_grapheme) = match grapheme_indices.next() {
-                Some((start, g)) => (start, g),
+            let (substring_start, current_char) = match char_indices.next() {
+                Some((start, c)) => (start, c),
                 None => unsafe { debug_unreachable!() },
             };
             let substring_end = if len > 2 {
-                match grapheme_indices.nth(len - 3) {
-                    Some((end, g)) => end + g.len(),
+                match char_indices.nth(len - 3) {
+                    Some((end, c)) => end + c.len_utf8(),
                     None => unsafe { debug_unreachable!() },
                 }
             } else {
-                substring_start + current_grapheme.len()
+                substring_start + current_char.len_utf8()
             };
 
             output.push_str(&(self.censor)(&input[substring_start..substring_end]));
@@ -410,9 +433,7 @@ impl WordFilter<'_> {
         }
 
         // Add the rest of the characters.
-        output.push_str(
-            grapheme_indices.as_str(),
-        );
+        output.push_str(char_indices.as_str());
 
         output
     }
@@ -999,5 +1020,22 @@ mod tests {
         let filter = WordFilterBuilder::new().words(&["bãr"]).build();
 
         assert_eq!(filter.find("bããr"), vec!["bãr"].into_boxed_slice());
+    }
+
+    #[test]
+    fn grapheme_in_alias() {
+        let filter = WordFilterBuilder::new()
+            .words(&["bar"])
+            .aliases(&[("a", "ã")])
+            .build();
+
+        assert_eq!(filter.find("bãr"), vec!["bar"].into_boxed_slice());
+    }
+
+    #[test]
+    fn alias_on_grapheme() {
+        let filter = WordFilterBuilder::new().words(&["bãr"]).aliases(&[("ã", "õ")]).build();
+
+        assert_eq!(filter.find("bõr"), vec!["bãr"].into_boxed_slice());
     }
 }

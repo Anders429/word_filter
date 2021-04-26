@@ -529,6 +529,25 @@ impl<'a> WordFilterBuilder<'a> {
         }
     }
 
+    /// Adds a word to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any words that have been added prior. Multiple calls to this
+    /// method will result in all words being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().word("foo").build();
+    /// ```
+    #[inline]
+    pub fn word<S>(&mut self, word: S) -> &mut Self 
+    where
+        S: ToString {
+        self.words.push(word.to_string());
+        self
+    }
+
     /// Adds words to be used in building the [`WordFilter`].
     ///
     /// Note that this does not replace any words that have been added prior. Multiple calls to this
@@ -546,6 +565,25 @@ impl<'a> WordFilterBuilder<'a> {
         I: IntoIterator<Item = S>,
         S: ToString {
         self.words.extend(words.into_iter().map(|s| s.to_string()));
+        self
+    }
+
+    /// Adds an exception to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any exceptions that have been added prior. Multiple calls to
+    /// this method will result in all exceptions being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().exception("foo").build();
+    /// ```
+    #[inline]
+    pub fn exception<S>(&mut self, exception: S) -> &mut Self 
+    where
+        S: ToString {
+        self.exceptions.push(exception.to_string());
         self
     }
 
@@ -569,6 +607,25 @@ impl<'a> WordFilterBuilder<'a> {
         self
     }
 
+    /// Adds a separator to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any separators that have been added prior. Multiple calls to
+    /// this method will result in all separators being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().separator("_").build();
+    /// ```
+    #[inline]
+    pub fn separator<S>(&mut self, separator: S) -> &mut Self 
+    where
+        S: ToString {
+        self.separators.push(separator.to_string());
+        self
+    }
+
     /// Adds separators to be used in building the [`WordFilter`].
     ///
     /// Note that this does not replace any separators that have been added prior. Multiple calls to
@@ -586,6 +643,29 @@ impl<'a> WordFilterBuilder<'a> {
         I: IntoIterator<Item = S>,
         S: ToString {
         self.separators.extend(separators.into_iter().map(|s| s.to_string()));
+        self
+    }
+
+    /// Adds an alias to be used in building the [`WordFilter`].
+    ///
+    /// Aliases are tuples defining alias strings that may replace source strings during matching.
+    /// These are of the form `(<source string>, <alias string>)`.
+    ///
+    /// Note that this does not replace any aliases that have been added prior. Multiple calls to
+    /// this method will result in all aliases being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().alias(("a", "@")).build();
+    /// ```
+    #[inline]
+    pub fn alias<S, T>(&mut self, alias: (S, T)) -> &mut Self 
+    where
+        S: ToString,
+        T: ToString, {
+        self.aliases.push((alias.0.to_string(), alias.1.to_string()));
         self
     }
 

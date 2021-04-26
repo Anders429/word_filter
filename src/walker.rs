@@ -188,14 +188,14 @@ impl<'a> Walker<'a> {
 
                 result.extend(self.evaluate_return_node()?);
             }
-            node::Type::Match(word) => {
+            node::Type::Match(ref word) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
                     self.status = Status::Match(self.start + self.len + 1, word);
                 }
             }
-            node::Type::Exception(exception) => {
+            node::Type::Exception(ref exception) => {
                 if self.in_separator {
                     self.in_separator = false;
                 } else {
@@ -266,10 +266,10 @@ impl<'a> Walker<'a> {
                     node::Type::Return => {
                         branches.extend(self.evaluate_return_node()?);
                     }
-                    node::Type::Match(word) => {
+                    node::Type::Match(ref word) => {
                         self.status = Status::Match(self.start + self.len + 1, word);
                     }
-                    node::Type::Exception(exception) => {
+                    node::Type::Exception(ref exception) => {
                         self.status = Status::Exception(self.start + self.len + 1, exception);
                     }
                 }

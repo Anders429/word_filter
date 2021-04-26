@@ -69,11 +69,12 @@ mod walker;
 
 pub mod censor;
 
-use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::{String, ToString}, vec, vec::Vec};
 use censor::replace_graphemes_with;
 use core::{
     fmt,
     iter::FromIterator,
+    marker::PhantomData,
     ops::{Bound, RangeBounds},
     pin::Pin,
 };
@@ -496,12 +497,13 @@ impl fmt::Debug for WordFilter<'_> {
 /// [`censor::replace_graphemes_with!("*")`]: censor/macro.replace_graphemes_with.html
 #[derive(Clone)]
 pub struct WordFilterBuilder<'a> {
-    words: Vec<&'a str>,
-    exceptions: Vec<&'a str>,
-    separators: Vec<&'a str>,
-    aliases: Vec<(&'a str, &'a str)>,
+    words: Vec<String>,
+    exceptions: Vec<String>,
+    separators: Vec<String>,
+    aliases: Vec<(String, String)>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
     censor: fn(&str) -> String,
+    _phantom_lifetime: PhantomData<&'a ()>
 }
 
 impl<'a> WordFilterBuilder<'a> {
@@ -523,7 +525,27 @@ impl<'a> WordFilterBuilder<'a> {
             aliases: Vec::new(),
             repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
             censor: replace_graphemes_with!("*"),
+            _phantom_lifetime: PhantomData,
         }
+    }
+
+    /// Adds a word to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any words that have been added prior. Multiple calls to this
+    /// method will result in all words being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().word("foo").build();
+    /// ```
+    #[inline]
+    pub fn word<S>(&mut self, word: S) -> &mut Self 
+    where
+        S: ToString {
+        self.words.push(word.to_string());
+        self
     }
 
     /// Adds words to be used in building the [`WordFilter`].
@@ -538,8 +560,30 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     /// ```
     #[inline]
-    pub fn words(&mut self, words: &[&'a str]) -> &mut Self {
-        self.words.extend_from_slice(words);
+    pub fn words<I, S>(&mut self, words: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString {
+        self.words.extend(words.into_iter().map(|s| s.to_string()));
+        self
+    }
+
+    /// Adds an exception to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any exceptions that have been added prior. Multiple calls to
+    /// this method will result in all exceptions being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().exception("foo").build();
+    /// ```
+    #[inline]
+    pub fn exception<S>(&mut self, exception: S) -> &mut Self 
+    where
+        S: ToString {
+        self.exceptions.push(exception.to_string());
         self
     }
 
@@ -555,8 +599,30 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().exceptions(&["foo"]).build();
     /// ```
     #[inline]
-    pub fn exceptions(&mut self, exceptions: &[&'a str]) -> &mut Self {
-        self.exceptions.extend_from_slice(exceptions);
+    pub fn exceptions<I, S>(&mut self, exceptions: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString {
+        self.exceptions.extend(exceptions.into_iter().map(|s| s.to_string()));
+        self
+    }
+
+    /// Adds a separator to be used in building the [`WordFilter`].
+    ///
+    /// Note that this does not replace any separators that have been added prior. Multiple calls to
+    /// this method will result in all separators being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().separator("_").build();
+    /// ```
+    #[inline]
+    pub fn separator<S>(&mut self, separator: S) -> &mut Self 
+    where
+        S: ToString {
+        self.separators.push(separator.to_string());
         self
     }
 
@@ -572,8 +638,34 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().separators(&["_"]).build();
     /// ```
     #[inline]
-    pub fn separators(&mut self, separators: &[&'a str]) -> &mut Self {
-        self.separators.extend_from_slice(separators);
+    pub fn separators<I, S>(&mut self, separators: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString {
+        self.separators.extend(separators.into_iter().map(|s| s.to_string()));
+        self
+    }
+
+    /// Adds an alias to be used in building the [`WordFilter`].
+    ///
+    /// Aliases are tuples defining alias strings that may replace source strings during matching.
+    /// These are of the form `(<source string>, <alias string>)`.
+    ///
+    /// Note that this does not replace any aliases that have been added prior. Multiple calls to
+    /// this method will result in all aliases being used.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::WordFilterBuilder;
+    ///
+    /// let filter = WordFilterBuilder::new().alias(("a", "@")).build();
+    /// ```
+    #[inline]
+    pub fn alias<S, T>(&mut self, alias: (S, T)) -> &mut Self 
+    where
+        S: ToString,
+        T: ToString, {
+        self.aliases.push((alias.0.to_string(), alias.1.to_string()));
         self
     }
 
@@ -592,8 +684,12 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().aliases(&[("a", "@")]).build();
     /// ```
     #[inline]
-    pub fn aliases(&mut self, aliases: &[(&'a str, &'a str)]) -> &mut Self {
-        self.aliases.extend_from_slice(aliases);
+    pub fn aliases<'b, I, S, T>(&mut self, aliases: I) -> &mut Self 
+    where
+        I: IntoIterator<Item = &'b (S, T)>,
+        S: ToString + 'b,
+        T: ToString + 'b, {
+        self.aliases.extend(aliases.into_iter().map(|(s, t)| (s.to_string(), t.to_string())));
         self
     }
 
@@ -651,16 +747,16 @@ impl<'a> WordFilterBuilder<'a> {
         let mut root = Node::new();
 
         for word in &self.words {
-            root.add_match(word);
+            root.add_match(&word);
         }
 
         for exception in &self.exceptions {
-            root.add_exception(exception);
+            root.add_exception(&exception);
         }
 
         let mut separator_root = Node::new();
         for separator in &self.separators {
-            separator_root.add_return(separator);
+            separator_root.add_return(&separator);
         }
 
         let mut alias_map = HashMap::new();
@@ -781,8 +877,8 @@ impl<'a> WordFilterBuilder<'a> {
             root,
             separator_root,
             _alias_map: alias_map,
-            repeated_character_match_mode: self.repeated_character_match_mode,
-            censor: self.censor,
+            repeated_character_match_mode: self.repeated_character_match_mode.clone(),
+            censor: self.censor.clone(),
         }
     }
 }
@@ -811,6 +907,35 @@ impl fmt::Debug for WordFilterBuilder<'_> {
 mod tests {
     use crate::{replace_graphemes_with, RepeatedCharacterMatchMode, WordFilterBuilder};
     use alloc::{vec, vec::Vec};
+
+    #[test]
+    fn builder_word() {
+        let filter = WordFilterBuilder::new().word("foo").build();
+
+        assert!(filter.check("foo"));
+    }
+
+    #[test]
+    fn builder_exception() {
+        let filter = WordFilterBuilder::new().word("foo").exception("foobar").build();
+
+        assert!(filter.check("foo"));
+        assert!(!filter.check("foobar"));
+    }
+
+    #[test]
+    fn builder_separator() {
+        let filter = WordFilterBuilder::new().word("foo").separator(" ").build();
+
+        assert!(filter.check("f o o"));
+    }
+
+    #[test]
+    fn builder_alias() {
+        let filter = WordFilterBuilder::new().word("foo").alias(("f", "F")).build();
+
+        assert!(filter.check("Foo"));
+    }
 
     #[test]
     fn find() {

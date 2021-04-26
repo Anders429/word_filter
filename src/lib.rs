@@ -69,11 +69,12 @@ mod walker;
 
 pub mod censor;
 
-use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::String, vec, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::{String, ToString}, vec, vec::Vec};
 use censor::replace_graphemes_with;
 use core::{
     fmt,
     iter::FromIterator,
+    marker::PhantomData,
     ops::{Bound, RangeBounds},
     pin::Pin,
 };
@@ -496,12 +497,13 @@ impl fmt::Debug for WordFilter<'_> {
 /// [`censor::replace_graphemes_with!("*")`]: censor/macro.replace_graphemes_with.html
 #[derive(Clone)]
 pub struct WordFilterBuilder<'a> {
-    words: Vec<&'a str>,
-    exceptions: Vec<&'a str>,
-    separators: Vec<&'a str>,
-    aliases: Vec<(&'a str, &'a str)>,
+    words: Vec<String>,
+    exceptions: Vec<String>,
+    separators: Vec<String>,
+    aliases: Vec<(String, String)>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
     censor: fn(&str) -> String,
+    _phantom_lifetime: PhantomData<&'a ()>
 }
 
 impl<'a> WordFilterBuilder<'a> {
@@ -523,6 +525,7 @@ impl<'a> WordFilterBuilder<'a> {
             aliases: Vec::new(),
             repeated_character_match_mode: RepeatedCharacterMatchMode::AllowRepeatedCharacters,
             censor: replace_graphemes_with!("*"),
+            _phantom_lifetime: PhantomData,
         }
     }
 
@@ -538,8 +541,11 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     /// ```
     #[inline]
-    pub fn words(&mut self, words: &[&'a str]) -> &mut Self {
-        self.words.extend_from_slice(words);
+    pub fn words<I, S>(&mut self, words: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString {
+        self.words.extend(words.into_iter().map(|s| s.to_string()));
         self
     }
 
@@ -555,8 +561,11 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().exceptions(&["foo"]).build();
     /// ```
     #[inline]
-    pub fn exceptions(&mut self, exceptions: &[&'a str]) -> &mut Self {
-        self.exceptions.extend_from_slice(exceptions);
+    pub fn exceptions<I, S>(&mut self, exceptions: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString {
+        self.exceptions.extend(exceptions.into_iter().map(|s| s.to_string()));
         self
     }
 
@@ -572,8 +581,11 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().separators(&["_"]).build();
     /// ```
     #[inline]
-    pub fn separators(&mut self, separators: &[&'a str]) -> &mut Self {
-        self.separators.extend_from_slice(separators);
+    pub fn separators<I, S>(&mut self, separators: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString {
+        self.separators.extend(separators.into_iter().map(|s| s.to_string()));
         self
     }
 
@@ -592,8 +604,12 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().aliases(&[("a", "@")]).build();
     /// ```
     #[inline]
-    pub fn aliases(&mut self, aliases: &[(&'a str, &'a str)]) -> &mut Self {
-        self.aliases.extend_from_slice(aliases);
+    pub fn aliases<'b, I, S, T>(&mut self, aliases: I) -> &mut Self 
+    where
+        I: IntoIterator<Item = &'b (S, T)>,
+        S: ToString + 'b,
+        T: ToString + 'b, {
+        self.aliases.extend(aliases.into_iter().map(|(s, t)| (s.to_string(), t.to_string())));
         self
     }
 
@@ -651,16 +667,16 @@ impl<'a> WordFilterBuilder<'a> {
         let mut root = Node::new();
 
         for word in &self.words {
-            root.add_match(word);
+            root.add_match(&word);
         }
 
         for exception in &self.exceptions {
-            root.add_exception(exception);
+            root.add_exception(&exception);
         }
 
         let mut separator_root = Node::new();
         for separator in &self.separators {
-            separator_root.add_return(separator);
+            separator_root.add_return(&separator);
         }
 
         let mut alias_map = HashMap::new();
@@ -781,8 +797,8 @@ impl<'a> WordFilterBuilder<'a> {
             root,
             separator_root,
             _alias_map: alias_map,
-            repeated_character_match_mode: self.repeated_character_match_mode,
-            censor: self.censor,
+            repeated_character_match_mode: self.repeated_character_match_mode.clone(),
+            censor: self.censor.clone(),
         }
     }
 }

@@ -25,20 +25,20 @@ use unicode_segmentation::UnicodeSegmentation;
 
 /// The different possible node variants.
 #[derive(Debug)]
-pub(crate) enum Type<'a> {
+pub(crate) enum Type {
     /// A standard pathway node.
     Standard,
     /// This node indicates a match.
     ///
     /// When traveling along a node path, if a match node is encountered that means a filtered word
     /// is contained in the source string.
-    Match(&'a str),
+    Match(String),
     /// This node indicates an exception.
     ///
     /// When traveling along a node path, if an exception node is encountered that means an
     /// exception word is contained in the source string. If any matches are found within the same
     /// character window they should be ignored.
-    Exception(&'a str),
+    Exception(String),
     /// A return pathway node.
     ///
     /// This indicates the walker should jump back to the return node, if one exists.
@@ -62,7 +62,7 @@ pub(crate) struct Node<'a> {
     pub(crate) aliases: Vec<(&'a Node<'a>, &'a Node<'a>)>,
 
     /// The type of node.
-    pub(crate) node_type: Type<'a>,
+    pub(crate) node_type: Type,
 
     /// Grapheme subgraphs.
     ///
@@ -92,7 +92,7 @@ impl<'a> Node<'a> {
     ///
     /// If the exact path already exists ending in a different `node::Type`, then the previous type
     /// is preserved.
-    fn add_path(&mut self, word: &str, node_type: Type<'a>) {
+    fn add_path(&mut self, word: &str, node_type: Type) {
         if word.is_empty() {
             if match self.node_type {
                 Type::Standard => true,
@@ -142,7 +142,7 @@ impl<'a> Node<'a> {
         }
     }
 
-    fn add_path_ignoring_graphemes(&mut self, word: &str, node_type: Type<'a>) {
+    fn add_path_ignoring_graphemes(&mut self, word: &str, node_type: Type) {
         if word.is_empty() {
             if match self.node_type {
                 Type::Standard => true,
@@ -174,13 +174,13 @@ impl<'a> Node<'a> {
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Match.
-    pub(crate) fn add_match(&mut self, word: &'a str) {
-        self.add_path(word, Type::Match(word));
+    pub(crate) fn add_match(&mut self, word: &str) {
+        self.add_path(word, Type::Match(word.to_owned()));
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as an Exception.
-    pub(crate) fn add_exception(&mut self, word: &'a str) {
-        self.add_path(word, Type::Exception(word));
+    pub(crate) fn add_exception(&mut self, word: &str) {
+        self.add_path(word, Type::Exception(word.to_owned()));
     }
 
     /// Add Nodes and char edges representing `word`, and mark the final Node as a Return.
@@ -330,7 +330,7 @@ mod tests {
         let mut node = Node::new();
         node.add_match("foo");
 
-        assert_matches!(&node.search("foo").unwrap().node_type, Type::Match("foo"));
+        assert_matches!(&node.search("foo").unwrap().node_type, Type::Match(ref value) if value == "foo");
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod tests {
 
         assert_matches!(
             &node.search("foo").unwrap().node_type,
-            Type::Exception("foo")
+            Type::Exception(ref value) if value == "foo"
         );
     }
 

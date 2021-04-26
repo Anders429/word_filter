@@ -909,6 +909,35 @@ mod tests {
     use alloc::{vec, vec::Vec};
 
     #[test]
+    fn builder_word() {
+        let filter = WordFilterBuilder::new().word("foo").build();
+
+        assert!(filter.check("foo"));
+    }
+
+    #[test]
+    fn builder_exception() {
+        let filter = WordFilterBuilder::new().word("foo").exception("foobar").build();
+
+        assert!(filter.check("foo"));
+        assert!(!filter.check("foobar"));
+    }
+
+    #[test]
+    fn builder_separator() {
+        let filter = WordFilterBuilder::new().word("foo").separator(" ").build();
+
+        assert!(filter.check("f o o"));
+    }
+
+    #[test]
+    fn builder_alias() {
+        let filter = WordFilterBuilder::new().word("foo").alias(("f", "F")).build();
+
+        assert!(filter.check("Foo"));
+    }
+
+    #[test]
     fn find() {
         let filter = WordFilterBuilder::new().words(&["foo"]).build();
 

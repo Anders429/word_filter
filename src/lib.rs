@@ -772,16 +772,16 @@ impl<'a> WordFilterBuilder<'a> {
         let mut root = Node::new();
 
         for word in &self.words {
-            root.add_match(&word);
+            root.add_match(word);
         }
 
         for exception in &self.exceptions {
-            root.add_exception(&exception);
+            root.add_exception(exception);
         }
 
         let mut separator_root = Node::new();
         for separator in &self.separators {
-            separator_root.add_return(&separator);
+            separator_root.add_return(separator);
         }
 
         let mut alias_map = HashMap::new();

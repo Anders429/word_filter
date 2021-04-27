@@ -165,7 +165,7 @@ impl Default for RepeatedCharacterMatchMode {
 pub struct WordFilter<'a> {
     root: Node<'a>,
     separator_root: Node<'a>,
-    _alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
+    alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
     censor: fn(&str) -> String,
 }
@@ -453,7 +453,7 @@ impl fmt::Debug for WordFilter<'_> {
         f.debug_struct("WordFilter")
             .field("root", &self.root)
             .field("separator_root", &self.separator_root)
-            .field("_alias_map", &self._alias_map)
+            .field("alias_map", &self.alias_map)
             .field(
                 "repeated_character_match_mode",
                 &self.repeated_character_match_mode,
@@ -901,7 +901,7 @@ impl<'a> WordFilterBuilder<'a> {
         WordFilter {
             root,
             separator_root,
-            _alias_map: alias_map,
+            alias_map,
             repeated_character_match_mode: self.repeated_character_match_mode,
             censor: self.censor,
         }

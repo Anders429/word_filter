@@ -553,9 +553,9 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().word("foo").build();
     /// ```
     #[inline]
-    pub fn word<S>(&mut self, word: S) -> &mut Self
+    pub fn word<S>(&mut self, word: &S) -> &mut Self
     where
-        S: ToString,
+        S: ToString + ?Sized,
     {
         self.words.push(word.to_string());
         self
@@ -594,9 +594,9 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().exception("foo").build();
     /// ```
     #[inline]
-    pub fn exception<S>(&mut self, exception: S) -> &mut Self
+    pub fn exception<S>(&mut self, exception: &S) -> &mut Self
     where
-        S: ToString,
+        S: ToString + ?Sized,
     {
         self.exceptions.push(exception.to_string());
         self
@@ -636,9 +636,9 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().separator("_").build();
     /// ```
     #[inline]
-    pub fn separator<S>(&mut self, separator: S) -> &mut Self
+    pub fn separator<S>(&mut self, separator: &S) -> &mut Self
     where
-        S: ToString,
+        S: ToString + ?Sized,
     {
         self.separators.push(separator.to_string());
         self
@@ -681,10 +681,10 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().alias("a", "@").build();
     /// ```
     #[inline]
-    pub fn alias<S, T>(&mut self, source: S, alias: T) -> &mut Self
+    pub fn alias<S, T>(&mut self, source: &S, alias: &T) -> &mut Self
     where
-        S: ToString,
-        T: ToString,
+        S: ToString + ?Sized,
+        T: ToString + ?Sized,
     {
         self.aliases
             .push((source.to_string(), alias.to_string()));

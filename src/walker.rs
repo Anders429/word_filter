@@ -13,7 +13,6 @@ use crate::node::{self, Node};
 use alloc::vec::{self, Vec};
 use by_address::ByAddress;
 use core::{
-    fmt,
     ops::{Bound, RangeBounds},
     ptr,
 };

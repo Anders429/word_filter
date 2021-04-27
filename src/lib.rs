@@ -678,16 +678,16 @@ impl<'a> WordFilterBuilder<'a> {
     /// ```
     /// use word_filter::WordFilterBuilder;
     ///
-    /// let filter = WordFilterBuilder::new().alias(("a", "@")).build();
+    /// let filter = WordFilterBuilder::new().alias("a", "@").build();
     /// ```
     #[inline]
-    pub fn alias<S, T>(&mut self, alias: (S, T)) -> &mut Self
+    pub fn alias<S, T>(&mut self, source: S, alias: T) -> &mut Self
     where
         S: ToString,
         T: ToString,
     {
         self.aliases
-            .push((alias.0.to_string(), alias.1.to_string()));
+            .push((source.to_string(), alias.to_string()));
         self
     }
 
@@ -968,7 +968,7 @@ mod tests {
     fn builder_alias() {
         let filter = WordFilterBuilder::new()
             .word("foo")
-            .alias(("f", "F"))
+            .alias("f", "F")
             .build();
 
         assert!(filter.check("Foo"));

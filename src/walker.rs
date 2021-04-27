@@ -288,7 +288,7 @@ impl<'a> Walker<'a> {
 ///
 /// A match will always have an excluded `end_bound()`, while an exception will always have an
 /// included `end_bound()`. This ensures that exceptions will always trump matches when `Walker`s
-/// are evaluated in a NestedContainmentList.
+/// are evaluated in a `NestedContainmentList`.
 ///
 /// [`RangeBounds`]: core::ops::RangeBounds
 impl RangeBounds<usize> for Walker<'_> {

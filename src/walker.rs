@@ -327,7 +327,7 @@ impl<'a> WalkerBuilder<'a> {
     #[must_use]
     pub(crate) fn new(node: &'a Node<'a>) -> Self {
         Self {
-            node: node,
+            node,
             status: Status::None,
 
             start: 0,

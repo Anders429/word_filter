@@ -788,7 +788,7 @@ impl<'a> WordFilterBuilder<'a> {
         for (value, alias) in &self.aliases {
             unsafe {
                 alias_map
-                    .entry((*value).to_owned())
+                    .entry(value.clone())
                     .or_insert_with(|| Box::pin(Node::new()))
                     .as_mut()
                     // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
@@ -807,14 +807,14 @@ impl<'a> WordFilterBuilder<'a> {
                     continue;
                 }
                 queue.push_back((
-                    (*value).to_owned(),
+                    value.clone(),
                     unsafe {
                         // SAFETY: `overlap_value` will always be the prefix of `merge_value`.
                         // Therefore, this will never be out of bounds and it will always uphold
                         // `str` invariants.
                         merge_value.get_unchecked(overlap_value.len()..).to_owned()
                     },
-                    (*alias).to_owned(),
+                    alias.clone(),
                 ));
             }
         }

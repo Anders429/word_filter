@@ -407,7 +407,7 @@ mod tests {
     use crate::node::Node;
     use alloc::{vec, vec::Vec};
     use by_address::ByAddress;
-    use claim::{assert_err, assert_matches, assert_ok, assert_ok_eq};
+    use claim::{assert_err, assert_matches, assert_ok};
     use core::{
         ops::{Bound, RangeBounds},
         ptr,

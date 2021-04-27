@@ -189,9 +189,8 @@ impl<'a> Node<'a> {
     }
 
     fn consume_chars_until_return_node<'b>(&self, value: &'b str) -> Option<&'b str> {
-        match self.node_type {
-            Type::Return => return Some(value),
-            _ => {}
+        if let Type::Return = self.node_type {
+            return Some(value);
         }
 
         if value.is_empty() {

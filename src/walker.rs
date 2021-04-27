@@ -321,6 +321,7 @@ pub(crate) struct WalkerBuilder<'a> {
     targets: Vec<ContextualizedNode<'a>>,
 }
 
+#[allow(dead_code)]
 impl<'a> WalkerBuilder<'a> {
     #[inline]
     #[must_use]

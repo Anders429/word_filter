@@ -334,6 +334,7 @@ impl WordFilter<'_> {
     /// assert_eq!(filter.find("this string contains foo"), vec!["foo"].into_boxed_slice());
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_walkers(input)
             .map(|walker| {
@@ -386,6 +387,7 @@ impl WordFilter<'_> {
     /// assert_eq!(filter.censor("this string contains foo"), "this string contains ***");
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
     pub fn censor(&self, input: &str) -> String {
         let mut output = String::with_capacity(input.len());
         let mut char_indices = input.char_indices();
@@ -768,6 +770,7 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
     pub fn build(&self) -> WordFilter<'a> {
         let mut root = Node::new();
 

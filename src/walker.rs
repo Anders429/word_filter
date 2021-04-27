@@ -519,7 +519,7 @@ mod tests {
                 // Just evading lifetimes to allow these Nodes to reference each other, don't mind
                 // me... (this same thing happens in the actual WordFilter code, but in a much safer
                 // fashion with Pins to guarantee validity of the references).
-                (&chained_alias_node as *const Node as *const u8 as *const Node)
+                (&chained_alias_node as *const Node<'_> as *const u8 as *const Node<'_>)
                     .as_ref()
                     .unwrap()
             },
@@ -528,12 +528,12 @@ mod tests {
         let return_node = Node::new();
         chained_alias_node.aliases.push((
             unsafe {
-                (&alias_node as *const Node as *const u8 as *const Node)
+                (&alias_node as *const Node<'_> as *const u8 as *const Node<'_>)
                     .as_ref()
                     .unwrap()
             },
             unsafe {
-                (&return_node as *const Node as *const u8 as *const Node)
+                (&return_node as *const Node<'_> as *const u8 as *const Node<'_>)
                     .as_ref()
                     .unwrap()
             },

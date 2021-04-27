@@ -309,7 +309,7 @@ impl fmt::Debug for Node<'_> {
                     .aliases
                     .iter()
                     .map(|(subgraph_node, return_node)| {
-                        (*subgraph_node as *const Node, *return_node as *const Node)
+                        (*subgraph_node as *const Node<'_>, *return_node as *const Node<'_>)
                     })
                     .collect::<Vec<_>>(),
             )

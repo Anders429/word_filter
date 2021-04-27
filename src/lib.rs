@@ -185,7 +185,7 @@ impl WordFilter<'_> {
         }
         let root_walker = root_walker_builder.build();
         let alias_walkers = root_walker.branch_to_aliases(&mut HashSet::new());
-        let mut walkers: Vec<Walker> = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+        let mut walkers: Vec<Walker<'_>> = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
             self.repeated_character_match_mode
         {
             alias_walkers

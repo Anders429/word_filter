@@ -1254,6 +1254,13 @@ mod tests {
     }
 
     #[test]
+    fn grapheme_at_root() {
+        let filter = WordFilterBuilder::new().word("ãbc").build();
+
+        assert_eq!(filter.find("ãbc"), vec!["ãbc"].into_boxed_slice());
+    }
+
+    #[test]
     fn debug_builder() {
         let builder = WordFilterBuilder::new();
 

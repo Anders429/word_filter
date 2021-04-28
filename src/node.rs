@@ -119,7 +119,8 @@ impl<'a> Node<'a> {
             let mut return_node = Self::new();
             return_node.add_path(graphemes.as_str(), node_type);
 
-            self.grapheme_subgraphs.push((Box::pin(subgraph_node), Box::pin(return_node)));
+            self.grapheme_subgraphs
+                .push((Box::pin(subgraph_node), Box::pin(return_node)));
         } else {
             let mut chars = word.chars();
             unsafe {

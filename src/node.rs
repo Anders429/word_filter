@@ -67,7 +67,7 @@ pub(crate) struct Node<'a> {
     /// Grapheme subgraphs.
     ///
     /// These values are owned by this Node. They are tuples of `(sub_graph_node, return_node)`.
-    pub(crate) grapheme_subgraphs: Vec<(Node<'a>, Node<'a>)>,
+    pub(crate) grapheme_subgraphs: Vec<(Pin<Box<Node<'a>>>, Pin<Box<Node<'a>>>)>,
 
     /// Mark as !Unpin.
     pub(crate) _pin: PhantomPinned,
@@ -119,7 +119,7 @@ impl<'a> Node<'a> {
             let mut return_node = Self::new();
             return_node.add_path(graphemes.as_str(), node_type);
 
-            self.grapheme_subgraphs.push((subgraph_node, return_node));
+            self.grapheme_subgraphs.push((Box::pin(subgraph_node), Box::pin(return_node)));
         } else {
             let mut chars = word.chars();
             unsafe {

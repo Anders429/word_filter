@@ -197,8 +197,21 @@ impl WordFilter<'_> {
                 })
                 .collect()
         } else {
-            root_walker.branch_to_aliases(&mut HashSet::new()).collect()
+            alias_walkers.collect()
         };
+        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+            self.repeated_character_match_mode
+        {
+            walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new())
+                .map(|mut walker| {
+                    walker
+                        .callbacks
+                        .push(ContextualizedNode::InSubgraph(&self.root));
+                    walker
+                }));
+        } else {
+            walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
+        }
         walkers.push(root_walker);
 
         let mut found = Vec::new();
@@ -291,9 +304,40 @@ impl WordFilter<'_> {
             }
 
             // Add root again.
-            let root_walker = WalkerBuilder::new(&self.root).start(i + 1).build();
-            new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
-            new_walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
+            let mut root_walker_builder = WalkerBuilder::new(&self.root).start(i + 1);
+            if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                self.repeated_character_match_mode
+            {
+                root_walker_builder =
+                    root_walker_builder.callbacks(vec![ContextualizedNode::InDirectPath(&self.root)]);
+            }
+            let root_walker = root_walker_builder.build();
+            if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                self.repeated_character_match_mode
+            {
+                new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new())
+                    .map(|mut walker| {
+                        walker
+                            .callbacks
+                            .push(ContextualizedNode::InSubgraph(&self.root));
+                        walker
+                    }));
+            } else {
+                new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
+            }
+            if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+                self.repeated_character_match_mode
+            {
+                new_walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new())
+                    .map(|mut walker| {
+                        walker
+                            .callbacks
+                            .push(ContextualizedNode::InSubgraph(&self.root));
+                        walker
+                    }));
+            } else {
+                new_walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
+            }
             new_walkers.push(root_walker);
 
             walkers = new_walkers;

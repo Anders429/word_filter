@@ -1263,7 +1263,10 @@ mod tests {
 
     #[test]
     fn default_repeated_character_match_mode() {
-        assert_matches!(RepeatedCharacterMatchMode::default(), RepeatedCharacterMatchMode::AllowRepeatedCharacters);
+        assert_matches!(
+            RepeatedCharacterMatchMode::default(),
+            RepeatedCharacterMatchMode::AllowRepeatedCharacters
+        );
     }
 
     #[test]

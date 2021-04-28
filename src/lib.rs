@@ -1262,4 +1262,14 @@ mod tests {
             format!("WordFilterBuilder {{ words: [], exceptions: [], separators: [], aliases: [], repeated_character_match_mode: AllowRepeatedCharacters, censor: {:?} }}", builder.censor as usize as *const ())
         )
     }
+
+    #[test]
+    fn debug_filter() {
+        let filter = WordFilterBuilder::new().build();
+
+        assert_eq!(
+            format!("{:?}", filter),
+            format!("WordFilter {{ root: Node {{ children: {{}}, aliases: [], node_type: Standard, grapheme_subgraphs: [] }}, separator_root: Node {{ children: {{}}, aliases: [], node_type: Standard, grapheme_subgraphs: [] }}, alias_map: {{}}, repeated_character_match_mode: AllowRepeatedCharacters, censor: {:?} }}", filter.censor as usize as *const ())
+        )
+    }
 }

@@ -964,6 +964,7 @@ impl fmt::Debug for WordFilterBuilder<'_> {
 mod tests {
     use crate::{replace_graphemes_with, RepeatedCharacterMatchMode, WordFilterBuilder};
     use alloc::{format, vec, vec::Vec};
+    use claim::assert_matches;
 
     #[test]
     fn builder_word() {
@@ -1258,6 +1259,11 @@ mod tests {
         let filter = WordFilterBuilder::new().word("ãbc").build();
 
         assert_eq!(filter.find("ãbc"), vec!["ãbc"].into_boxed_slice());
+    }
+
+    #[test]
+    fn default_repeated_character_match_mode() {
+        assert_matches!(RepeatedCharacterMatchMode::default(), RepeatedCharacterMatchMode::AllowRepeatedCharacters);
     }
 
     #[test]

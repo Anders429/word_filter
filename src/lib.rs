@@ -963,7 +963,7 @@ impl fmt::Debug for WordFilterBuilder<'_> {
 #[cfg(test)]
 mod tests {
     use crate::{replace_graphemes_with, RepeatedCharacterMatchMode, WordFilterBuilder};
-    use alloc::{vec, vec::Vec};
+    use alloc::{format, vec, vec::Vec};
 
     #[test]
     fn builder_word() {
@@ -1251,5 +1251,15 @@ mod tests {
             .build();
 
         assert_eq!(filter.find("bõr"), vec!["bãr"].into_boxed_slice());
+    }
+
+    #[test]
+    fn debug_builder() {
+        let builder = WordFilterBuilder::new();
+
+        assert_eq!(
+            format!("{:?}", builder),
+            format!("WordFilterBuilder {{ words: [], exceptions: [], separators: [], aliases: [], repeated_character_match_mode: AllowRepeatedCharacters, censor: {:?} }}", builder.censor as usize as *const ())
+        )
     }
 }

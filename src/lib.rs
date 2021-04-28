@@ -69,7 +69,14 @@ mod walker;
 
 pub mod censor;
 
-use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, string::{String, ToString}, vec, vec::Vec};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    collections::VecDeque,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use censor::replace_graphemes_with;
 use core::{
     fmt,
@@ -158,18 +165,21 @@ impl Default for RepeatedCharacterMatchMode {
 pub struct WordFilter<'a> {
     root: Node<'a>,
     separator_root: Node<'a>,
-    _alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
+    alias_map: HashMap<String, Pin<Box<Node<'a>>>>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
     censor: fn(&str) -> String,
 }
 
 impl WordFilter<'_> {
-    /// Finds all `Walker`s that encounter matches.
+    /// Spawns new `Walker`s at the `WordFilter`'s root position, returning them in an iterator.
     ///
-    /// This also excludes all `Walker`s that encountered matches but whose ranges also are
-    /// contained within ranges are `Walker`s who encountered exceptions.
-    fn find_walkers(&self, input: &str) -> impl Iterator<Item = Walker<'_>> {
-        let mut root_walker_builder = WalkerBuilder::new(&self.root);
+    /// This spawns a `Walker` at root, plus `Walker`s at the root's alias and grapheme subgraphs.
+    ///
+    /// Each spawned `Walker` will have a start position equal to `start`.
+    fn spawn_root_walkers_from_start_position(&self, start: usize) -> vec::IntoIter<Walker<'_>> {
+        let mut walkers = Vec::new();
+
+        let mut root_walker_builder = WalkerBuilder::new(&self.root).start(start);
         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
             self.repeated_character_match_mode
         {
@@ -177,22 +187,49 @@ impl WordFilter<'_> {
                 root_walker_builder.callbacks(vec![ContextualizedNode::InDirectPath(&self.root)]);
         }
         let root_walker = root_walker_builder.build();
-        let alias_walkers = root_walker.branch_to_aliases(&mut HashSet::new());
-        let mut walkers: Vec<Walker> = if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
             self.repeated_character_match_mode
         {
-            alias_walkers
-                .map(|mut walker| {
-                    walker
-                        .callbacks
-                        .push(ContextualizedNode::InSubgraph(&self.root));
-                    walker
-                })
-                .collect()
+            walkers.extend(
+                root_walker
+                    .branch_to_aliases(&mut HashSet::new())
+                    .map(|mut walker| {
+                        walker
+                            .callbacks
+                            .push(ContextualizedNode::InSubgraph(&self.root));
+                        walker
+                    }),
+            );
         } else {
-            root_walker.branch_to_aliases(&mut HashSet::new()).collect()
-        };
+            walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
+        }
+        if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
+            self.repeated_character_match_mode
+        {
+            walkers.extend(
+                root_walker
+                    .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                    .map(|mut walker| {
+                        walker
+                            .callbacks
+                            .push(ContextualizedNode::InSubgraph(&self.root));
+                        walker
+                    }),
+            );
+        } else {
+            walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
+        }
         walkers.push(root_walker);
+
+        walkers.into_iter()
+    }
+
+    /// Finds all `Walker`s that encounter matches.
+    ///
+    /// This also excludes all `Walker`s that encountered matches but whose ranges also are
+    /// contained within ranges are `Walker`s who encountered exceptions.
+    fn find_walkers(&self, input: &str) -> impl Iterator<Item = Walker<'_>> {
+        let mut walkers: Vec<Walker<'_>> = self.spawn_root_walkers_from_start_position(0).collect();
 
         let mut found = Vec::new();
         for (i, c) in input.chars().enumerate() {
@@ -284,10 +321,7 @@ impl WordFilter<'_> {
             }
 
             // Add root again.
-            let root_walker = WalkerBuilder::new(&self.root).start(i + 1).build();
-            new_walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
-            new_walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
-            new_walkers.push(root_walker);
+            new_walkers.extend(self.spawn_root_walkers_from_start_position(i + 1));
 
             walkers = new_walkers;
         }
@@ -327,6 +361,7 @@ impl WordFilter<'_> {
     /// assert_eq!(filter.find("this string contains foo"), vec!["foo"].into_boxed_slice());
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
     pub fn find(&self, input: &str) -> Box<[&str]> {
         self.find_walkers(input)
             .map(|walker| {
@@ -379,6 +414,7 @@ impl WordFilter<'_> {
     /// assert_eq!(filter.censor("this string contains foo"), "this string contains ***");
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
     pub fn censor(&self, input: &str) -> String {
         let mut output = String::with_capacity(input.len());
         let mut char_indices = input.char_indices();
@@ -446,8 +482,11 @@ impl fmt::Debug for WordFilter<'_> {
         f.debug_struct("WordFilter")
             .field("root", &self.root)
             .field("separator_root", &self.separator_root)
-            .field("_alias_map", &self._alias_map)
-            .field("repeated_character_match_mode", &self.repeated_character_match_mode)
+            .field("alias_map", &self.alias_map)
+            .field(
+                "repeated_character_match_mode",
+                &self.repeated_character_match_mode,
+            )
             .field("censor", &(self.censor as usize as *const ()))
             .finish()
     }
@@ -503,7 +542,7 @@ pub struct WordFilterBuilder<'a> {
     aliases: Vec<(String, String)>,
     repeated_character_match_mode: RepeatedCharacterMatchMode,
     censor: fn(&str) -> String,
-    _phantom_lifetime: PhantomData<&'a ()>
+    _phantom_lifetime: PhantomData<&'a ()>,
 }
 
 impl<'a> WordFilterBuilder<'a> {
@@ -541,9 +580,10 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().word("foo").build();
     /// ```
     #[inline]
-    pub fn word<S>(&mut self, word: S) -> &mut Self 
+    pub fn word<S>(&mut self, word: &S) -> &mut Self
     where
-        S: ToString {
+        S: ToString + ?Sized,
+    {
         self.words.push(word.to_string());
         self
     }
@@ -563,7 +603,8 @@ impl<'a> WordFilterBuilder<'a> {
     pub fn words<I, S>(&mut self, words: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,
-        S: ToString {
+        S: ToString,
+    {
         self.words.extend(words.into_iter().map(|s| s.to_string()));
         self
     }
@@ -580,9 +621,10 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().exception("foo").build();
     /// ```
     #[inline]
-    pub fn exception<S>(&mut self, exception: S) -> &mut Self 
+    pub fn exception<S>(&mut self, exception: &S) -> &mut Self
     where
-        S: ToString {
+        S: ToString + ?Sized,
+    {
         self.exceptions.push(exception.to_string());
         self
     }
@@ -602,8 +644,10 @@ impl<'a> WordFilterBuilder<'a> {
     pub fn exceptions<I, S>(&mut self, exceptions: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,
-        S: ToString {
-        self.exceptions.extend(exceptions.into_iter().map(|s| s.to_string()));
+        S: ToString,
+    {
+        self.exceptions
+            .extend(exceptions.into_iter().map(|s| s.to_string()));
         self
     }
 
@@ -619,9 +663,10 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().separator("_").build();
     /// ```
     #[inline]
-    pub fn separator<S>(&mut self, separator: S) -> &mut Self 
+    pub fn separator<S>(&mut self, separator: &S) -> &mut Self
     where
-        S: ToString {
+        S: ToString + ?Sized,
+    {
         self.separators.push(separator.to_string());
         self
     }
@@ -641,8 +686,10 @@ impl<'a> WordFilterBuilder<'a> {
     pub fn separators<I, S>(&mut self, separators: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,
-        S: ToString {
-        self.separators.extend(separators.into_iter().map(|s| s.to_string()));
+        S: ToString,
+    {
+        self.separators
+            .extend(separators.into_iter().map(|s| s.to_string()));
         self
     }
 
@@ -658,14 +705,15 @@ impl<'a> WordFilterBuilder<'a> {
     /// ```
     /// use word_filter::WordFilterBuilder;
     ///
-    /// let filter = WordFilterBuilder::new().alias(("a", "@")).build();
+    /// let filter = WordFilterBuilder::new().alias("a", "@").build();
     /// ```
     #[inline]
-    pub fn alias<S, T>(&mut self, alias: (S, T)) -> &mut Self 
+    pub fn alias<S, T>(&mut self, source: &S, alias: &T) -> &mut Self
     where
-        S: ToString,
-        T: ToString, {
-        self.aliases.push((alias.0.to_string(), alias.1.to_string()));
+        S: ToString + ?Sized,
+        T: ToString + ?Sized,
+    {
+        self.aliases.push((source.to_string(), alias.to_string()));
         self
     }
 
@@ -684,12 +732,17 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().aliases(&[("a", "@")]).build();
     /// ```
     #[inline]
-    pub fn aliases<'b, I, S, T>(&mut self, aliases: I) -> &mut Self 
+    pub fn aliases<'b, I, S, T>(&mut self, aliases: I) -> &mut Self
     where
         I: IntoIterator<Item = &'b (S, T)>,
         S: ToString + 'b,
-        T: ToString + 'b, {
-        self.aliases.extend(aliases.into_iter().map(|(s, t)| (s.to_string(), t.to_string())));
+        T: ToString + 'b,
+    {
+        self.aliases.extend(
+            aliases
+                .into_iter()
+                .map(|(s, t)| (s.to_string(), t.to_string())),
+        );
         self
     }
 
@@ -743,27 +796,28 @@ impl<'a> WordFilterBuilder<'a> {
     /// let filter = WordFilterBuilder::new().words(&["foo"]).build();
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
     pub fn build(&self) -> WordFilter<'a> {
         let mut root = Node::new();
 
         for word in &self.words {
-            root.add_match(&word);
+            root.add_match(word);
         }
 
         for exception in &self.exceptions {
-            root.add_exception(&exception);
+            root.add_exception(exception);
         }
 
         let mut separator_root = Node::new();
         for separator in &self.separators {
-            separator_root.add_return(&separator);
+            separator_root.add_return(separator);
         }
 
         let mut alias_map = HashMap::new();
         for (value, alias) in &self.aliases {
             unsafe {
                 alias_map
-                    .entry((*value).to_owned())
+                    .entry(value.clone())
                     .or_insert_with(|| Box::pin(Node::new()))
                     .as_mut()
                     // SAFETY: Adding an alias to a `Node` will not move the `Node`. Therefore, this
@@ -782,14 +836,14 @@ impl<'a> WordFilterBuilder<'a> {
                     continue;
                 }
                 queue.push_back((
-                    (*value).to_owned(),
+                    value.clone(),
                     unsafe {
                         // SAFETY: `overlap_value` will always be the prefix of `merge_value`.
                         // Therefore, this will never be out of bounds and it will always uphold
                         // `str` invariants.
                         merge_value.get_unchecked(overlap_value.len()..).to_owned()
                     },
-                    (*alias).to_owned(),
+                    alias.clone(),
                 ));
             }
         }
@@ -876,9 +930,9 @@ impl<'a> WordFilterBuilder<'a> {
         WordFilter {
             root,
             separator_root,
-            _alias_map: alias_map,
-            repeated_character_match_mode: self.repeated_character_match_mode.clone(),
-            censor: self.censor.clone(),
+            alias_map,
+            repeated_character_match_mode: self.repeated_character_match_mode,
+            censor: self.censor,
         }
     }
 }
@@ -897,7 +951,10 @@ impl fmt::Debug for WordFilterBuilder<'_> {
             .field("exceptions", &self.exceptions)
             .field("separators", &self.separators)
             .field("aliases", &self.aliases)
-            .field("repeated_character_match_mode", &self.repeated_character_match_mode)
+            .field(
+                "repeated_character_match_mode",
+                &self.repeated_character_match_mode,
+            )
             .field("censor", &(self.censor as usize as *const ()))
             .finish()
     }
@@ -917,7 +974,10 @@ mod tests {
 
     #[test]
     fn builder_exception() {
-        let filter = WordFilterBuilder::new().word("foo").exception("foobar").build();
+        let filter = WordFilterBuilder::new()
+            .word("foo")
+            .exception("foobar")
+            .build();
 
         assert!(filter.check("foo"));
         assert!(!filter.check("foobar"));
@@ -932,7 +992,7 @@ mod tests {
 
     #[test]
     fn builder_alias() {
-        let filter = WordFilterBuilder::new().word("foo").alias(("f", "F")).build();
+        let filter = WordFilterBuilder::new().word("foo").alias("f", "F").build();
 
         assert!(filter.check("Foo"));
     }
@@ -1185,7 +1245,10 @@ mod tests {
 
     #[test]
     fn alias_on_grapheme() {
-        let filter = WordFilterBuilder::new().words(&["bãr"]).aliases(&[("ã", "õ")]).build();
+        let filter = WordFilterBuilder::new()
+            .words(&["bãr"])
+            .aliases(&[("ã", "õ")])
+            .build();
 
         assert_eq!(filter.find("bõr"), vec!["bãr"].into_boxed_slice());
     }

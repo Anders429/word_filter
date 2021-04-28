@@ -189,9 +189,8 @@ impl<'a> Node<'a> {
     }
 
     fn consume_chars_until_return_node<'b>(&self, value: &'b str) -> Option<&'b str> {
-        match self.node_type {
-            Type::Return => return Some(value),
-            _ => {}
+        if let Type::Return = self.node_type {
+            return Some(value);
         }
 
         if value.is_empty() {
@@ -310,7 +309,10 @@ impl fmt::Debug for Node<'_> {
                     .aliases
                     .iter()
                     .map(|(subgraph_node, return_node)| {
-                        (*subgraph_node as *const Node, *return_node as *const Node)
+                        (
+                            *subgraph_node as *const Node<'_>,
+                            *return_node as *const Node<'_>,
+                        )
                     })
                     .collect::<Vec<_>>(),
             )

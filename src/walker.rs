@@ -13,7 +13,6 @@ use crate::node::{self, Node};
 use alloc::vec::{self, Vec};
 use by_address::ByAddress;
 use core::{
-    fmt,
     ops::{Bound, RangeBounds},
     ptr,
 };
@@ -288,7 +287,7 @@ impl<'a> Walker<'a> {
 ///
 /// A match will always have an excluded `end_bound()`, while an exception will always have an
 /// included `end_bound()`. This ensures that exceptions will always trump matches when `Walker`s
-/// are evaluated in a NestedContainmentList.
+/// are evaluated in a `NestedContainmentList`.
 ///
 /// [`RangeBounds`]: core::ops::RangeBounds
 impl RangeBounds<usize> for Walker<'_> {
@@ -321,12 +320,13 @@ pub(crate) struct WalkerBuilder<'a> {
     targets: Vec<ContextualizedNode<'a>>,
 }
 
+#[allow(dead_code)]
 impl<'a> WalkerBuilder<'a> {
     #[inline]
     #[must_use]
     pub(crate) fn new(node: &'a Node<'a>) -> Self {
         Self {
-            node: node,
+            node,
             status: Status::None,
 
             start: 0,
@@ -407,7 +407,7 @@ mod tests {
     use crate::node::Node;
     use alloc::{vec, vec::Vec};
     use by_address::ByAddress;
-    use claim::{assert_err, assert_matches, assert_ok, assert_ok_eq};
+    use claim::{assert_err, assert_matches, assert_ok};
     use core::{
         ops::{Bound, RangeBounds},
         ptr,
@@ -519,7 +519,7 @@ mod tests {
                 // Just evading lifetimes to allow these Nodes to reference each other, don't mind
                 // me... (this same thing happens in the actual WordFilter code, but in a much safer
                 // fashion with Pins to guarantee validity of the references).
-                (&chained_alias_node as *const Node as *const u8 as *const Node)
+                (&chained_alias_node as *const Node<'_> as *const u8 as *const Node<'_>)
                     .as_ref()
                     .unwrap()
             },
@@ -528,12 +528,12 @@ mod tests {
         let return_node = Node::new();
         chained_alias_node.aliases.push((
             unsafe {
-                (&alias_node as *const Node as *const u8 as *const Node)
+                (&alias_node as *const Node<'_> as *const u8 as *const Node<'_>)
                     .as_ref()
                     .unwrap()
             },
             unsafe {
-                (&return_node as *const Node as *const u8 as *const Node)
+                (&return_node as *const Node<'_> as *const u8 as *const Node<'_>)
                     .as_ref()
                     .unwrap()
             },

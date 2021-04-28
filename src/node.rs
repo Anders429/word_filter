@@ -325,6 +325,7 @@ impl fmt::Debug for Node<'_> {
 #[cfg(test)]
 mod tests {
     use crate::node::{Node, Type};
+    use alloc::format;
     use claim::assert_matches;
 
     #[test]
@@ -382,5 +383,15 @@ mod tests {
         node.add_match("foo");
 
         assert_matches!(&node.search("foo").unwrap().node_type, Type::Return);
+    }
+
+    #[test]
+    fn debug() {
+        let node = Node::new();
+
+        assert_eq!(
+            format!("{:?}", node),
+            "Node { children: {}, aliases: [], node_type: Standard, grapheme_subgraphs: [] }"
+        )
     }
 }

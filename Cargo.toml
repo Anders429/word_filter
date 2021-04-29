@@ -29,3 +29,7 @@ claim = "0.5.0"
 [[bench]]
 name = "builder"
 harness = false
+
+[[bench]]
+name = "censor"
+harness = false

@@ -4,14 +4,16 @@ use word_filter::WordFilterBuilder;
 
 #[cfg(feature = "criterion")]
 fn builder_benchmark(c: &mut Criterion) {
-    c.bench_function("construction", |b| {
+    c.bench_function("censor", |b| {
+        let filter = WordFilterBuilder::new()
+            .word(black_box("foo"))
+            .exception(black_box("foobar"))
+            .separator(black_box(" "))
+            .alias(black_box("f"), black_box("F"))
+            .build();
+
         b.iter(|| {
-            WordFilterBuilder::new()
-                .word(black_box("foo"))
-                .exception(black_box("foobar"))
-                .separator(black_box(" "))
-                .alias(black_box("f"), black_box("F"))
-                .build()
+            black_box(filter.censor(black_box("This is test input. It might contain foo, or it might contain foobar, or it might contain nothing.")));
         })
     });
 }

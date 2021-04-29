@@ -16,6 +16,7 @@ rustdoc-args = ["--html-after-content", "doc/remove_root_module.html"]
 
 [dependencies]
 by_address = "1.0.4"
+criterion = {version = "0.3.4", optional = true}
 hashbrown = "0.9.1"
 nested_containment_list = "0.3.0"
 new_debug_unreachable = "1.0.4"
@@ -24,3 +25,7 @@ unicode-segmentation = "1.7.1"
 
 [dev-dependencies]
 claim = "0.5.0"
+
+[[bench]]
+name = "builder"
+harness = false

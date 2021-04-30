@@ -1,9 +1,6 @@
-mod util;
-
 #[cfg(feature = "criterion")]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use csv::Reader;
-use util::random_strings;
 use word_filter::WordFilterBuilder;
 
 #[cfg(feature = "criterion")]

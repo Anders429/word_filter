@@ -16,6 +16,7 @@ use core::{
     ops::{Bound, RangeBounds},
     ptr,
 };
+use fnv::FnvBuildHasher;
 use hashbrown::HashSet;
 
 /// The current status of the `Walker`.
@@ -72,12 +73,12 @@ pub(crate) struct Walker<'a> {
 impl<'a> Walker<'a> {
     /// Create new `Walker`s pointing to alias paths connected to the current node.
     pub(crate) fn branch_to_aliases(&self) -> vec::IntoIter<Walker<'a>> {
-        self.internal_branch_to_aliases(&mut HashSet::new())
+        self.internal_branch_to_aliases(&mut HashSet::with_hasher(FnvBuildHasher::default()))
     }
 
     fn internal_branch_to_aliases(
         &self,
-        visited: &mut HashSet<ByAddress<&Node<'a>>>,
+        visited: &mut HashSet<ByAddress<&Node<'a>>, FnvBuildHasher>,
     ) -> vec::IntoIter<Walker<'a>> {
         let mut result = Vec::new();
 
@@ -103,12 +104,12 @@ impl<'a> Walker<'a> {
 
     /// Create new `Walker`s pointing to grapheme subgraphs connected to the current node.
     pub(crate) fn branch_to_grapheme_subgraphs(&self) -> vec::IntoIter<Walker<'a>> {
-        self.internal_branch_to_grapheme_subgraphs(&mut HashSet::new())
+        self.internal_branch_to_grapheme_subgraphs(&mut HashSet::with_hasher(FnvBuildHasher::default()))
     }
 
     fn internal_branch_to_grapheme_subgraphs(
         &self,
-        visited: &mut HashSet<ByAddress<&Node<'a>>>,
+        visited: &mut HashSet<ByAddress<&Node<'a>>, FnvBuildHasher>,
     ) -> vec::IntoIter<Walker<'a>> {
         let mut result = Vec::new();
 
@@ -413,6 +414,7 @@ mod tests {
         ops::{Bound, RangeBounds},
         ptr,
     };
+    use fnv::FnvBuildHasher;
     use hashbrown::HashSet;
 
     #[test]
@@ -477,7 +479,7 @@ mod tests {
         node.aliases.push((&alias_node, &return_node));
         let walker = WalkerBuilder::new(&node).build();
 
-        let mut visited = HashSet::new();
+        let mut visited = HashSet::with_hasher(FnvBuildHasher::default());
         visited.insert(ByAddress(&alias_node));
         assert_eq!(walker.internal_branch_to_aliases(&mut visited).count(), 0);
     }

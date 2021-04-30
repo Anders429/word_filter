@@ -19,7 +19,7 @@ fn builder_benchmark(c: &mut Criterion) {
             .build();
 
         b.iter(|| {
-            black_box(filter.censor(include_str!("data/input.txt")));
+            black_box(filter.censor(black_box(include_str!("data/input.txt"))));
         })
     });
 }

@@ -155,7 +155,18 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    result.extend(callback_walker.branch_to_aliases().map(
+                    result.extend(callback_walker.branch_to_aliases().map(|mut walker| {
+                        walker
+                            .targets
+                            .push(ContextualizedNode::InSubgraph(self.node));
+                        walker
+                            .callbacks
+                            .push(ContextualizedNode::InSubgraph(callback_node));
+                        walker.returns.push(self.node);
+                        walker
+                    }));
+
+                    result.extend(callback_walker.branch_to_grapheme_subgraphs().map(
                         |mut walker| {
                             walker
                                 .targets
@@ -167,22 +178,6 @@ impl<'a> Walker<'a> {
                             walker
                         },
                     ));
-
-                    result.extend(
-                        callback_walker
-                            .branch_to_grapheme_subgraphs(
-                                )
-                            .map(|mut walker| {
-                                walker
-                                    .targets
-                                    .push(ContextualizedNode::InSubgraph(self.node));
-                                walker
-                                    .callbacks
-                                    .push(ContextualizedNode::InSubgraph(callback_node));
-                                walker.returns.push(self.node);
-                                walker
-                            }),
-                    );
 
                     callback_walker
                         .targets
@@ -237,7 +232,15 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    branches.extend(callback_walker.branch_to_aliases().map(
+                    branches.extend(callback_walker.branch_to_aliases().map(|mut walker| {
+                        walker.targets.push(ContextualizedNode::InSubgraph(node));
+                        walker
+                            .callbacks
+                            .push(ContextualizedNode::InSubgraph(callback_node));
+                        walker
+                    }));
+
+                    branches.extend(callback_walker.branch_to_grapheme_subgraphs().map(
                         |mut walker| {
                             walker.targets.push(ContextualizedNode::InSubgraph(node));
                             walker
@@ -246,19 +249,6 @@ impl<'a> Walker<'a> {
                             walker
                         },
                     ));
-
-                    branches.extend(
-                        callback_walker
-                            .branch_to_grapheme_subgraphs(
-                                )
-                            .map(|mut walker| {
-                                walker.targets.push(ContextualizedNode::InSubgraph(node));
-                                walker
-                                    .callbacks
-                                    .push(ContextualizedNode::InSubgraph(callback_node));
-                                walker
-                            }),
-                    );
 
                     callback_walker
                         .targets
@@ -472,9 +462,7 @@ mod tests {
         node.aliases.push((&alias_node, &return_node));
         let walker = WalkerBuilder::new(&node).build();
 
-        let branches = walker
-            .branch_to_aliases()
-            .collect::<Vec<_>>();
+        let branches = walker.branch_to_aliases().collect::<Vec<_>>();
         assert_eq!(branches.len(), 1);
         assert!(ptr::eq(branches[0].node, &alias_node));
         assert_eq!(branches[0].returns.len(), 1);
@@ -507,9 +495,7 @@ mod tests {
         node.aliases.push((&alias_node, &return_node));
         let walker = WalkerBuilder::new(&node).build();
 
-        let branches = walker
-            .branch_to_aliases()
-            .collect::<Vec<_>>();
+        let branches = walker.branch_to_aliases().collect::<Vec<_>>();
         assert_eq!(branches.len(), 2);
         assert!(ptr::eq(branches[0].node, &chained_alias_node));
         assert_eq!(branches[0].returns.len(), 2);
@@ -553,9 +539,7 @@ mod tests {
         node.aliases.push((&alias_node, &return_node));
         let walker = WalkerBuilder::new(&node).build();
 
-        let branches = walker
-            .branch_to_aliases()
-            .collect::<Vec<_>>();
+        let branches = walker.branch_to_aliases().collect::<Vec<_>>();
         assert_eq!(branches.len(), 2);
         assert!(ptr::eq(branches[0].node, &chained_alias_node));
         assert_eq!(branches[0].returns.len(), 2);

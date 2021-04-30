@@ -9,7 +9,7 @@ repository = "https://github.com/Anders429/word_filter"
 license = "MIT OR Apache-2.0"
 categories = ["data-structures", "game-development", "no-std", "text-processing", "value-formatting"]
 keywords = ["wordfilter", "word", "filter", "censor", "string"]
-exclude = [".github/*", "clippy.toml", "benches"]
+exclude = [".github/*", "clippy.toml", "benches/data"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-after-content", "doc/remove_root_module.html"]

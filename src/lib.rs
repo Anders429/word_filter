@@ -190,16 +190,12 @@ impl WordFilter<'_> {
         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
             self.repeated_character_match_mode
         {
-            walkers.extend(
-                root_walker
-                    .branch_to_aliases()
-                    .map(|mut walker| {
-                        walker
-                            .callbacks
-                            .push(ContextualizedNode::InSubgraph(&self.root));
-                        walker
-                    }),
-            );
+            walkers.extend(root_walker.branch_to_aliases().map(|mut walker| {
+                walker
+                    .callbacks
+                    .push(ContextualizedNode::InSubgraph(&self.root));
+                walker
+            }));
         } else {
             walkers.extend(root_walker.branch_to_aliases());
         }
@@ -269,8 +265,7 @@ impl WordFilter<'_> {
                         }
 
                         // Graphemes.
-                        let grapheme_walkers =
-                            walker.branch_to_grapheme_subgraphs();
+                        let grapheme_walkers = walker.branch_to_grapheme_subgraphs();
                         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
                             self.repeated_character_match_mode
                         {

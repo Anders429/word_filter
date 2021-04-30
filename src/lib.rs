@@ -86,7 +86,7 @@ use core::{
     pin::Pin,
 };
 use debug_unreachable::debug_unreachable;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use str_overlap::Overlap;
@@ -192,7 +192,7 @@ impl WordFilter<'_> {
         {
             walkers.extend(
                 root_walker
-                    .branch_to_aliases(&mut HashSet::new())
+                    .branch_to_aliases()
                     .map(|mut walker| {
                         walker
                             .callbacks
@@ -201,14 +201,14 @@ impl WordFilter<'_> {
                     }),
             );
         } else {
-            walkers.extend(root_walker.branch_to_aliases(&mut HashSet::new()));
+            walkers.extend(root_walker.branch_to_aliases());
         }
         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
             self.repeated_character_match_mode
         {
             walkers.extend(
                 root_walker
-                    .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                    .branch_to_grapheme_subgraphs()
                     .map(|mut walker| {
                         walker
                             .callbacks
@@ -217,7 +217,7 @@ impl WordFilter<'_> {
                     }),
             );
         } else {
-            walkers.extend(root_walker.branch_to_grapheme_subgraphs(&mut HashSet::new()));
+            walkers.extend(root_walker.branch_to_grapheme_subgraphs());
         }
         walkers.push(root_walker);
 
@@ -254,7 +254,7 @@ impl WordFilter<'_> {
                         new_walkers.extend(branches);
 
                         // Aliases.
-                        let alias_walkers = walker.branch_to_aliases(&mut HashSet::new());
+                        let alias_walkers = walker.branch_to_aliases();
                         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
                             self.repeated_character_match_mode
                         {
@@ -270,7 +270,7 @@ impl WordFilter<'_> {
 
                         // Graphemes.
                         let grapheme_walkers =
-                            walker.branch_to_grapheme_subgraphs(&mut HashSet::new());
+                            walker.branch_to_grapheme_subgraphs();
                         if let RepeatedCharacterMatchMode::AllowRepeatedCharacters =
                             self.repeated_character_match_mode
                         {

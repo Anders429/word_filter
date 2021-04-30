@@ -71,7 +71,11 @@ pub(crate) struct Walker<'a> {
 
 impl<'a> Walker<'a> {
     /// Create new `Walker`s pointing to alias paths connected to the current node.
-    pub(crate) fn branch_to_aliases(
+    pub(crate) fn branch_to_aliases(&self) -> vec::IntoIter<Walker<'a>> {
+        self.internal_branch_to_aliases(&mut HashSet::new())
+    }
+
+    fn internal_branch_to_aliases(
         &self,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) -> vec::IntoIter<Walker<'a>> {
@@ -87,8 +91,8 @@ impl<'a> Walker<'a> {
             alias_walker.in_separator = false;
 
             visited.insert(ByAddress(alias_node));
-            result.extend(alias_walker.branch_to_aliases(visited));
-            result.extend(alias_walker.branch_to_grapheme_subgraphs(visited));
+            result.extend(alias_walker.internal_branch_to_aliases(visited));
+            result.extend(alias_walker.internal_branch_to_grapheme_subgraphs(visited));
             visited.remove(&ByAddress(alias_node));
 
             result.push(alias_walker);
@@ -97,7 +101,12 @@ impl<'a> Walker<'a> {
         result.into_iter()
     }
 
-    pub(crate) fn branch_to_grapheme_subgraphs(
+    /// Create new `Walker`s pointing to grapheme subgraphs connected to the current node.
+    pub(crate) fn branch_to_grapheme_subgraphs(&self) -> vec::IntoIter<Walker<'a>> {
+        self.internal_branch_to_grapheme_subgraphs(&mut HashSet::new())
+    }
+
+    fn internal_branch_to_grapheme_subgraphs(
         &self,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) -> vec::IntoIter<Walker<'a>> {
@@ -109,7 +118,7 @@ impl<'a> Walker<'a> {
             grapheme_walker.returns.push(grapheme_return_node);
             grapheme_walker.in_separator = false;
 
-            result.extend(grapheme_walker.branch_to_aliases(visited));
+            result.extend(grapheme_walker.internal_branch_to_aliases(visited));
 
             result.push(grapheme_walker);
         }
@@ -146,7 +155,7 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    result.extend(callback_walker.branch_to_aliases(&mut HashSet::new()).map(
+                    result.extend(callback_walker.branch_to_aliases().map(
                         |mut walker| {
                             walker
                                 .targets
@@ -161,7 +170,8 @@ impl<'a> Walker<'a> {
 
                     result.extend(
                         callback_walker
-                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                            .branch_to_grapheme_subgraphs(
+                                )
                             .map(|mut walker| {
                                 walker
                                     .targets
@@ -227,7 +237,7 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    branches.extend(callback_walker.branch_to_aliases(&mut HashSet::new()).map(
+                    branches.extend(callback_walker.branch_to_aliases().map(
                         |mut walker| {
                             walker.targets.push(ContextualizedNode::InSubgraph(node));
                             walker
@@ -239,7 +249,8 @@ impl<'a> Walker<'a> {
 
                     branches.extend(
                         callback_walker
-                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                            .branch_to_grapheme_subgraphs(
+                                )
                             .map(|mut walker| {
                                 walker.targets.push(ContextualizedNode::InSubgraph(node));
                                 walker
@@ -450,7 +461,7 @@ mod tests {
         let node = Node::new();
         let walker = WalkerBuilder::new(&node).build();
 
-        assert_eq!(walker.branch_to_aliases(&mut HashSet::new()).count(), 0);
+        assert_eq!(walker.branch_to_aliases().count(), 0);
     }
 
     #[test]
@@ -462,7 +473,7 @@ mod tests {
         let walker = WalkerBuilder::new(&node).build();
 
         let branches = walker
-            .branch_to_aliases(&mut HashSet::new())
+            .branch_to_aliases()
             .collect::<Vec<_>>();
         assert_eq!(branches.len(), 1);
         assert!(ptr::eq(branches[0].node, &alias_node));
@@ -480,7 +491,7 @@ mod tests {
 
         let mut visited = HashSet::new();
         visited.insert(ByAddress(&alias_node));
-        assert_eq!(walker.branch_to_aliases(&mut visited).count(), 0);
+        assert_eq!(walker.internal_branch_to_aliases(&mut visited).count(), 0);
     }
 
     #[test]
@@ -497,7 +508,7 @@ mod tests {
         let walker = WalkerBuilder::new(&node).build();
 
         let branches = walker
-            .branch_to_aliases(&mut HashSet::new())
+            .branch_to_aliases()
             .collect::<Vec<_>>();
         assert_eq!(branches.len(), 2);
         assert!(ptr::eq(branches[0].node, &chained_alias_node));
@@ -543,7 +554,7 @@ mod tests {
         let walker = WalkerBuilder::new(&node).build();
 
         let branches = walker
-            .branch_to_aliases(&mut HashSet::new())
+            .branch_to_aliases()
             .collect::<Vec<_>>();
         assert_eq!(branches.len(), 2);
         assert!(ptr::eq(branches[0].node, &chained_alias_node));

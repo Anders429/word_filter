@@ -21,6 +21,7 @@ use alloc::{borrow::ToOwned, boxed::Box, string::String, vec, vec::Vec};
 use core::{fmt, marker::PhantomPinned, pin::Pin};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
+use fnv::FnvBuildHasher;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// The different possible node variants.
@@ -54,7 +55,7 @@ pub(crate) enum Type {
 /// wishes to know whether they are at a match, an exception, or perhaps a subgraph return.
 pub(crate) struct Node<'a> {
     /// All children Nodes, keyed by character edges.
-    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>>,
+    pub(crate) children: HashMap<char, Pin<Box<Node<'a>>>, FnvBuildHasher>,
 
     /// Any alternative subgraphs that can be traveled from this node.
     ///
@@ -79,7 +80,7 @@ impl<'a> Node<'a> {
     /// All internal fields are initialized to be empty.
     pub(crate) fn new() -> Self {
         Self {
-            children: HashMap::new(),
+            children: HashMap::with_hasher(FnvBuildHasher::default()),
             aliases: Vec::new(),
             node_type: Type::Standard,
             grapheme_subgraphs: Vec::new(),

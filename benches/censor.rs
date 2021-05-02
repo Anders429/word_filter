@@ -1,9 +1,10 @@
-#[cfg(feature = "criterion")]
+#[cfg(feature = "benchmarks")]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+#[cfg(feature = "benchmarks")]
 use csv::Reader;
 use word_filter::WordFilterBuilder;
 
-#[cfg(feature = "criterion")]
+#[cfg(feature = "benchmarks")]
 fn builder_benchmark(c: &mut Criterion) {
     c.bench_function("censor", |b| {
         let filter = WordFilterBuilder::new()
@@ -24,14 +25,14 @@ fn builder_benchmark(c: &mut Criterion) {
     });
 }
 
-#[cfg(feature = "criterion")]
+#[cfg(feature = "benchmarks")]
 criterion_group! {
     name = benches;
     config = Criterion::default().sample_size(100);
     targets = builder_benchmark
 }
-#[cfg(feature = "criterion")]
+#[cfg(feature = "benchmarks")]
 criterion_main!(benches);
 
-#[cfg(not(feature = "criterion"))]
+#[cfg(not(feature = "benchmarks"))]
 fn main() {}

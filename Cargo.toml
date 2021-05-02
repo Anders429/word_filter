@@ -14,10 +14,14 @@ exclude = [".github/*", "clippy.toml", "benches/data"]
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-after-content", "doc/remove_root_module.html"]
 
+[features]
+benchmarks = ["criterion", "csv"]
+
 [dependencies]
 by_address = "1.0.4"
 criterion = {version = "0.3.4", optional = true}
-fnv = "1.0.7"
+csv = {version = "1.1.6", optional = true}
+fnv = {version = "1.0.7", default-features = false}
 hashbrown = "0.9.1"
 nested_containment_list = "0.3.0"
 new_debug_unreachable = "1.0.4"
@@ -26,7 +30,6 @@ unicode-segmentation = "1.7.1"
 
 [dev-dependencies]
 claim = "0.5.0"
-csv = "1.1.6"
 
 [[bench]]
 name = "builder"

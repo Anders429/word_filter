@@ -1,5 +1,5 @@
 [package]
-name = "word_filter"
+name = "word_filter_codegen"
 version = "0.4.1"
 authors = ["Anders Evensen"]
 edition = "2018"
@@ -11,14 +11,10 @@ categories = ["data-structures", "game-development", "no-std", "text-processing"
 keywords = ["wordfilter", "word", "filter", "censor", "string"]
 exclude = [".github/*", "clippy.toml"]
 
-[package.metadata.docs.rs]
-rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
-
 [dependencies]
-by_address = "1.0.4"
 hashbrown = "0.9.1"
-nested_containment_list = "0.3.0"
 new_debug_unreachable = "1.0.4"
+str_overlap = "0.4.3"
 unicode-segmentation = "1.7.1"
 
 [dev-dependencies]

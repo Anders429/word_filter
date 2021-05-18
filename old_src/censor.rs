@@ -7,7 +7,7 @@
 //! # Examples
 //! Creating a `WordFilter` with a custom censor is done as follows:
 //!
-//! ``` no_run
+//! ```
 //! use word_filter::{censor, WordFilterBuilder};
 //!
 //! let filter = WordFilterBuilder::new().censor(censor::replace_graphemes_with!("#")).build();
@@ -16,7 +16,7 @@
 //! Note that if the options here do not suite your use case, you can provide a custom function with
 //! a closure instead. The following code block has the same effect as the one above:
 //!
-//! ``` no_run
+//! ```
 //! use word_filter::WordFilterBuilder;
 //!
 //! let filter = WordFilterBuilder::new()
@@ -39,7 +39,7 @@ pub use unicode_segmentation::UnicodeSegmentation;
 /// Creates a censor replacing every grapheme with the given string.
 ///
 /// # Example
-/// ``` no_run
+/// ```
 /// use word_filter::{censor, WordFilterBuilder};
 ///
 /// let filter = WordFilterBuilder::new()
@@ -71,7 +71,7 @@ pub use _replace_graphemes_with as replace_graphemes_with;
 /// Creates a sensor replacing the full matched words with the given string.
 ///
 /// # Example
-/// ``` no_run
+/// ```
 /// use word_filter::{censor, WordFilterBuilder};
 ///
 /// let filter = WordFilterBuilder::new()

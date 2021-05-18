@@ -1,0 +1,10 @@
+[package]
+name = "codegen_test"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+word_filter = {path = "../.."}
+
+[build-dependencies]
+word_filter_codegen = {path = ".."}

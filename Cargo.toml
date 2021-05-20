@@ -16,7 +16,7 @@ rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
 
 [dependencies]
 by_address = "1.0.4"
-hashbrown = "0.9.1"
+hashbrown = "0.11.2"
 nested_containment_list = "0.3.0"
 new_debug_unreachable = "1.0.4"
 unicode-segmentation = "1.7.1"

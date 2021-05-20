@@ -39,7 +39,7 @@ impl<const N: usize> WordFilter<'_, N> {
         let root_walker = root_walker_builder.build();
         walkers.extend(
             root_walker
-                .branch_to_aliases()
+                .branch_to_alias_subgraphs()
                 .map(|mut walker| {
                     walker
                         .callbacks
@@ -92,7 +92,7 @@ impl<const N: usize> WordFilter<'_, N> {
                         new_walkers.extend(branches);
 
                         // Aliases.
-                        let alias_walkers = walker.branch_to_aliases();
+                        let alias_walkers = walker.branch_to_alias_subgraphs();
                         new_walkers.extend(alias_walkers.map(|mut inner_walker| {
                             inner_walker
                                 .callbacks

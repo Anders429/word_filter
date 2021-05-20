@@ -38,8 +38,8 @@ pub(crate) struct Walker<'a> {
 impl<'a> Walker<'a> {
     /// Create new `Walker`s pointing to alias paths connected to the current node.
     #[inline]
-    pub(crate) fn branch_to_aliases(&self) -> vec::IntoIter<Walker<'a>> {
-        self.branch_to_aliases_internal(&mut HashSet::new())
+    pub(crate) fn branch_to_alias_subgraphs(&self) -> vec::IntoIter<Walker<'a>> {
+        self.branch_to_alias_subgraphs_internal(&mut HashSet::new())
     }
 
     #[inline]
@@ -47,7 +47,7 @@ impl<'a> Walker<'a> {
         self.branch_to_grapheme_subgraphs_internal(&mut HashSet::new())
     }
 
-    fn branch_to_aliases_internal(
+    fn branch_to_alias_subgraphs_internal(
         &self,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) -> vec::IntoIter<Walker<'a>> {
@@ -63,7 +63,7 @@ impl<'a> Walker<'a> {
             alias_walker.in_separator = false;
 
             visited.insert(ByAddress(alias_node));
-            result.extend(alias_walker.branch_to_aliases_internal(visited));
+            result.extend(alias_walker.branch_to_alias_subgraphs_internal(visited));
             result.extend(alias_walker.branch_to_grapheme_subgraphs_internal(visited));
             visited.remove(&ByAddress(alias_node));
 
@@ -85,7 +85,7 @@ impl<'a> Walker<'a> {
             grapheme_walker.returns.push(grapheme_return_node);
             grapheme_walker.in_separator = false;
 
-            result.extend(grapheme_walker.branch_to_aliases_internal(visited));
+            result.extend(grapheme_walker.branch_to_alias_subgraphs_internal(visited));
 
             result.push(grapheme_walker);
         }
@@ -122,7 +122,7 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    result.extend(callback_walker.branch_to_aliases().map(
+                    result.extend(callback_walker.branch_to_alias_subgraphs().map(
                         |mut walker| {
                             walker
                                 .targets
@@ -200,7 +200,7 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    branches.extend(callback_walker.branch_to_aliases().map(
+                    branches.extend(callback_walker.branch_to_alias_subgraphs().map(
                         |mut walker| {
                             walker.targets.push(ContextualizedNode::InSubgraph(node));
                             walker

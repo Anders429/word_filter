@@ -37,7 +37,17 @@ pub(crate) struct Walker<'a> {
 
 impl<'a> Walker<'a> {
     /// Create new `Walker`s pointing to alias paths connected to the current node.
-    pub(crate) fn branch_to_aliases(
+    #[inline]
+    pub(crate) fn branch_to_aliases(&self) -> vec::IntoIter<Walker<'a>> {
+        self.branch_to_aliases_internal(&mut HashSet::new())
+    }
+
+    #[inline]
+    pub(crate) fn branch_to_grapheme_subgraphs(&self) -> vec::IntoIter<Walker<'a>> {
+        self.branch_to_grapheme_subgraphs_internal(&mut HashSet::new())
+    }
+
+    fn branch_to_aliases_internal(
         &self,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) -> vec::IntoIter<Walker<'a>> {
@@ -53,8 +63,8 @@ impl<'a> Walker<'a> {
             alias_walker.in_separator = false;
 
             visited.insert(ByAddress(alias_node));
-            result.extend(alias_walker.branch_to_aliases(visited));
-            result.extend(alias_walker.branch_to_grapheme_subgraphs(visited));
+            result.extend(alias_walker.branch_to_aliases_internal(visited));
+            result.extend(alias_walker.branch_to_grapheme_subgraphs_internal(visited));
             visited.remove(&ByAddress(alias_node));
 
             result.push(alias_walker);
@@ -63,7 +73,7 @@ impl<'a> Walker<'a> {
         result.into_iter()
     }
 
-    pub(crate) fn branch_to_grapheme_subgraphs(
+    fn branch_to_grapheme_subgraphs_internal(
         &self,
         visited: &mut HashSet<ByAddress<&Node<'a>>>,
     ) -> vec::IntoIter<Walker<'a>> {
@@ -75,7 +85,7 @@ impl<'a> Walker<'a> {
             grapheme_walker.returns.push(grapheme_return_node);
             grapheme_walker.in_separator = false;
 
-            result.extend(grapheme_walker.branch_to_aliases(visited));
+            result.extend(grapheme_walker.branch_to_aliases_internal(visited));
 
             result.push(grapheme_walker);
         }
@@ -112,7 +122,7 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    result.extend(callback_walker.branch_to_aliases(&mut HashSet::new()).map(
+                    result.extend(callback_walker.branch_to_aliases().map(
                         |mut walker| {
                             walker
                                 .targets
@@ -127,7 +137,7 @@ impl<'a> Walker<'a> {
 
                     result.extend(
                         callback_walker
-                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                            .branch_to_grapheme_subgraphs()
                             .map(|mut walker| {
                                 walker
                                     .targets
@@ -190,7 +200,7 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    branches.extend(callback_walker.branch_to_aliases(&mut HashSet::new()).map(
+                    branches.extend(callback_walker.branch_to_aliases().map(
                         |mut walker| {
                             walker.targets.push(ContextualizedNode::InSubgraph(node));
                             walker
@@ -202,7 +212,7 @@ impl<'a> Walker<'a> {
 
                     branches.extend(
                         callback_walker
-                            .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                            .branch_to_grapheme_subgraphs()
                             .map(|mut walker| {
                                 walker.targets.push(ContextualizedNode::InSubgraph(node));
                                 walker

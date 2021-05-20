@@ -12,7 +12,10 @@ mod tests {
     #[test]
     fn exception() {
         assert!(!FILTER.check("foobar"));
-        assert_eq!(FILTER.find("foobar").collect::<Vec<_>>(), Vec::<&str>::new());
+        assert_eq!(
+            FILTER.find("foobar").collect::<Vec<_>>(),
+            Vec::<&str>::new()
+        );
         assert_eq!(FILTER.censor("foobar"), "foobar");
     }
 

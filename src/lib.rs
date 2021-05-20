@@ -13,7 +13,6 @@ use core::{
     ops::{Bound, RangeBounds},
 };
 use debug_unreachable::debug_unreachable;
-use hashbrown::HashSet;
 use nested_containment_list::NestedContainmentList;
 use node::Node;
 use walker::{ContextualizedNode, Walker, WalkerBuilder};
@@ -40,7 +39,7 @@ impl<const N: usize> WordFilter<'_, N> {
         let root_walker = root_walker_builder.build();
         walkers.extend(
             root_walker
-                .branch_to_aliases(&mut HashSet::new())
+                .branch_to_aliases()
                 .map(|mut walker| {
                     walker
                         .callbacks
@@ -50,7 +49,7 @@ impl<const N: usize> WordFilter<'_, N> {
         );
         walkers.extend(
             root_walker
-                .branch_to_grapheme_subgraphs(&mut HashSet::new())
+                .branch_to_grapheme_subgraphs()
                 .map(|mut walker| {
                     walker
                         .callbacks
@@ -93,7 +92,7 @@ impl<const N: usize> WordFilter<'_, N> {
                         new_walkers.extend(branches);
 
                         // Aliases.
-                        let alias_walkers = walker.branch_to_aliases(&mut HashSet::new());
+                        let alias_walkers = walker.branch_to_aliases();
                         new_walkers.extend(alias_walkers.map(|mut inner_walker| {
                             inner_walker
                                 .callbacks
@@ -103,7 +102,7 @@ impl<const N: usize> WordFilter<'_, N> {
 
                         // Graphemes.
                         let grapheme_walkers =
-                            walker.branch_to_grapheme_subgraphs(&mut HashSet::new());
+                            walker.branch_to_grapheme_subgraphs();
                         new_walkers.extend(grapheme_walkers.map(|mut inner_walker| {
                             inner_walker
                                 .callbacks

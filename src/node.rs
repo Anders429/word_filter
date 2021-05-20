@@ -29,7 +29,7 @@ impl fmt::Debug for Node<'_> {
             .field("type", &self.r#type)
             .field("children", &self.children)
             .field(
-                "aliases",
+                "alias_subgraphs",
                 &self
                     .alias_subgraphs
                     .iter()

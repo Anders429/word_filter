@@ -41,13 +41,14 @@ impl ToString for Visibility {
 }
 
 fn generate_nodes(nodes: &Vec<NodeGenerator>, identifier: &str) -> String {
-    let mut result = "[".to_owned();
-
-    result.push_str(&nodes.into_iter().map(|node| node.generate(identifier)).collect::<Vec<_>>().join(",\n    "));
-
-    result.push_str("]");
-
-    result
+    format!(
+        "[{}]",
+        &nodes
+            .into_iter()
+            .map(|node| node.generate(identifier))
+            .collect::<Vec<_>>()
+            .join(",\n    ")
+    )
 }
 
 #[derive(Debug, Default)]
@@ -246,7 +247,9 @@ impl WordFilterGenerator {
                 if value == *alias_value {
                     continue;
                 }
-                unsafe {(&mut nodes[index] as *mut NodeGenerator).as_mut()}.unwrap().add_alias(alias_value, &mut nodes, *alias_index);
+                unsafe { (&mut nodes[index] as *mut NodeGenerator).as_mut() }
+                    .unwrap()
+                    .add_alias(alias_value, &mut nodes, *alias_index);
             }
         }
 
@@ -270,5 +273,3 @@ impl WordFilterGenerator {
         )
     }
 }
-
-

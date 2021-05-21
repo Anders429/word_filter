@@ -41,7 +41,7 @@ fn generate_children(children: &HashMap<char, Reference>, identifier: &str) -> S
     let mut result = "|c| {
             match c {
                 "
-        .to_owned();
+    .to_owned();
 
     for (c, reference) in children {
         result.push_str(&format!(
@@ -52,7 +52,7 @@ fn generate_children(children: &HashMap<char, Reference>, identifier: &str) -> S
     }
 
     result.push_str(
-                "_ => None,
+        "_ => None,
             }
         }",
     );
@@ -290,7 +290,9 @@ impl<'a> NodeGenerator<'a> {
     ) {
         // Head recursion.
         for child_reference in self.children.values() {
-            unsafe {(&mut nodes[child_reference.0] as *mut NodeGenerator).as_mut()}.unwrap().add_alias(value, nodes, sub_graph_index);
+            unsafe { (&mut nodes[child_reference.0] as *mut NodeGenerator).as_mut() }
+                .unwrap()
+                .add_alias(value, nodes, sub_graph_index);
         }
 
         for return_index in self.find_alias_return_nodes(value, nodes) {

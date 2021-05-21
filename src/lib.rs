@@ -293,31 +293,3 @@ impl<const N: usize> WordFilter<'_, N> {
         self.censor_with(input, censor::replace_graphemes_with!("*"))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{node, WordFilter};
-
-    static FILTER: WordFilter<0> = WordFilter {
-        root: node::Node {
-            r#type: node::Type::Standard,
-            children: |_| None,
-            alias_subgraphs: &[(&FILTER.separator_root, &FILTER.root)],
-            grapheme_subgraphs: &[],
-        },
-        separator_root: node::Node {
-            r#type: node::Type::Standard,
-            children: |_| None,
-            alias_subgraphs: &[],
-            grapheme_subgraphs: &[],
-        },
-        nodes: [],
-    };
-
-    #[test]
-    fn test() {
-        extern crate std;
-        std::dbg!(&FILTER);
-        assert!(false);
-    }
-}

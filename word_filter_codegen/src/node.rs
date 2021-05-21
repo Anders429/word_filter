@@ -86,9 +86,6 @@ pub(crate) struct NodeGenerator<'a> {
 
 impl<'a> NodeGenerator<'a> {
     fn add_path(&mut self, word: &str, nodes: &mut Vec<NodeGenerator<'a>>, r#type: Type<'a>) {
-        extern crate std;
-        std::dbg!(word);
-
         if word.is_empty() {
             if match self.r#type {
                 Type::Standard => true,
@@ -138,7 +135,6 @@ impl<'a> NodeGenerator<'a> {
                     Reference(nodes.len() - 1)
                 })
                 .0;
-            std::dbg!(&self.children);
             let node = &mut nodes[index] as *mut NodeGenerator;
             unsafe {
                 // SAFETY: The reference here will not be invalidated, since no elements are ever
@@ -258,7 +254,7 @@ impl<'a> NodeGenerator<'a> {
             .for_each(|node_reference| {
                 let remaining_value = chars.as_str();
                 if remaining_value.is_empty() {
-                    return_nodes.push(node_reference.0)
+                    return_nodes.push(node_reference.0);
                 } else {
                     return_nodes.extend(
                         nodes[node_reference.0].find_alias_return_nodes(remaining_value, nodes),
@@ -272,10 +268,14 @@ impl<'a> NodeGenerator<'a> {
                 .consume_chars_until_return_node(value, nodes)
                 .into_iter()
                 .for_each(|consumed_value| {
-                    return_nodes.extend(
-                        nodes[grapheme_return_reference.0]
-                            .find_alias_return_nodes(consumed_value, nodes),
-                    )
+                    if consumed_value.is_empty() {
+                        return_nodes.push(grapheme_return_reference.0);
+                    } else {
+                        return_nodes.extend(
+                            nodes[grapheme_return_reference.0]
+                                .find_alias_return_nodes(consumed_value, nodes),
+                        );
+                    }
                 });
         }
 

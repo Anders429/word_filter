@@ -1,0 +1,11 @@
+[package]
+name = "integration_codegen"
+version = "0.1.0"
+edition = "2018"
+publish = false
+
+[dependencies]
+word_filter = {path = "../..", default-features = false}
+
+[build-dependencies]
+word_filter_codegen = {path = "../../word_filter_codegen"}

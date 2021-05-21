@@ -15,7 +15,7 @@ use hashbrown::HashMap;
 use node::NodeGenerator;
 use str_overlap::Overlap;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Visibility {
     Private,
     Pub,
@@ -51,7 +51,7 @@ fn generate_nodes(nodes: &Vec<NodeGenerator>, identifier: &str) -> String {
     )
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct WordFilterGenerator {
     words: Vec<String>,
     exceptions: Vec<String>,
@@ -68,9 +68,9 @@ impl WordFilterGenerator {
     }
 
     #[inline]
-    pub fn word<S>(&mut self, word: &S) -> &mut Self
+    pub fn word<S>(&mut self, word: S) -> &mut Self
     where
-        S: ToString + ?Sized,
+        S: ToString,
     {
         self.words.push(word.to_string());
         self
@@ -87,9 +87,9 @@ impl WordFilterGenerator {
     }
 
     #[inline]
-    pub fn exception<S>(&mut self, exception: &S) -> &mut Self
+    pub fn exception<S>(&mut self, exception: S) -> &mut Self
     where
-        S: ToString + ?Sized,
+        S: ToString,
     {
         self.exceptions.push(exception.to_string());
         self
@@ -107,9 +107,9 @@ impl WordFilterGenerator {
     }
 
     #[inline]
-    pub fn separator<S>(&mut self, separator: &S) -> &mut Self
+    pub fn separator<S>(&mut self, separator: S) -> &mut Self
     where
-        S: ToString + ?Sized,
+        S: ToString,
     {
         self.separators.push(separator.to_string());
         self
@@ -127,21 +127,21 @@ impl WordFilterGenerator {
     }
 
     #[inline]
-    pub fn alias<S, T>(&mut self, source: &S, alias: &T) -> &mut Self
+    pub fn alias<S, T>(&mut self, source: S, alias: T) -> &mut Self
     where
-        S: ToString + ?Sized,
-        T: ToString + ?Sized,
+        S: ToString,
+        T: ToString,
     {
         self.aliases.push((source.to_string(), alias.to_string()));
         self
     }
 
     #[inline]
-    pub fn aliases<'b, I, S, T>(&mut self, aliases: I) -> &mut Self
+    pub fn aliases<'a, I, S, T>(&mut self, aliases: I) -> &mut Self
     where
-        I: IntoIterator<Item = &'b (S, T)>,
-        S: ToString + 'b,
-        T: ToString + 'b,
+        I: IntoIterator<Item = &'a (S, T)>,
+        S: ToString + 'a,
+        T: ToString + 'a,
     {
         self.aliases.extend(
             aliases
@@ -171,9 +171,6 @@ impl WordFilterGenerator {
         for exception in &self.exceptions {
             root.add_exception(exception, &mut nodes);
         }
-
-        extern crate std;
-        std::dbg!(&nodes);
 
         for separator in &self.separators {
             separator_root.add_return(separator, &mut nodes);

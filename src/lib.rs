@@ -286,6 +286,7 @@ impl<const N: usize> WordFilter<'_, N> {
     ///
     /// assert_eq!(filter.censor("this string contains foo"), "this string contains ***");
     /// ```
+    #[cfg(feature = "unicode-segmentation")]
     #[inline]
     #[must_use]
     pub fn censor(&self, input: &str) -> String {

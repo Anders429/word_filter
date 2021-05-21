@@ -37,16 +37,12 @@ impl<const N: usize> WordFilter<'_, N> {
         root_walker_builder =
             root_walker_builder.callbacks(vec![ContextualizedNode::InDirectPath(&self.root)]);
         let root_walker = root_walker_builder.build();
-        walkers.extend(
-            root_walker
-                .branch_to_alias_subgraphs()
-                .map(|mut walker| {
-                    walker
-                        .callbacks
-                        .push(ContextualizedNode::InSubgraph(&self.root));
-                    walker
-                }),
-        );
+        walkers.extend(root_walker.branch_to_alias_subgraphs().map(|mut walker| {
+            walker
+                .callbacks
+                .push(ContextualizedNode::InSubgraph(&self.root));
+            walker
+        }));
         walkers.extend(
             root_walker
                 .branch_to_grapheme_subgraphs()
@@ -101,8 +97,7 @@ impl<const N: usize> WordFilter<'_, N> {
                         }));
 
                         // Graphemes.
-                        let grapheme_walkers =
-                            walker.branch_to_grapheme_subgraphs();
+                        let grapheme_walkers = walker.branch_to_grapheme_subgraphs();
                         new_walkers.extend(grapheme_walkers.map(|mut inner_walker| {
                             inner_walker
                                 .callbacks

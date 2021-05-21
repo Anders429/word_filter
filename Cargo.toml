@@ -14,6 +14,9 @@ exclude = [".github/*", "clippy.toml"]
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
 
+[workspace]
+members = ["word_filter_codegen"]
+
 [dependencies]
 by_address = "1.0.4"
 hashbrown = "0.11.2"

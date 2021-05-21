@@ -122,22 +122,9 @@ impl<'a> Walker<'a> {
                     callback_walker.len += 1;
                     callback_walker.callbacks.pop();
 
-                    result.extend(callback_walker.branch_to_alias_subgraphs().map(
-                        |mut walker| {
-                            walker
-                                .targets
-                                .push(ContextualizedNode::InSubgraph(self.node));
-                            walker
-                                .callbacks
-                                .push(ContextualizedNode::InSubgraph(callback_node));
-                            walker.returns.push(self.node);
-                            walker
-                        },
-                    ));
-
                     result.extend(
                         callback_walker
-                            .branch_to_grapheme_subgraphs()
+                            .branch_to_alias_subgraphs()
                             .map(|mut walker| {
                                 walker
                                     .targets
@@ -149,6 +136,19 @@ impl<'a> Walker<'a> {
                                 walker
                             }),
                     );
+
+                    result.extend(callback_walker.branch_to_grapheme_subgraphs().map(
+                        |mut walker| {
+                            walker
+                                .targets
+                                .push(ContextualizedNode::InSubgraph(self.node));
+                            walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(callback_node));
+                            walker.returns.push(self.node);
+                            walker
+                        },
+                    ));
 
                     callback_walker
                         .targets
@@ -210,17 +210,15 @@ impl<'a> Walker<'a> {
                         },
                     ));
 
-                    branches.extend(
-                        callback_walker
-                            .branch_to_grapheme_subgraphs()
-                            .map(|mut walker| {
-                                walker.targets.push(ContextualizedNode::InSubgraph(node));
-                                walker
-                                    .callbacks
-                                    .push(ContextualizedNode::InSubgraph(callback_node));
-                                walker
-                            }),
-                    );
+                    branches.extend(callback_walker.branch_to_grapheme_subgraphs().map(
+                        |mut walker| {
+                            walker.targets.push(ContextualizedNode::InSubgraph(node));
+                            walker
+                                .callbacks
+                                .push(ContextualizedNode::InSubgraph(callback_node));
+                            walker
+                        },
+                    ));
 
                     callback_walker
                         .targets

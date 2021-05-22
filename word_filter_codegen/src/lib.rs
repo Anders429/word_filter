@@ -162,7 +162,7 @@ impl WordFilterGenerator {
         let mut separator_root = NodeGenerator::default();
         // TODO: Either find a way to approximate capacity or remove the issue of reallocation
         // after mutation in `add_path()`.
-        let mut nodes = Vec::with_capacity(2048);
+        let mut nodes = Vec::new();
 
         for word in &self.words {
             root.add_match(word, &mut nodes);

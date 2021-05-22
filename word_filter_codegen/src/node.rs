@@ -84,6 +84,99 @@ pub(crate) struct NodeGenerator<'a> {
     grapheme_subgraphs: Vec<(Reference, Reference)>,
 }
 
+fn add_path_by_index<'a>(index: usize, word: &str, nodes: &mut Vec<NodeGenerator<'a>>, r#type: Type<'a>) {
+    if word.is_empty() {
+        let mut node = &mut nodes[index];
+        if match node.r#type {
+            Type::Standard => true,
+            _ => false,
+        } {
+            node.r#type = r#type;
+        }
+        return;
+    }
+
+    let mut graphemes = word.graphemes(true);
+    let grapheme = match graphemes.next() {
+        Some(g) => g,
+        None => unsafe {
+            // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+            // `graphemes.next()` will always return a value.
+            debug_unreachable!()
+        },
+    };
+    if grapheme.chars().count() > 1 {
+        let mut subgraph_node = NodeGenerator::default();
+        let mut return_node = NodeGenerator::default();
+
+        subgraph_node.add_path_ignoring_graphemes(grapheme, nodes, Type::Return);
+        return_node.add_path(graphemes.as_str(), nodes, r#type);
+
+        let nodes_len = nodes.len();
+        nodes[index].grapheme_subgraphs
+            .push((Reference(nodes_len), Reference(nodes_len + 1)));
+        nodes.push(subgraph_node);
+        nodes.push(return_node);
+    } else {
+        let mut chars = word.chars();
+        let c =match chars.next() {
+            Some(c) => c,
+            None => {
+                unsafe {
+                    // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+                    // `chars.next()` will always return a value.
+                    debug_unreachable!()
+                }
+            }
+        };
+        let next_index = match nodes[index].children.get(&c) {
+            Some(reference) => reference.0,
+            None => {
+                let nodes_len = nodes.len();
+                nodes[index].children.insert(c, Reference(nodes_len));
+                nodes.push(NodeGenerator::default());
+                nodes_len
+            }
+        };
+        add_path_by_index(next_index, chars.as_str(), nodes, r#type);
+    }
+}
+
+fn add_path_by_index_ignoring_graphemes<'a>(index: usize, word: &str, nodes: &mut Vec<NodeGenerator<'a>>, r#type: Type<'a>) {
+    if word.is_empty() {
+        let mut node = &mut nodes[index];
+        if match node.r#type {
+            Type::Standard => true,
+            _ => false,
+        } {
+            node.r#type = r#type;
+        }
+        return;
+    }
+
+    let mut chars = word.chars();
+        let c =match chars.next() {
+            Some(c) => c,
+            None => {
+                unsafe {
+                    // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+                    // `chars.next()` will always return a value.
+                    debug_unreachable!()
+                }
+            }
+        };
+        let next_index = match nodes[index].children.get(&c) {
+            Some(reference) => reference.0,
+            None => {
+                let nodes_len = nodes.len();
+                nodes[index].children.insert(c, Reference(nodes_len));
+                nodes.push(NodeGenerator::default());
+                nodes_len
+            }
+        };
+        add_path_by_index_ignoring_graphemes(next_index, chars.as_str(), nodes, r#type);
+}
+
 impl<'a> NodeGenerator<'a> {
     fn add_path(&mut self, word: &str, nodes: &mut Vec<NodeGenerator<'a>>, r#type: Type<'a>) {
         if word.is_empty() {
@@ -135,13 +228,7 @@ impl<'a> NodeGenerator<'a> {
                     Reference(nodes.len() - 1)
                 })
                 .0;
-            let node = &mut nodes[index] as *mut NodeGenerator;
-            unsafe {
-                // SAFETY: The reference here will not be invalidated, since no elements are ever
-                // removed from `nodes`.
-                node.as_mut().unwrap()
-            }
-            .add_path(chars.as_str(), nodes, r#type);
+                add_path_by_index(index, chars.as_str(), nodes, r#type);
         }
     }
 
@@ -179,13 +266,7 @@ impl<'a> NodeGenerator<'a> {
                 Reference(nodes.len() - 1)
             })
             .0;
-        let node = &mut nodes[index] as *mut NodeGenerator;
-        unsafe {
-            // SAFETY: The reference here will not be invalidated, since no elements are ever
-            // removed from `nodes`.
-            node.as_mut().unwrap()
-        }
-        .add_path_ignoring_graphemes(chars.as_str(), nodes, r#type);
+            add_path_by_index_ignoring_graphemes(index, chars.as_str(), nodes, r#type);
     }
 
     pub(crate) fn add_match(&mut self, word: &'a str, nodes: &mut Vec<NodeGenerator<'a>>) {

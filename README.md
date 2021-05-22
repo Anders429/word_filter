@@ -4,7 +4,7 @@
 [![codecov.io](https://img.shields.io/codecov/c/gh/Anders429/word_filter)](https://codecov.io/gh/Anders429/word_filter)
 [![crates.io](https://img.shields.io/crates/v/word_filter)](https://crates.io/crates/word_filter)
 [![docs.rs](https://docs.rs/word_filter/badge.svg)](https://docs.rs/word_filter)
-[![MSRV](https://img.shields.io/badge/rustc-1.36.0+-yellow.svg)](#minimum-supported-rust-version)
+[![MSRV](https://img.shields.io/badge/rustc-1.51.0+-yellow.svg)](#minimum-supported-rust-version)
 [![License](https://img.shields.io/crates/l/word_filter)](#license)
 
 A Word Filter for filtering text.
@@ -38,7 +38,7 @@ assert_eq!(filter.censor("Should censor foo and bar."), "Should censor *** and *
 See the documentation for more in-depth usage.
 
 ## Minimum Supported Rust Version
-This crate is guaranteed to compile on stable `rustc 1.36.0` and up.
+This crate is guaranteed to compile on stable `rustc 1.51.0` and up.
 
 ## License
 This project is licensed under either of

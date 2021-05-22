@@ -488,8 +488,6 @@ impl<const N: usize> WordFilter<'_, N> {
     /// this method is used as follows:
     ///
     /// ``` ignore
-    /// use word_filter::censor;
-    ///
     /// include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
     ///
     /// assert!(FILTER.censor("this string contains foo"), "this string contains ***");

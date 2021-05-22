@@ -1,35 +1,51 @@
 //! Macros for creating censors to be used in a [`WordFilter`].
 //!
 //! These macros are provided for conveniently creating common censor functions. The resulting
-//! functions have the signature `fn(&str) -> String` and can therefore be provided during building
-//! of a `WordFilter`.
+//! functions have the signature `fn(&str) -> String` and can therefore be provided when calling
+//! the [`censor_with()`] method on a [`WordFilter`].
 //!
-//! # Examples
-//! Creating a `WordFilter` with a custom censor is done as follows:
+//! # Example
+//! Assuming a compile-time constructed `WordFilter` `FILTER`, defined in a `build.rs` as:
 //!
-//! ``` no_run
-//! use word_filter::{censor, WordFilterBuilder};
+//! ``` ignore
+//! use std::{
+//!     env,
+//!     fs::File,
+//!     io::{BufWriter, Write},
+//!     path::Path,
+//! };
+//! use word_filter_codegen::{Visibility, WordFilterGenerator};
 //!
-//! let filter = WordFilterBuilder::new().censor(censor::replace_graphemes_with!("#")).build();
+//! fn main() {
+//!     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
+//!     let mut file = BufWriter::new(File::create(&path).unwrap());
+//!
+//!     writeln!(
+//!         &mut file,
+//!         "{}",
+//!         WordFilterGenerator::new()
+//!             .visibility(Visibility::Pub)
+//!             .word("foo")
+//!             .generate("FILTER")
+//!         );
+//! }
 //! ```
 //!
-//! Note that if the options here do not suite your use case, you can provide a custom function with
-//! a closure instead. The following code block has the same effect as the one above:
+//! an input can be censored with a custom censor function as follows:
 //!
-//! ``` no_run
-//! use word_filter::WordFilterBuilder;
+//! ``` ignore
+//! use word_filter::censor;
 //!
-//! let filter = WordFilterBuilder::new()
-//!     .censor(|input| input.chars().fold(String::with_capacity(input.len()), |mut acc, _| {
-//!         acc.push('#');
-//!         acc
-//!     }))
-//!     .build();
+//! include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
+//!
+//! assert!(
+//!     FILTER.censor_with("this string contains foo", censor::replace_graphemes_with("#")),
+//!     "this string contains ###"
+//! );
 //! ```
-//!
-//! This is a bit more verbose, which is why these macros are provided for the most common cases.
 //!
 //! [`WordFilter`]: crate::WordFilter
+//! [`censor_with()`]: crate::WordFilter::censor_with
 
 #[doc(hidden)]
 pub use alloc::{borrow::ToOwned, string::String};
@@ -40,15 +56,40 @@ pub use unicode_segmentation::UnicodeSegmentation;
 /// Creates a censor replacing every grapheme with the given string.
 ///
 /// # Example
-/// ``` no_run
-/// use word_filter::{censor, WordFilterBuilder};
+/// Assuming a compile-time constructed `WordFilter` `FILTER`, defined in a `build.rs` as:
 ///
-/// let filter = WordFilterBuilder::new()
-///     .words(&["bãr"])
-///     .censor(censor::replace_graphemes_with!("#"))
-///     .build();
+/// ``` ignore
+/// use std::{
+///     env,
+///     fs::File,
+///     io::{BufWriter, Write},
+///     path::Path,
+/// };
+/// use word_filter_codegen::{Visibility, WordFilterGenerator};
 ///
-/// assert_eq!(filter.censor("bãr"), "###");
+/// fn main() {
+///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
+///     let mut file = BufWriter::new(File::create(&path).unwrap());
+///
+///     writeln!(
+///         &mut file,
+///         "{}",
+///         WordFilterGenerator::new()
+///             .word("fõõ")
+///             .generate("FILTER")
+///         );
+/// }
+/// ```
+///
+/// a custom censor function can be used as follows:
+///
+/// ``` ignore
+/// include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
+///
+/// assert!(
+///     FILTER.censor_with("this string contains fõõ", censor::replace_graphemes_with("#")),
+///     "this string contains ###"
+/// );
 /// ```
 #[cfg(feature = "unicode-segmentation")]
 #[macro_export]
@@ -74,15 +115,40 @@ pub use _replace_graphemes_with as replace_graphemes_with;
 /// Creates a sensor replacing the full matched words with the given string.
 ///
 /// # Example
-/// ``` no_run
-/// use word_filter::{censor, WordFilterBuilder};
+/// Assuming a compile-time constructed `WordFilter` `FILTER`, defined in a `build.rs` as:
 ///
-/// let filter = WordFilterBuilder::new()
-///     .words(&["foo"])
-///     .censor(censor::replace_words_with!("<censored>"))
-///     .build();
+/// ``` ignore
+/// use std::{
+///     env,
+///     fs::File,
+///     io::{BufWriter, Write},
+///     path::Path,
+/// };
+/// use word_filter_codegen::{Visibility, WordFilterGenerator};
 ///
-/// assert_eq!(filter.censor("Should censor foo."), "Should censor <censored>.");
+/// fn main() {
+///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
+///     let mut file = BufWriter::new(File::create(&path).unwrap());
+///
+///     writeln!(
+///         &mut file,
+///         "{}",
+///         WordFilterGenerator::new()
+///             .word("foo")
+///             .generate("FILTER")
+///         );
+/// }
+/// ```
+///
+/// a custom censor function can be used as follows:
+///
+/// ``` ignore
+/// include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
+///
+/// assert!(
+///     FILTER.censor_with("this string contains foo", censor::replace_words_with("<censored>")),
+///     "this string contains <censored>"
+/// );
 /// ```
 #[macro_export]
 macro_rules! _replace_words_with {

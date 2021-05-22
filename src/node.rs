@@ -1,3 +1,5 @@
+#![doc(hidden)]
+
 use alloc::vec::Vec;
 use core::fmt;
 

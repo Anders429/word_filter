@@ -2,7 +2,6 @@ use std::{
     env,
     fs::File,
     io::{BufWriter, Write},
-    path::Path,
 };
 use word_filter_codegen::{Visibility, WordFilterGenerator};
 
@@ -10,7 +9,7 @@ macro_rules! compiles {
     ($test_name:ident, $generator:expr) => {
         #[test]
         fn $test_name() {
-            let path = Path::new(&env::var("OUT_DIR").unwrap()).join(concat!(stringify!($test_name), ".rs"));
+            let path = concat!(env!("OUT_DIR"), stringify!($test_name), ".rs");
             let mut file = BufWriter::new(File::create(&path).unwrap());
         
             writeln!(&mut file, "mod this{{\n{}\n}}\n\nfn main() {{}}", $generator.generate("TEST")).unwrap();

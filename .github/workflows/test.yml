@@ -55,5 +55,5 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions-rs/tarpaulin@v0.1
       with:
-        args: --workspace --debug
+        args: --workspace
     - uses: codecov/codecov-action@v1

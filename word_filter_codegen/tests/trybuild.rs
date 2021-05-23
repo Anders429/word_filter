@@ -39,3 +39,4 @@ compiles!(graphemes, WordFilterGenerator::new().word("bãr"));
 compiles!(null_character, WordFilterGenerator::new().word("\0fo\0o"));
 compiles!(alias_on_word, WordFilterGenerator::new().word("foo").alias('o', 'a'));
 compiles!(alias_on_exception, WordFilterGenerator::new().exception("foo").alias('o', 'a'));
+compiles!(empty, WordFilterGenerator::new().word(""));

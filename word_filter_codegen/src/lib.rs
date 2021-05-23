@@ -22,7 +22,7 @@
 //!
 //! Next, generate the [`WordFilter`] in the `build.rs` file.
 //!
-//! ``` ignore
+//! ``` no_run
 //! use std::{
 //!     env,
 //!     fs::File,
@@ -159,12 +159,31 @@ pub struct WordFilterGenerator {
 }
 
 impl WordFilterGenerator {
+    /// Creates a new WordFilterGenerator.
+    ///
+    /// This is equivalent to `WordFilterGenerator::default()`.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let generator = WordFilterGenerator::new();
+    /// ```
     #[inline]
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Add a single word.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.word("foo");
+    /// ```
     #[inline]
     pub fn word<S>(&mut self, word: S) -> &mut Self
     where
@@ -174,6 +193,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add words.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.words(&["foo", "bar"]);
+    /// ```
     #[inline]
     pub fn words<I, S>(&mut self, words: I) -> &mut Self
     where
@@ -184,6 +212,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add a single exception.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.exception("foo");
+    /// ```
     #[inline]
     pub fn exception<S>(&mut self, exception: S) -> &mut Self
     where
@@ -193,6 +230,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add exceptions.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.exceptions(&["foo", "bar"]);
+    /// ```
     #[inline]
     pub fn exceptions<I, S>(&mut self, exceptions: I) -> &mut Self
     where
@@ -204,6 +250,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add a single separator.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.separator("foo");
+    /// ```
     #[inline]
     pub fn separator<S>(&mut self, separator: S) -> &mut Self
     where
@@ -213,6 +268,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add separators.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.separators(&["foo", "bar"]);
+    /// ```
     #[inline]
     pub fn separators<I, S>(&mut self, separators: I) -> &mut Self
     where
@@ -224,6 +288,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add a single alias.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.alias("foo", "bar");
+    /// ```
     #[inline]
     pub fn alias<S, T>(&mut self, source: S, alias: T) -> &mut Self
     where
@@ -234,6 +307,15 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Add aliases.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.aliases(&[("foo", "bar"), ("baz", "qux")]);
+    /// ```
     #[inline]
     pub fn aliases<'a, I, S, T>(&mut self, aliases: I) -> &mut Self
     where
@@ -249,17 +331,55 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Set visibility of the generated code.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::{Visibility, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.visibility(Visibility::Pub);
+    /// ```
     #[inline]
     pub fn visibility(&mut self, visibility: Visibility) -> &mut Self {
         self.visibility = visibility;
         self
     }
 
+    /// Generate code defining a [`WordFilter`] with the given words, exceptions, separators,
+    /// aliases, and visibility.
+    ///
+    /// The generated code is most often written to a file at compile time within a `build.rs`
+    /// script. An example `build.rs` is as follows:
+    ///
+    /// ``` no_run
+    /// use std::{
+    ///     env,
+    ///     fs::File,
+    ///     io::{BufWriter, Write},
+    ///     path::Path,
+    /// };
+    /// use word_filter_codegen::{Visibility, WordFilterGenerator};
+    ///
+    /// fn main() {
+    ///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
+    ///     let mut file = BufWriter::new(File::create(&path).unwrap());
+    ///
+    ///     writeln!(
+    ///         &mut file,
+    ///         "{}",
+    ///         WordFilterGenerator::new()
+    ///             .visibility(Visibility::Pub)
+    ///             .word("foo")
+    ///             .generate("FILTER")
+    ///         );
+    /// }
+    /// ```
+    ///
+    /// [`WordFilter`]: https://docs.rs/word_filter/0.5.0/struct.WordFilter.html
     pub fn generate(&self, identifier: &str) -> String {
         let mut root = NodeGenerator::default();
         let mut separator_root = NodeGenerator::default();
-        // TODO: Either find a way to approximate capacity or remove the issue of reallocation
-        // after mutation in `add_path()`.
         let mut nodes = Vec::new();
 
         for word in &self.words {

@@ -51,3 +51,4 @@ compiles!(merged_aliases, WordFilterGenerator::new().aliases(&[("b", "cd"),("a",
 compiles!(contiguous_merged_aliases, WordFilterGenerator::new().aliases(&[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")]));
 compiles!(duplicate_aliases, WordFilterGenerator::new().aliases(&[("a", "b"), ("a", "b")]));
 compiles!(duplicate_words, WordFilterGenerator::new().words(&["foo", "foo"]));
+compiles!(duplicate_graphemes, WordFilterGenerator::new().words(&["bãr", "bãr"]));

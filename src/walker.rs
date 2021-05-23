@@ -1,3 +1,14 @@
+//! Walker for [`WordFilter`] internal searching.
+//!
+//! [`Walker`] provides an efficient way for the `WordFilter` to search its own directional graph
+//! for matches to a given string.
+//!
+//! Use of a `Walker` allows for multiple simultaneous searches to all maintain their own context.
+//! This allows for splitting of paths at aliases, searching for separators, and searching at
+//! different start locations within the string simultaneously.
+//!
+//! [`WordFilter`]: crate::WordFilter
+
 use crate::node::{self, Node};
 use alloc::{vec, vec::Vec};
 use by_address::ByAddress;
@@ -7,19 +18,42 @@ use core::{
 };
 use hashbrown::HashSet;
 
+/// The current status of the `Walker`.
+///
+/// This indicates whether the `Walker` has reached a `Match` or an `Exception` node.
 #[derive(Clone, Debug)]
 pub(crate) enum Status<'a> {
+    /// Indicates the `Walker` has found no `Match` or `Exception` nodes yet.
     None,
+    /// Indicates the `Walker` has found a `Match` node containing the end index and the stored
+    /// string.
     Match(usize, &'a str),
+    /// Indicates the `Walker` has found an `Exception` node containing the end index and the stored
+    /// string.
     Exception(usize, &'a str),
 }
 
+/// A contextualizing wrapper for a [`Node`].
+///
+/// Indicates what context the `Node` should be evaluated in.
+///
+/// [`Node`]: crate::node::Node
 #[derive(Clone, Debug)]
 pub(crate) enum ContextualizedNode<'a> {
+    /// The `Node` should be evaluated in a direct path context.
     InDirectPath(&'a Node<'a>),
+    /// The `Node` should be evaluated in a subgraph context.
     InSubgraph(&'a Node<'a>),
 }
 
+/// A specialized walker for traveling through the `WordFilter`'s `Node` graph.
+///
+/// The `Walker` keeps track of the current context within the `Node` (as in, the current walker
+/// location, a stack of return nodes, etc.), as well as information about the `Walker`'s location
+/// within the original source string passed into the `WordFilter`.
+///
+/// In order to progress the `Walker` forward, the `step()` method is provided, which allows the
+/// user to step the `Walker` through each character in a string.
 #[derive(Clone, Debug)]
 pub(crate) struct Walker<'a> {
     pub(crate) node: &'a Node<'a>,
@@ -42,6 +76,7 @@ impl<'a> Walker<'a> {
         self.branch_to_alias_subgraphs_internal(&mut HashSet::new())
     }
 
+    /// Create new `Walker`s pointing to grapheme paths connected to the current node.
     #[inline]
     pub(crate) fn branch_to_grapheme_subgraphs(&self) -> vec::IntoIter<Walker<'a>> {
         self.branch_to_grapheme_subgraphs_internal(&mut HashSet::new())
@@ -182,6 +217,9 @@ impl<'a> Walker<'a> {
         Ok(result.into_iter())
     }
 
+    /// Step the `Walker` along the character 'c'.
+    ///
+    /// If successful, returns an iterator of branched `Walker`s.
     pub(crate) fn step(&mut self, c: char) -> Result<vec::IntoIter<Walker<'a>>, ()> {
         let mut branches = Vec::new();
 

@@ -40,6 +40,7 @@ compiles!(null_character, WordFilterGenerator::new().word("\0fo\0o"));
 compiles!(alias_on_word, WordFilterGenerator::new().word("foo").alias('o', 'a'));
 compiles!(alias_on_exception, WordFilterGenerator::new().exception("foo").alias('o', 'a'));
 compiles!(empty, WordFilterGenerator::new().word(""));
+compiles!(multiple_empty, WordFilterGenerator::new().word("").word(""));
 compiles!(grapheme_alias, WordFilterGenerator::new().word("bãr").alias("ã", "õ"));
 compiles!(grapheme_at_start, WordFilterGenerator::new().word("ãbc"));
 compiles!(grapheme_alias_not_applied, WordFilterGenerator::new().word("bar").alias("ã", "õ"));
@@ -49,3 +50,4 @@ compiles!(alias_not_applied_on_longer_grapheme, WordFilterGenerator::new().word(
 compiles!(merged_aliases, WordFilterGenerator::new().aliases(&[("b", "cd"),("a", "ef"), ("de", "g")]));
 compiles!(contiguous_merged_aliases, WordFilterGenerator::new().aliases(&[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")]));
 compiles!(duplicate_aliases, WordFilterGenerator::new().aliases(&[("a", "b"), ("a", "b")]));
+compiles!(duplicate_words, WordFilterGenerator::new().words(&["foo", "foo"]));

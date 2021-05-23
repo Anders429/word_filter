@@ -41,3 +41,5 @@ compiles!(alias_on_word, WordFilterGenerator::new().word("foo").alias('o', 'a'))
 compiles!(alias_on_exception, WordFilterGenerator::new().exception("foo").alias('o', 'a'));
 compiles!(empty, WordFilterGenerator::new().word(""));
 compiles!(grapheme_alias, WordFilterGenerator::new().word("bãr").alias("ã", "õ"));
+compiles!(grapheme_at_start, WordFilterGenerator::new().word("ãbc"));
+compiles!(grapheme_alias_not_applied, WordFilterGenerator::new().word("bar").alias("ã", "õ"));

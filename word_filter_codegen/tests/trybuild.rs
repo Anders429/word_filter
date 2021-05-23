@@ -47,3 +47,4 @@ compiles!(long_grapheme_alias, WordFilterGenerator::new().word("bãr").alias("a
 compiles!(empty_alias, WordFilterGenerator::new().alias("", ""));
 compiles!(alias_not_applied_on_longer_grapheme, WordFilterGenerator::new().word("bã̃r").alias("ã", "õ"));
 compiles!(merged_aliases, WordFilterGenerator::new().aliases(&[("b", "cd"),("a", "ef"), ("de", "g")]));
+compiles!(contiguous_merged_aliases, WordFilterGenerator::new().aliases(&[("a", "bc"), ("cdef", "g"), ("h", "de"), ("j", "fi")]));

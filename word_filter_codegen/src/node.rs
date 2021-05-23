@@ -238,15 +238,7 @@ impl<'a> NodeGenerator<'a> {
         nodes: &mut Vec<NodeGenerator<'a>>,
         r#type: Type<'a>,
     ) {
-        if word.is_empty() {
-            if match self.r#type {
-                Type::Standard => true,
-                _ => false,
-            } {
-                self.r#type = r#type;
-            }
-            return;
-        }
+        debug_assert!(!word.is_empty());
 
         let mut chars = word.chars();
         let index = self

@@ -1,6 +1,6 @@
 [package]
 name = "word_filter"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Anders Evensen"]
 edition = "2018"
 description = "A Word Filter for filtering text."

@@ -45,3 +45,4 @@ compiles!(grapheme_at_start, WordFilterGenerator::new().word("ãbc"));
 compiles!(grapheme_alias_not_applied, WordFilterGenerator::new().word("bar").alias("ã", "õ"));
 compiles!(long_grapheme_alias, WordFilterGenerator::new().word("bãr").alias("ãr", "õr"));
 compiles!(empty_alias, WordFilterGenerator::new().alias("", ""));
+compiles!(alias_not_applied_on_longer_grapheme, WordFilterGenerator::new().word("bã̃r").alias("ã", "õ"));

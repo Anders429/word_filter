@@ -10,7 +10,6 @@ license = "MIT OR Apache-2.0"
 categories = ["development-tools::build-utils", "game-development", "no-std", "text-processing", "value-formatting"]
 keywords = ["wordfilter", "word", "filter", "censor", "string"]
 include = ["/src/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
-publish = false
 
 [dependencies]
 hashbrown = "0.11.2"

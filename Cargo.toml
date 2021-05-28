@@ -9,7 +9,7 @@ repository = "https://github.com/Anders429/word_filter"
 license = "MIT OR Apache-2.0"
 categories = ["data-structures", "game-development", "no-std", "text-processing", "value-formatting"]
 keywords = ["wordfilter", "word", "filter", "censor", "string"]
-include = ["/src/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
+include = ["/src/**/*", "/doc/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]

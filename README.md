@@ -37,13 +37,11 @@ First, add both the `word_filter` and `word_filter_codegen` crates to the `Cargo
 `[dependencies]` and `[build-dependencies]` lists respectively. Be sure their versions match.
 
 ``` toml
-...
 [dependencies]
 word_filter = "0.5.0"
 
 [build-dependencies]
 word_filter_codegen = "0.5.0"
-...
 ```
 
 Next, generate the [`WordFilter`] in the `build.rs` file.

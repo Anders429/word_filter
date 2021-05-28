@@ -27,7 +27,7 @@
 //! ...
 //! [dependencies]
 //! word_filter = "0.5.0"
-//! 
+//!
 //! [build-dependencies]
 //! word_filter_codegen = "0.5.0"
 //! ...
@@ -100,7 +100,7 @@ use walker::{ContextualizedNode, Walker, WalkerBuilder};
 /// These are of the form `(<source string>, <alias string>)`.
 ///
 /// `WordFilter`s are constructed at compile-time using the
-/// [`word_filter_codegen`](https://docs.rs/word_filter_codegen) crate. See crate-level 
+/// [`word_filter_codegen`](https://docs.rs/word_filter_codegen) crate. See crate-level
 /// documentation for further information.
 #[derive(Debug)]
 pub struct WordFilter<'a, const N: usize> {
@@ -310,7 +310,7 @@ impl<const N: usize> WordFilter<'_, N> {
     /// Returns `true` if matches are found, and `false` otherwise.
     ///
     /// # Example
-    /// 
+    ///
     /// Assuming a compile-time constructed `WordFilter` `FILTER`, defined in a `build.rs` as:
     ///
     /// ``` ignore

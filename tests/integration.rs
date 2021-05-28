@@ -94,23 +94,38 @@ fn merged_aliases() {
 
 #[test]
 fn merged_aliases_contiguous() {
-    assert_eq!(MERGED_ALIASES_CONTIGUOUS.find("bcdefi").collect::<Vec<_>>(), vec!["ahj"]);
-    assert_eq!(MERGED_ALIASES_CONTIGUOUS.find("bgi").collect::<Vec<_>>(), vec!["ahj"]);
+    assert_eq!(
+        MERGED_ALIASES_CONTIGUOUS.find("bcdefi").collect::<Vec<_>>(),
+        vec!["ahj"]
+    );
+    assert_eq!(
+        MERGED_ALIASES_CONTIGUOUS.find("bgi").collect::<Vec<_>>(),
+        vec!["ahj"]
+    );
 }
 
 #[test]
 fn merged_aliases_over_full_match() {
-    assert_eq!(MERGED_ALIASES_OVER_FULL_MATCH.find("w").collect::<Vec<_>>(), vec!["bar"]);
+    assert_eq!(
+        MERGED_ALIASES_OVER_FULL_MATCH.find("w").collect::<Vec<_>>(),
+        vec!["bar"]
+    );
 }
 
 #[test]
 fn recursive_alias_no_overflow() {
-    assert_eq!(RECURSIVE_ALIASES.find("abr").collect::<Vec<_>>(), vec!["bar"]);
+    assert_eq!(
+        RECURSIVE_ALIASES.find("abr").collect::<Vec<_>>(),
+        vec!["bar"]
+    );
 }
 
 #[test]
 fn alias_after_separator() {
-    assert_eq!(SEPARATOR_AND_ALIAS.find("b Ar").collect::<Vec<_>>(), vec!["bar"]);
+    assert_eq!(
+        SEPARATOR_AND_ALIAS.find("b Ar").collect::<Vec<_>>(),
+        vec!["bar"]
+    );
 }
 
 #[cfg(feature = "unicode-segmentation")]
@@ -133,7 +148,12 @@ fn censor_repeated_alias() {
 
 #[test]
 fn separator_in_match_filled_with_smaller_match() {
-    assert_eq!(WORD_IN_WORD_WITH_SEPARATOR_AND_ALIAS.find("foo baz").collect::<Vec<_>>(), vec!["foobar"]);
+    assert_eq!(
+        WORD_IN_WORD_WITH_SEPARATOR_AND_ALIAS
+            .find("foo baz")
+            .collect::<Vec<_>>(),
+        vec!["foobar"]
+    );
 }
 
 #[test]
@@ -148,16 +168,25 @@ fn repeated_graphemes() {
 
 #[test]
 fn grapheme_in_alias() {
-    assert_eq!(GRAPHEME_IN_ALIAS.find("bãr").collect::<Vec<_>>(), vec!["bar"]);
+    assert_eq!(
+        GRAPHEME_IN_ALIAS.find("bãr").collect::<Vec<_>>(),
+        vec!["bar"]
+    );
 }
 
 #[test]
 fn alias_on_grapheme() {
     dbg!(&ALIAS_ON_GRAPHEME);
-    assert_eq!(ALIAS_ON_GRAPHEME.find("bõr").collect::<Vec<_>>(), vec!["bãr"]);
+    assert_eq!(
+        ALIAS_ON_GRAPHEME.find("bõr").collect::<Vec<_>>(),
+        vec!["bãr"]
+    );
 }
 
 #[test]
 fn grapheme_at_root() {
-    assert_eq!(GRAPHEME_AT_ROOT.find("ãbc").collect::<Vec<_>>(), vec!["ãbc"]);
+    assert_eq!(
+        GRAPHEME_AT_ROOT.find("ãbc").collect::<Vec<_>>(),
+        vec!["ãbc"]
+    );
 }

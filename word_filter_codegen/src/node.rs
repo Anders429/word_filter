@@ -46,7 +46,7 @@ fn generate_children(children: &HashMap<char, Reference>, identifier: &str) -> S
     for (c, reference) in children {
         result.push_str(&format!(
             "'{}' => Some({}),\n                ",
-            c,
+            c.escape_default(),
             reference.generate(identifier)
         ))
     }
@@ -84,7 +84,12 @@ pub(crate) struct NodeGenerator<'a> {
     grapheme_subgraphs: Vec<(Reference, Reference)>,
 }
 
-fn add_path_by_index<'a>(index: usize, word: &str, nodes: &mut Vec<NodeGenerator<'a>>, r#type: Type<'a>) {
+fn add_path_by_index<'a>(
+    index: usize,
+    word: &str,
+    nodes: &mut Vec<NodeGenerator<'a>>,
+    r#type: Type<'a>,
+) {
     if word.is_empty() {
         let mut node = &mut nodes[index];
         if match node.r#type {
@@ -113,13 +118,14 @@ fn add_path_by_index<'a>(index: usize, word: &str, nodes: &mut Vec<NodeGenerator
         return_node.add_path(graphemes.as_str(), nodes, r#type);
 
         let nodes_len = nodes.len();
-        nodes[index].grapheme_subgraphs
+        nodes[index]
+            .grapheme_subgraphs
             .push((Reference(nodes_len), Reference(nodes_len + 1)));
         nodes.push(subgraph_node);
         nodes.push(return_node);
     } else {
         let mut chars = word.chars();
-        let c =match chars.next() {
+        let c = match chars.next() {
             Some(c) => c,
             None => {
                 unsafe {
@@ -142,7 +148,12 @@ fn add_path_by_index<'a>(index: usize, word: &str, nodes: &mut Vec<NodeGenerator
     }
 }
 
-fn add_path_by_index_ignoring_graphemes<'a>(index: usize, word: &str, nodes: &mut Vec<NodeGenerator<'a>>, r#type: Type<'a>) {
+fn add_path_by_index_ignoring_graphemes<'a>(
+    index: usize,
+    word: &str,
+    nodes: &mut Vec<NodeGenerator<'a>>,
+    r#type: Type<'a>,
+) {
     if word.is_empty() {
         let mut node = &mut nodes[index];
         if match node.r#type {
@@ -155,26 +166,26 @@ fn add_path_by_index_ignoring_graphemes<'a>(index: usize, word: &str, nodes: &mu
     }
 
     let mut chars = word.chars();
-        let c =match chars.next() {
-            Some(c) => c,
-            None => {
-                unsafe {
-                    // SAFETY; We guaranteed above that `word` is non-empty, and therefore
-                    // `chars.next()` will always return a value.
-                    debug_unreachable!()
-                }
+    let c = match chars.next() {
+        Some(c) => c,
+        None => {
+            unsafe {
+                // SAFETY; We guaranteed above that `word` is non-empty, and therefore
+                // `chars.next()` will always return a value.
+                debug_unreachable!()
             }
-        };
-        let next_index = match nodes[index].children.get(&c) {
-            Some(reference) => reference.0,
-            None => {
-                let nodes_len = nodes.len();
-                nodes[index].children.insert(c, Reference(nodes_len));
-                nodes.push(NodeGenerator::default());
-                nodes_len
-            }
-        };
-        add_path_by_index_ignoring_graphemes(next_index, chars.as_str(), nodes, r#type);
+        }
+    };
+    let next_index = match nodes[index].children.get(&c) {
+        Some(reference) => reference.0,
+        None => {
+            let nodes_len = nodes.len();
+            nodes[index].children.insert(c, Reference(nodes_len));
+            nodes.push(NodeGenerator::default());
+            nodes_len
+        }
+    };
+    add_path_by_index_ignoring_graphemes(next_index, chars.as_str(), nodes, r#type);
 }
 
 impl<'a> NodeGenerator<'a> {
@@ -228,7 +239,7 @@ impl<'a> NodeGenerator<'a> {
                     Reference(nodes.len() - 1)
                 })
                 .0;
-                add_path_by_index(index, chars.as_str(), nodes, r#type);
+            add_path_by_index(index, chars.as_str(), nodes, r#type);
         }
     }
 
@@ -258,7 +269,7 @@ impl<'a> NodeGenerator<'a> {
                 Reference(nodes.len() - 1)
             })
             .0;
-            add_path_by_index_ignoring_graphemes(index, chars.as_str(), nodes, r#type);
+        add_path_by_index_ignoring_graphemes(index, chars.as_str(), nodes, r#type);
     }
 
     pub(crate) fn add_match(&mut self, word: &'a str, nodes: &mut Vec<NodeGenerator<'a>>) {

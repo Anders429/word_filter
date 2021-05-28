@@ -152,15 +152,14 @@ impl<'a> Walker<'a> {
                     self.targets.pop();
                 }
                 if let Some(ContextualizedNode::InSubgraph(callback_node)) = self.callbacks.last() {
-                    let mut callback_walker = self.clone();
-                    callback_walker.node = callback_node;
-                    callback_walker.len += 1;
-                    callback_walker.callbacks.pop();
+                    if !self.in_separator {
+                        let mut callback_walker = self.clone();
+                        callback_walker.node = callback_node;
+                        callback_walker.len += 1;
+                        callback_walker.callbacks.pop();
 
-                    result.extend(
-                        callback_walker
-                            .branch_to_alias_subgraphs()
-                            .map(|mut walker| {
+                        result.extend(callback_walker.branch_to_alias_subgraphs().map(
+                            |mut walker| {
                                 walker
                                     .targets
                                     .push(ContextualizedNode::InSubgraph(self.node));
@@ -169,29 +168,30 @@ impl<'a> Walker<'a> {
                                     .push(ContextualizedNode::InSubgraph(callback_node));
                                 walker.returns.push(self.node);
                                 walker
-                            }),
-                    );
+                            },
+                        ));
 
-                    result.extend(callback_walker.branch_to_grapheme_subgraphs().map(
-                        |mut walker| {
-                            walker
-                                .targets
-                                .push(ContextualizedNode::InSubgraph(self.node));
-                            walker
-                                .callbacks
-                                .push(ContextualizedNode::InSubgraph(callback_node));
-                            walker.returns.push(self.node);
-                            walker
-                        },
-                    ));
+                        result.extend(callback_walker.branch_to_grapheme_subgraphs().map(
+                            |mut walker| {
+                                walker
+                                    .targets
+                                    .push(ContextualizedNode::InSubgraph(self.node));
+                                walker
+                                    .callbacks
+                                    .push(ContextualizedNode::InSubgraph(callback_node));
+                                walker.returns.push(self.node);
+                                walker
+                            },
+                        ));
 
-                    callback_walker
-                        .targets
-                        .push(ContextualizedNode::InDirectPath(self.node));
-                    callback_walker
-                        .callbacks
-                        .push(ContextualizedNode::InDirectPath(callback_node));
-                    result.push(callback_walker);
+                        callback_walker
+                            .targets
+                            .push(ContextualizedNode::InDirectPath(self.node));
+                        callback_walker
+                            .callbacks
+                            .push(ContextualizedNode::InDirectPath(callback_node));
+                        result.push(callback_walker);
+                    }
 
                     self.callbacks.pop();
                 }

@@ -16,7 +16,7 @@ jobs:
           - stable
           - beta
           - nightly
-          - 1.36.0
+          - 1.51.0
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -26,6 +26,7 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: test
+        args: --workspace
 
   no_std:
     runs-on: ubuntu-latest
@@ -35,7 +36,7 @@ jobs:
           - stable
           - beta
           - nightly
-          - 1.36.0
+          - 1.51.0
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -53,4 +54,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/tarpaulin@v0.1
+      with:
+        args: --workspace
     - uses: codecov/codecov-action@v1

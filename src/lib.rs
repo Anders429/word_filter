@@ -26,10 +26,10 @@
 //! ``` toml
 //! ...
 //! [dependencies]
-//! word_filter = "0.5.0"
+//! word_filter = "0.5.1"
 //!
 //! [build-dependencies]
-//! word_filter_codegen = "0.5.0"
+//! word_filter_codegen = "0.5.1"
 //! ...
 //! ```
 //!

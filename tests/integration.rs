@@ -17,7 +17,6 @@ fn check_only_partial() {
     assert!(!WORD.check("fo"));
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn censor() {
     assert_eq!(WORD.censor("foo"), "***");
@@ -67,7 +66,6 @@ fn separator_between_repeated_characters() {
         BAR_SEPARATOR.find("b a a r").collect::<Vec<_>>(),
         vec!["bar"]
     );
-    #[cfg(feature = "unicode-segmentation")]
     assert_eq!(BAR_SEPARATOR.censor(" b a a r "), " ******* ");
 }
 
@@ -128,19 +126,16 @@ fn alias_after_separator() {
     );
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn separator_at_front_and_back_of_match() {
     assert_eq!(SEPARATOR.censor("bar foo bar"), "bar *** bar");
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn censor_repeating() {
     assert_eq!(MULTIPLE_WORDS.censor("fbar"), "f***");
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn censor_repeated_alias() {
     assert_eq!(MULTIPLE_WORDS_AND_ALIAS.censor("fbaAaAaAar"), "f*********");

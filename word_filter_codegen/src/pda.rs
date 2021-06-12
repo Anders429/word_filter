@@ -213,6 +213,15 @@ impl<'a> Pda<'a> {
             .for_each(|grapheme_index| {
                 return_states.extend(self.find_alias_return_states(s, *grapheme_index));
             });
+        if let Some((repetition_c, repetition_state)) = self.states[index].repetition {
+            if c == repetition_c {
+                if remaining_s.is_empty() {
+                    return_states.push(repetition_state);
+                } else {
+                    return_states.extend(self.find_alias_return_states(remaining_s, repetition_state));
+                }
+            }
+        }
 
         return_states.into_iter()
     }

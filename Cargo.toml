@@ -1,6 +1,6 @@
 [package]
 name = "word_filter"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Anders Evensen"]
 edition = "2018"
 description = "A Word Filter for filtering text."
@@ -17,15 +17,12 @@ rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
 [workspace]
 members = ["word_filter_codegen"]
 
-[features]
-default = ["unicode-segmentation"]
-
 [dependencies]
 by_address = "1.0.4"
 hashbrown = "0.11.2"
 nested_containment_list = "0.3.0"
 new_debug_unreachable = "1.0.4"
-unicode-segmentation = {version = "1.7.1", optional = true}
+unicode-segmentation = "1.7.1"
 
 [dev-dependencies]
 claim = "0.5.0"

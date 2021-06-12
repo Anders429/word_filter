@@ -1,6 +1,6 @@
 [package]
 name = "word_filter_codegen"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Anders Evensen"]
 edition = "2018"
 description = "Utilities for generating `WordFilter`s at compile-time."
@@ -12,7 +12,6 @@ keywords = ["wordfilter", "word", "filter", "censor", "string"]
 include = ["/src/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
 
 [dependencies]
-hashbrown = "0.11.2"
 new_debug_unreachable = "1.0.4"
 str_overlap = "0.4.3"
 unicode-segmentation = "1.7.1"

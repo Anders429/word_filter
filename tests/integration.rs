@@ -176,7 +176,6 @@ fn grapheme_in_alias() {
 
 #[test]
 fn alias_on_grapheme() {
-    dbg!(&ALIAS_ON_GRAPHEME);
     assert_eq!(
         ALIAS_ON_GRAPHEME.find("bõr").collect::<Vec<_>>(),
         vec!["bãr"]

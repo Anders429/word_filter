@@ -197,7 +197,6 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     ///
     /// [`Iterator`]: core::iter::Iterator
     #[inline]
-    #[must_use]
     pub fn find(&'a self, input: &str) -> impl Iterator<Item = &str> {
         self.compute(input)
             .map(|id| unsafe { id.unwrap_word_unchecked() })

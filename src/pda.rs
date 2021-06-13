@@ -50,10 +50,10 @@ mod stack {
         ///
         /// This is used when the stack is empty.
         None,
-        /// A state.
+        /// A return state.
         ///
-        /// States are stored on the stack as callbacks.
-        State(&'a State<'a>),
+        /// States stored here are returned to at `Return` or `SeparatorReturn` nodes.
+        Return(&'a State<'a>),
         /// An appended separator marker.
         ///
         /// This indicates that the previously-matched characters were matched in a separator, and
@@ -146,7 +146,7 @@ impl<'a> State<'a> {
                 if let Some(state) = self.separator {
                     result.push(Transition {
                         state,
-                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::State(
+                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
                             self,
                         ))],
                     });
@@ -154,7 +154,7 @@ impl<'a> State<'a> {
                 for alias in self.aliases {
                     result.push(Transition {
                         state: alias.0,
-                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::State(
+                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
                             alias.1,
                         ))],
                     });
@@ -168,7 +168,7 @@ impl<'a> State<'a> {
 
                 match self.r#type {
                     Type::Return => match s {
-                        stack::Value::State(state) => {
+                        stack::Value::Return(state) => {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![stack::Manipulation::Pop],
@@ -177,7 +177,7 @@ impl<'a> State<'a> {
                         _ => {}
                     },
                     Type::SeparatorReturn => match s {
-                        stack::Value::State(state) => {
+                        stack::Value::Return(state) => {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![

@@ -46,7 +46,7 @@ impl<'a> Pda<'a> {
             let new_index = self.states.len();
             self.states.push(State::default());
             self.states[index].graphemes.insert(new_index);
-            self.add_grapheme(grapheme, graphemes.as_str(), r#type, new_index);
+            self.add_grapheme(grapheme, graphemes.as_str(), r#type, new_index, new_index);
         } else {
             let mut chars = s.chars();
             let c = match chars.next() {
@@ -65,7 +65,7 @@ impl<'a> Pda<'a> {
                     // Add new state.
                     self.states[index].c_transitions.insert(c, new_index);
                     // Add repeated transition to new state.
-                    self.states[new_index].repetition = Some((c, new_index));
+                    self.states[new_index].repetition = Some(index);
                     // Add separator transition to new state.
                     self.states[new_index].into_separator = true;
                     new_index
@@ -79,28 +79,7 @@ impl<'a> Pda<'a> {
     /// Add grapheme states along input `g`.
     ///
     /// Following the grapheme path, a regular path will be added using input `s`.
-    fn add_grapheme(&mut self, g: &str, s: &str, r#type: Type<'a>, index: usize) {
-        let mut chars = g.chars();
-        let c = match chars.next() {
-            Some(c) => c,
-            None => return,
-        };
-        let new_index = self.states.len();
-        self.states.push(State::default());
-        self.states[index].c_transitions.insert(c, new_index);
-        self.add_grapheme_with_return(chars.as_str(), s, r#type, new_index, new_index, c)
-    }
-
-    /// Add a grapheme path, ending with a repetition to `return_index`.
-    fn add_grapheme_with_return(
-        &mut self,
-        g: &str,
-        s: &str,
-        r#type: Type<'a>,
-        index: usize,
-        return_index: usize,
-        return_c: char,
-    ) {
+    fn add_grapheme(&mut self, g: &str, s: &str, r#type: Type<'a>, index: usize, return_index: usize) {
         let mut chars = g.chars();
         let c = match chars.next() {
             Some(c) => c,
@@ -112,19 +91,18 @@ impl<'a> Pda<'a> {
         self.states[index].c_transitions.insert(c, new_index);
         if remaining_g.is_empty() {
             // Repeating transition.
-            self.states[new_index].repetition = Some((return_c, return_index));
+            self.states[new_index].repetition = Some(return_index);
             // Separator.
             self.states[new_index].into_separator = true;
             // Continue down normal path.
             self.add_path(s, r#type, new_index);
         } else {
-            self.add_grapheme_with_return(
+            self.add_grapheme(
                 remaining_g,
                 s,
                 r#type,
                 new_index,
                 return_index,
-                return_c,
             );
         }
     }
@@ -213,15 +191,6 @@ impl<'a> Pda<'a> {
             .for_each(|grapheme_index| {
                 return_states.extend(self.find_alias_return_states(s, *grapheme_index));
             });
-        if let Some((repetition_c, repetition_state)) = self.states[index].repetition {
-            if c == repetition_c {
-                if remaining_s.is_empty() {
-                    return_states.push(repetition_state);
-                } else {
-                    return_states.extend(self.find_alias_return_states(remaining_s, repetition_state));
-                }
-            }
-        }
 
         return_states.into_iter()
     }

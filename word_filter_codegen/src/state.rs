@@ -17,7 +17,7 @@ pub(crate) struct State<'a> {
     pub(crate) r#type: Type<'a>,
     pub(crate) c_transitions: BTreeMap<char, usize>,
     pub(crate) into_separator: bool,
-    pub(crate) repetition: Option<(char, usize)>,
+    pub(crate) repetition: Option<usize>,
     pub(crate) aliases: BTreeSet<(usize, usize)>,
     pub(crate) graphemes: BTreeSet<usize>,
 }
@@ -82,9 +82,8 @@ impl State<'_> {
     /// Define the repetition transition field.
     fn define_repetition(&self, identifier: &str) -> String {
         match self.repetition {
-            Some((c, index)) => format!(
-                "Some(('{}', &{}.states[{}]))",
-                c.escape_default(),
+            Some(index) => format!(
+                "Some(&{}.states[{}])",
                 identifier,
                 index
             ),

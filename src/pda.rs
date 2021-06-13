@@ -13,7 +13,7 @@
 
 use alloc::{vec, vec::Vec};
 use by_address::ByAddress;
-use core::ops::{Bound, RangeBounds};
+use core::{ops::{Bound, RangeBounds}, ptr};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashSet;
 
@@ -54,6 +54,11 @@ mod stack {
         ///
         /// States stored here are returned to at `Return` or `SeparatorReturn` nodes.
         Return(&'a State<'a>),
+        /// A target state.
+        ///
+        /// States stored here must be hit before they are popped. These are pushed in repetition
+        /// handling to ensure the same path is repeated.
+        Target(&'a State<'a>),
         /// An appended separator marker.
         ///
         /// This indicates that the previously-matched characters were matched in a separator, and
@@ -98,7 +103,7 @@ pub struct State<'a> {
     ///
     /// When transitioning along this character, computation can return back to the previous state
     /// that is stored here.
-    pub repetition: Option<(char, &'a State<'a>)>,
+    pub repetition: Option<&'a State<'a>>,
     /// The separator state that may be entered from this state.
     ///
     /// The absence of a separator state indicates that this state cannot enter into a separator.
@@ -125,70 +130,100 @@ impl<'a> State<'a> {
     fn transitions(&'a self, c: Option<char>, s: stack::Value<'a>) -> Vec<Transition<'a>> {
         let mut result = Vec::new();
 
-        match c {
-            Some(c) => {
-                if let Some(state) = (self.c_transitions)(c) {
-                    result.push(Transition {
-                        state,
-                        stack_manipulations: vec![],
-                    })
+        if let stack::Value::Target(target_state) = s {
+            match c {
+                Some(c) => {
+                    if let Some(state) = (self.c_transitions)(c) {
+                        if let Some(_) = state.repetition {
+                            if ptr::eq(state, target_state) {
+                                result.push(Transition {
+                                    state,
+                                    stack_manipulations: vec![stack::Manipulation::Pop],
+                                })
+                            }
+                        } else {
+                            result.push(Transition {
+                                state,
+                                stack_manipulations: vec![],
+                            })
+                        }
+                    }
                 }
-                if let Some(repetition) = self.repetition {
-                    if repetition.0 == c {
+                None => {
+                    for alias in self.aliases {
+                        if ptr::eq(alias.1, target_state) {
+                            result.push(Transition {
+                                state: alias.0,
+                                stack_manipulations: vec![stack::Manipulation::Pop, stack::Manipulation::Push(stack::Value::Return(alias.1))],
+                            })
+                        }
+                    }
+                }
+            }
+        } else {
+            match c {
+                Some(c) => {
+                    if let Some(state) = (self.c_transitions)(c) {
                         result.push(Transition {
-                            state: repetition.1,
+                            state,
                             stack_manipulations: vec![],
                         })
                     }
                 }
-            }
-            None => {
-                if let Some(state) = self.separator {
-                    result.push(Transition {
-                        state,
-                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
-                            self,
-                        ))],
-                    });
-                }
-                for alias in self.aliases {
-                    result.push(Transition {
-                        state: alias.0,
-                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
-                            alias.1,
-                        ))],
-                    });
-                }
-                for grapheme in self.graphemes {
-                    result.push(Transition {
-                        state: grapheme,
-                        stack_manipulations: vec![],
-                    })
-                }
-
-                match self.r#type {
-                    Type::Return => match s {
-                        stack::Value::Return(state) => {
-                            result.push(Transition {
-                                state,
-                                stack_manipulations: vec![stack::Manipulation::Pop],
-                            });
-                        }
+                None => {
+                    if let Some(state) = self.separator {
+                        result.push(Transition {
+                            state,
+                            stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
+                                self,
+                            ))],
+                        });
+                    }
+                    for alias in self.aliases {
+                        result.push(Transition {
+                            state: alias.0,
+                            stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
+                                alias.1,
+                            ))],
+                        });
+                    }
+                    for grapheme in self.graphemes {
+                        result.push(Transition {
+                            state: grapheme,
+                            stack_manipulations: vec![],
+                        });
+                    }
+                    if let Some(reptition) = self.repetition {
+                        result.push(Transition {
+                            state: reptition,
+                            stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Target(self))],
+                        });
+                    }
+    
+                    match self.r#type {
+                        Type::Return => match s {
+                            stack::Value::Return(state) => {
+                                result.push(Transition {
+                                    state,
+                                    stack_manipulations: vec![stack::Manipulation::Pop],
+                                });
+                            }
+                            _ => {}
+                        },
+                        Type::SeparatorReturn => match s {
+                            stack::Value::Return(state) => {
+                                result.push(Transition {
+                                    state,
+                                    stack_manipulations: vec![
+                                        stack::Manipulation::Pop,
+                                        stack::Manipulation::Push(stack::Value::AppendedSeparator),
+                                    ],
+                                });
+                            }
+                            _ => {}
+                        },
                         _ => {}
-                    },
-                    Type::SeparatorReturn => match s {
-                        stack::Value::Return(state) => {
-                            result.push(Transition {
-                                state,
-                                stack_manipulations: vec![
-                                    stack::Manipulation::Pop,
-                                    stack::Manipulation::Push(stack::Value::AppendedSeparator),
-                                ],
-                            });
-                        }
-                        _ => {}
-                    },
-                    _ => {}
+                    }
                 }
             }
         }
@@ -248,10 +283,7 @@ impl<'a> InstantaneousDescription<'a> {
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
         matches!(self.state.r#type, Type::Word(_) | Type::Exception)
-            && !matches!(
-                self.stack.last().unwrap_or(&stack::Value::None),
-                stack::Value::AppendedSeparator
-            )
+            && self.stack.is_empty()
     }
 
     /// Return whether the state is a word.

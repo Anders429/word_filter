@@ -209,17 +209,16 @@ impl<'a> State<'a> {
                     }
 
                     match self.r#type {
-                        Type::Return => match s {
-                            stack::Value::Return(state) => {
+                        Type::Return => {
+                            if let stack::Value::Return(state) = s {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Pop],
                                 });
                             }
-                            _ => {}
-                        },
-                        Type::SeparatorReturn => match s {
-                            stack::Value::Return(state) => {
+                        }
+                        Type::SeparatorReturn => {
+                            if let stack::Value::Return(state) = s {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![
@@ -228,23 +227,19 @@ impl<'a> State<'a> {
                                     ],
                                 });
                             }
-                            _ => {}
-                        },
+                        }
                         _ => {}
                     }
                 }
             }
         }
 
-        match s {
-            stack::Value::AppendedSeparator => {
-                for transition in result.iter_mut() {
-                    transition
-                        .stack_manipulations
-                        .insert(0, stack::Manipulation::Pop);
-                }
+        if matches!(s, stack::Value::AppendedSeparator) {
+            for transition in result.iter_mut() {
+                transition
+                    .stack_manipulations
+                    .insert(0, stack::Manipulation::Pop);
             }
-            _ => {}
         }
 
         result

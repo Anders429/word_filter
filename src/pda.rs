@@ -137,7 +137,7 @@ impl<'a> State<'a> {
             match c {
                 Some(c) => {
                     if let Some(state) = (self.c_transitions)(c) {
-                        if let Some(_) = state.repetition {
+                        if state.repetition.is_some() {
                             if ptr::eq(state, target_state) {
                                 result.push(Transition {
                                     state,

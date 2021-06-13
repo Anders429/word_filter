@@ -22,10 +22,15 @@ pub(crate) struct Pda<'a> {
 impl<'a> Pda<'a> {
     /// Create a new push-down automaton code generator.
     pub(crate) fn new() -> Self {
-        let mut separator_return = State::default();
-        separator_return.r#type = Type::SeparatorReturn;
         Self {
-            states: vec![State::default(), State::default(), separator_return],
+            states: vec![
+                State::default(),
+                State::default(),
+                State {
+                    r#type: Type::SeparatorReturn,
+                    ..Default::default()
+                },
+            ],
         }
     }
 

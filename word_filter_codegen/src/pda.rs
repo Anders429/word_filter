@@ -210,7 +210,7 @@ impl<'a> Pda<'a> {
         visited: &mut BTreeSet<usize>,
     ) {
         // Head recursion.
-        for (_c, index) in &self.states[current_index].c_transitions.clone() {
+        for index in self.states[current_index].c_transitions.clone().values() {
             if !visited.contains(index) {
                 visited.insert(*index);
                 self.add_alias(s, alias_index, *index, visited);

@@ -1,3 +1,4 @@
+use indoc::indoc;
 use std::{
     env,
     fs::File,
@@ -116,4 +117,13 @@ compiles!(
 compiles!(
     duplicate_graphemes,
     WordFilterGenerator::new().words(&["bãr", "bãr"])
+);
+compiles!(doc, WordFilterGenerator::new().doc("foo"));
+compiles!(
+    multiline_doc,
+    WordFilterGenerator::new().doc(indoc!(
+        "foo
+    
+        bar"
+    ))
 );

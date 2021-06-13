@@ -146,6 +146,7 @@ pub struct WordFilterGenerator {
     separators: Vec<String>,
     aliases: Vec<(String, String)>,
     visibility: Visibility,
+    doc: String,
 }
 
 impl WordFilterGenerator {
@@ -336,6 +337,42 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Set the doc string of the generated code.
+    ///
+    /// The generated code will be generated with `doc` as the item-level doc-string.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.doc("foo");
+    /// ```
+    ///
+    /// ## Multiple Lines
+    /// For doc strings that contain multiple lines, users are advised to use the
+    /// [`indoc`](https://crates.io/crates/indoc) crate.
+    ///
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    /// use indoc::indoc;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.doc(indoc!(
+    ///    "foo
+    ///
+    ///     bar baz quux"
+    /// ));
+    /// ```
+    #[inline]
+    pub fn doc<S>(&mut self, doc: S) -> &mut Self
+    where
+        S: ToString,
+    {
+        self.doc = doc.to_string();
+        self
+    }
+
     /// Generate code defining a [`WordFilter`] with the given words, exceptions, separators,
     /// aliases, and visibility.
     ///
@@ -442,7 +479,9 @@ impl WordFilterGenerator {
         }
 
         format!(
-            "{} static {}: {} = {};",
+            "#[doc = \"{}\"]
+            {} static {}: {} = {};",
+            self.doc,
             self.visibility.to_string(),
             identifier,
             pda.to_type(),

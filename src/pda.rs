@@ -13,7 +13,10 @@
 
 use alloc::{vec, vec::Vec};
 use by_address::ByAddress;
-use core::{ops::{Bound, RangeBounds}, ptr};
+use core::{
+    ops::{Bound, RangeBounds},
+    ptr,
+};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashSet;
 
@@ -154,7 +157,10 @@ impl<'a> State<'a> {
                         if ptr::eq(alias.1, target_state) {
                             result.push(Transition {
                                 state: alias.0,
-                                stack_manipulations: vec![stack::Manipulation::Pop, stack::Manipulation::Push(stack::Value::Return(alias.1))],
+                                stack_manipulations: vec![
+                                    stack::Manipulation::Pop,
+                                    stack::Manipulation::Push(stack::Value::Return(alias.1)),
+                                ],
                             })
                         }
                     }
@@ -174,17 +180,17 @@ impl<'a> State<'a> {
                     if let Some(state) = self.separator {
                         result.push(Transition {
                             state,
-                            stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
-                                self,
-                            ))],
+                            stack_manipulations: vec![stack::Manipulation::Push(
+                                stack::Value::Return(self),
+                            )],
                         });
                     }
                     for alias in self.aliases {
                         result.push(Transition {
                             state: alias.0,
-                            stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Return(
-                                alias.1,
-                            ))],
+                            stack_manipulations: vec![stack::Manipulation::Push(
+                                stack::Value::Return(alias.1),
+                            )],
                         });
                     }
                     for grapheme in self.graphemes {
@@ -196,10 +202,12 @@ impl<'a> State<'a> {
                     if let Some(reptition) = self.repetition {
                         result.push(Transition {
                             state: reptition,
-                            stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Target(self))],
+                            stack_manipulations: vec![stack::Manipulation::Push(
+                                stack::Value::Target(self),
+                            )],
                         });
                     }
-    
+
                     match self.r#type {
                         Type::Return => match s {
                             stack::Value::Return(state) => {
@@ -282,8 +290,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// accepting. Otherwise, the state is accepting is the type is Word or Exception.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_) | Type::Exception)
-            && self.stack.is_empty()
+        matches!(self.state.r#type, Type::Word(_) | Type::Exception) && self.stack.is_empty()
     }
 
     /// Return whether the state is a word.

@@ -79,7 +79,14 @@ impl<'a> Pda<'a> {
     /// Add grapheme states along input `g`.
     ///
     /// Following the grapheme path, a regular path will be added using input `s`.
-    fn add_grapheme(&mut self, g: &str, s: &str, r#type: Type<'a>, index: usize, return_index: usize) {
+    fn add_grapheme(
+        &mut self,
+        g: &str,
+        s: &str,
+        r#type: Type<'a>,
+        index: usize,
+        return_index: usize,
+    ) {
         let mut chars = g.chars();
         let c = match chars.next() {
             Some(c) => c,
@@ -97,13 +104,7 @@ impl<'a> Pda<'a> {
             // Continue down normal path.
             self.add_path(s, r#type, new_index);
         } else {
-            self.add_grapheme(
-                remaining_g,
-                s,
-                r#type,
-                new_index,
-                return_index,
-            );
+            self.add_grapheme(remaining_g, s, r#type, new_index, return_index);
         }
     }
 

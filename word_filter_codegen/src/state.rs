@@ -82,11 +82,7 @@ impl State<'_> {
     /// Define the repetition transition field.
     fn define_repetition(&self, identifier: &str) -> String {
         match self.repetition {
-            Some(index) => format!(
-                "Some(&{}.states[{}])",
-                identifier,
-                index
-            ),
+            Some(index) => format!("Some(&{}.states[{}])", identifier, index),
             None => "None".to_owned(),
         }
     }

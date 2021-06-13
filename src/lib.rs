@@ -74,7 +74,7 @@ extern crate alloc;
 pub mod censor;
 pub mod pda;
 
-use alloc::{string::String, vec::Vec};
+use alloc::{string::String, vec, vec::Vec};
 use core::{cmp, iter::FromIterator};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashSet;
@@ -112,8 +112,7 @@ impl<'a, const N: usize> WordFilter<'a, N> {
         &'a self,
         start: usize,
     ) -> impl Iterator<Item = InstantaneousDescription<'_>> {
-        let mut ids = Vec::new();
-        ids.push(InstantaneousDescription::new(&self.states[0], start));
+        let mut ids = vec![InstantaneousDescription::new(&self.states[0], start)];
         ids.extend(ids[0].transition(None, &mut HashSet::new()));
         ids.into_iter()
     }

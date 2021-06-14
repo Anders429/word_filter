@@ -184,3 +184,8 @@ fn grapheme_at_root() {
         vec!["ãbc"]
     );
 }
+
+#[test]
+fn censor_combining_separator() {
+    assert_eq!(COMBINING_SEPARATOR.censor("foõ"), "***");
+}

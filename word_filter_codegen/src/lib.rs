@@ -144,6 +144,7 @@ pub struct WordFilterGenerator {
     words: Vec<String>,
     exceptions: Vec<String>,
     separators: Vec<String>,
+    inclusive_separators: Vec<String>,
     aliases: Vec<(String, String)>,
     visibility: Visibility,
     doc: String,
@@ -276,6 +277,49 @@ impl WordFilterGenerator {
     {
         self.separators
             .extend(separators.into_iter().map(|s| s.to_string()));
+        self
+    }
+
+    /// Add a single inclusive separator.
+    ///
+    /// An inclusive separator is a separator that will be included at the end of matched words or
+    /// exceptions (as opposed to separators, which are not included at the end of matches).
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.inclusive_separator('\u{303}');
+    /// ```
+    #[inline]
+    pub fn inclusive_separator<S>(&mut self, inclusive_separator: S) -> &mut Self
+    where
+        S: ToString,
+    {
+        self.inclusive_separators.push(inclusive_separator.to_string());
+        self
+    }
+
+    /// Add inclusive separators.
+    ///
+    /// An inclusive separator is a separator that will be included at the end of matched words or
+    /// exceptions (as opposed to separators, which are not included at the end of matches).
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.inclusive_separators(&['\u{303}', '\u{304}']);
+    #[inline]
+    pub fn inclusive_separators<I, S>(&mut self, inclusive_separators: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString,
+    {
+        self.inclusive_separators
+            .extend(inclusive_separators.into_iter().map(|s| s.to_string()));
         self
     }
 
@@ -415,6 +459,9 @@ impl WordFilterGenerator {
         }
         for separator in &self.separators {
             pda.add_separator(separator);
+        }
+        for inclusive_separator in &self.inclusive_separators {
+            pda.add_inclusive_separator(inclusive_separator);
         }
 
         let mut aliases = self.aliases.clone();

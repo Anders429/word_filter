@@ -63,6 +63,8 @@ compiles!(
     separators,
     WordFilterGenerator::new().separators(&["foo", "bar"])
 );
+compiles!(inclusive_separator, WordFilterGenerator::new().inclusive_separator('\u{303}'));
+compiles!(inclusive_separators, WordFilterGenerator::new().inclusive_separators('\u{300}'..='\u{304}'));
 compiles!(alias, WordFilterGenerator::new().alias("foo", "bar"));
 compiles!(
     aliases,

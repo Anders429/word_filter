@@ -162,6 +162,34 @@ impl<'a> Pda<'a> {
         self.add_separator_internal(s, SEPARATOR_INDEX)
     }
 
+    /// Add inclusive separator states using input `s`.
+    fn add_inclusive_separator_internal(&mut self, s: &str, index: usize) {
+        let mut chars = s.chars();
+        let c = match chars.next() {
+            Some(c) => c,
+            None => {
+                self.states[index].r#type = Type::Return;
+                return;
+            }
+        };
+        let new_index = match self.states[index].c_transitions.get(&c) {
+            Some(new_index) => *new_index,
+            None => {
+                let new_index = self.states.len();
+                self.states.push(State::default());
+                self.states[index].c_transitions.insert(c, new_index);
+                new_index
+            }
+        };
+
+        self.add_inclusive_separator_internal(chars.as_str(), new_index)
+    }
+
+    /// Add an inclusive separator.
+    pub(crate) fn add_inclusive_separator(&mut self, s: &str) {
+        self.add_inclusive_separator_internal(s, SEPARATOR_INDEX);
+    }
+
     /// Create a new alias, returning the index of the alias's entry state.
     pub(crate) fn initialize_alias(&mut self, s: &str) -> usize {
         let new_index = self.states.len();

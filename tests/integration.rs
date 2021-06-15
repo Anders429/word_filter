@@ -191,6 +191,11 @@ fn censor_combining_separator() {
 }
 
 #[test]
+fn censor_combining_separator_after_repetition() {
+    assert_eq!(COMBINING_SEPARATOR.censor("fooõ"), "****");
+}
+
+#[test]
 fn do_not_censor_combining_separator_on_other_separator() {
     assert_eq!(COMBINING_SEPARATOR.censor("foo \u{303}"), "*** \u{303}");
 }

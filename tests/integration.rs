@@ -184,3 +184,13 @@ fn grapheme_at_root() {
         vec!["ãbc"]
     );
 }
+
+#[test]
+fn censor_combining_separator() {
+    assert_eq!(COMBINING_SEPARATOR.censor("foõ"), "***");
+}
+
+#[test]
+fn do_not_censor_combining_separator_on_other_separator() {
+    assert_eq!(COMBINING_SEPARATOR.censor("foo \u{303}"), "*** \u{303}");
+}

@@ -128,8 +128,8 @@ impl<'a, const N: usize> WordFilter<'a, N> {
             ids.extend(self.spawn_entry_ids(index));
             for c in grapheme.chars() {
                 let mut new_ids = Vec::new();
-                for instant in ids.drain(..) {
-                    new_ids.extend(instant.step(c));
+                for id in ids.drain(..) {
+                    new_ids.extend(id.step(c, first_c && chars.clone().next().is_none()));
                 }
                 index += 1;
                 ids = new_ids;

@@ -25,7 +25,10 @@ impl<'a> Pda<'a> {
         Self {
             states: vec![
                 State::default(),
-                State::default(),
+                State {
+                    r#type: Type::Separator,
+                    ..Default::default()
+                },
                 State {
                     r#type: Type::SeparatorReturn,
                     ..Default::default()
@@ -148,7 +151,10 @@ impl<'a> Pda<'a> {
             (_, Some(new_index)) => *new_index,
             _ => {
                 let new_index = self.states.len();
-                self.states.push(State::default());
+                self.states.push(State {
+                    r#type: Type::Separator,
+                    ..Default::default()
+                });
                 self.states[index].c_transitions.insert(c, new_index);
                 new_index
             }

@@ -31,6 +31,10 @@ pub enum Type<'a> {
     Word(&'a str),
     /// Indicates a matching state that is an exception.
     Exception,
+    /// A separator state.
+    ///
+    /// Indicates that the current state is within a separator, and should be treated as such when
+    /// matching during computation.
     Separator,
     /// A return state.
     ///
@@ -38,8 +42,7 @@ pub enum Type<'a> {
     Return,
     /// A separator return state.
     ///
-    /// This is nearly the same as a Return state, but it also pushes an AppendedSeparator onto the
-    /// stack. This indicates that the traversal came from a separator.
+    /// This should be treated as a combination of the Separator and Return types.
     SeparatorReturn,
 }
 
@@ -63,11 +66,6 @@ mod stack {
         /// States stored here must be hit before they are popped. These are pushed in repetition
         /// handling to ensure the same path is repeated.
         Target(&'a State<'a>),
-        /// An appended separator marker.
-        ///
-        /// This indicates that the previously-matched characters were matched in a separator, and
-        /// therefore should not be included if the current state is a Word or Exception.
-        AppendedSeparator,
     }
 
     /// Defines a manipulation of the stack.
@@ -221,14 +219,6 @@ impl<'a> State<'a> {
             }
         }
 
-        if matches!(s, stack::Value::AppendedSeparator) {
-            for transition in result.iter_mut() {
-                transition
-                    .stack_manipulations
-                    .insert(0, stack::Manipulation::Pop);
-            }
-        }
-
         result
     }
 }
@@ -251,6 +241,10 @@ pub(crate) struct InstantaneousDescription<'a> {
     start: usize,
     /// The current end index, marking the range of input that has been computed.
     end: usize,
+    /// Whether the computation is within a separator grapheme.
+    ///
+    /// A separator grapheme is defined as a grapheme that starts on a Separator or SeparatorReturn
+    /// state.
     separator_grapheme: bool,
 }
 
@@ -267,11 +261,10 @@ impl<'a> InstantaneousDescription<'a> {
         }
     }
 
-    /// Return whether the current state is an accepting state.
+    /// Return whether the instantaneous description is an accepting state.
     ///
-    /// Whether the state is accepting is actually dependent on both the state's type and the top
-    /// of the stack. If the top of the stack is AppendedSeparator, then the state cannot be
-    /// accepting. Otherwise, the state is accepting is the type is Word or Exception.
+    /// An Instantaneous Description is accepting if it has an accepting state (Word or Exception),
+    /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
         matches!(self.state.r#type, Type::Word(_) | Type::Exception) && self.stack.is_empty() && !self.separator_grapheme

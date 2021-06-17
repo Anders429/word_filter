@@ -140,11 +140,6 @@ impl<'a, const N: usize> WordFilter<'a, N> {
             // ids are in an accepting state.
             for id in &ids {
                 if id.is_accepting() {
-                    extern crate std;
-                    use core::ops::RangeBounds;
-                    std::dbg!(&id.state.r#type);
-                    std::dbg!(&id.start_bound());
-                    std::dbg!(&id.end_bound());
                     accepted_ids.push(id.clone());
                 }
             }

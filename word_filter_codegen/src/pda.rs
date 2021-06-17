@@ -8,7 +8,6 @@ use unicode_segmentation::UnicodeSegmentation;
 // Reserved indices.
 const ENTRY_INDEX: usize = 0;
 const SEPARATOR_INDEX: usize = 1;
-const SEPARATOR_RETURN_INDEX: usize = 2;
 
 /// Push-down automaton code generator.
 ///
@@ -27,10 +26,6 @@ impl<'a> Pda<'a> {
                 State::default(),
                 State {
                     r#type: Type::Separator,
-                    ..Default::default()
-                },
-                State {
-                    r#type: Type::SeparatorReturn,
                     ..Default::default()
                 },
             ],
@@ -134,22 +129,13 @@ impl<'a> Pda<'a> {
         let c = match chars.next() {
             Some(c) => c,
             None => {
+                self.states[index].r#type = Type::SeparatorReturn;
                 return;
             }
         };
-        let remaining_s = chars.as_str();
-        let new_index = match (
-            remaining_s.is_empty(),
-            self.states[index].c_transitions.get(&c),
-        ) {
-            (true, _) => {
-                self.states[index]
-                    .c_transitions
-                    .insert(c, SEPARATOR_RETURN_INDEX);
-                SEPARATOR_RETURN_INDEX
-            }
-            (_, Some(new_index)) => *new_index,
-            _ => {
+        let new_index = match self.states[index].c_transitions.get(&c) {
+            Some(new_index) => *new_index,
+            None => {
                 let new_index = self.states.len();
                 self.states.push(State {
                     r#type: Type::Separator,
@@ -159,7 +145,7 @@ impl<'a> Pda<'a> {
                 new_index
             }
         };
-        self.add_separator_internal(remaining_s, new_index)
+        self.add_separator_internal(chars.as_str(), new_index)
     }
 
     /// Add a separator.

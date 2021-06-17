@@ -8,6 +8,7 @@ pub(crate) enum Type<'a> {
     None,
     Word(&'a str),
     Exception,
+    Separator,
     Return,
     SeparatorReturn,
 }
@@ -19,6 +20,7 @@ impl Type<'_> {
             Type::None => "::word_filter::pda::Type::None".to_owned(),
             Type::Word(s) => format!("::word_filter::pda::Type::Word(\"{}\")", s),
             Type::Exception => "::word_filter::pda::Type::Exception".to_owned(),
+            Type::Separator => "::word_filter::pda::Type::Separator".to_owned(),
             Type::Return => "::word_filter::pda::Type::Return".to_owned(),
             Type::SeparatorReturn => "::word_filter::pda::Type::SeparatorReturn".to_owned(),
         }

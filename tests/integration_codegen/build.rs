@@ -21,7 +21,7 @@ fn main() {
 
     writeln!(
         &mut file,
-        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
         foo_generator.generate("WORD"),
         foo_generator.clone().word("bar").generate("MULTIPLE_WORDS"),
         foo_generator
@@ -88,6 +88,10 @@ fn main() {
             .clone()
             .word("ãbc")
             .generate("GRAPHEME_AT_ROOT"),
+        foo_generator
+            .clone()
+            .separators(&[' ', '\u{303}'])
+            .generate("COMBINING_SEPARATOR"),
     )
     .unwrap();
 }

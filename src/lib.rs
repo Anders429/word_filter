@@ -126,13 +126,15 @@ impl<'a, const N: usize> WordFilter<'a, N> {
         // graphemes are kept.
         for grapheme in input.graphemes(true) {
             ids.extend(self.spawn_entry_ids(index));
+            let mut first_c = true;
             for c in grapheme.chars() {
                 let mut new_ids = Vec::new();
-                for instant in ids.drain(..) {
-                    new_ids.extend(instant.step(c));
+                for id in ids.drain(..) {
+                    new_ids.extend(id.step(c, first_c));
                 }
                 index += 1;
                 ids = new_ids;
+                first_c = false;
             }
             // Now that all characters within the grapheme have been processed, determine if any
             // ids are in an accepting state.

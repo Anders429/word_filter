@@ -31,14 +31,18 @@ pub enum Type<'a> {
     Word(&'a str),
     /// Indicates a matching state that is an exception.
     Exception,
+    /// A separator state.
+    ///
+    /// Indicates that the current state is within a separator, and should be treated as such when
+    /// matching during computation.
+    Separator,
     /// A return state.
     ///
     /// Traversal from this state will pop the top-most state on the stack and traverse to it.
     Return,
     /// A separator return state.
     ///
-    /// This is nearly the same as a Return state, but it also pushes an AppendedSeparator onto the
-    /// stack. This indicates that the traversal came from a separator.
+    /// This should be treated as a combination of the Separator and Return types.
     SeparatorReturn,
 }
 
@@ -62,11 +66,6 @@ mod stack {
         /// States stored here must be hit before they are popped. These are pushed in repetition
         /// handling to ensure the same path is repeated.
         Target(&'a State<'a>),
-        /// An appended separator marker.
-        ///
-        /// This indicates that the previously-matched characters were matched in a separator, and
-        /// therefore should not be included if the current state is a Word or Exception.
-        AppendedSeparator,
     }
 
     /// Defines a manipulation of the stack.
@@ -208,37 +207,15 @@ impl<'a> State<'a> {
                         });
                     }
 
-                    match self.r#type {
-                        Type::Return => {
-                            if let stack::Value::Return(state) = s {
-                                result.push(Transition {
-                                    state,
-                                    stack_manipulations: vec![stack::Manipulation::Pop],
-                                });
-                            }
+                    if matches!(self.r#type, Type::Return | Type::SeparatorReturn) {
+                        if let stack::Value::Return(state) = s {
+                            result.push(Transition {
+                                state,
+                                stack_manipulations: vec![stack::Manipulation::Pop],
+                            });
                         }
-                        Type::SeparatorReturn => {
-                            if let stack::Value::Return(state) = s {
-                                result.push(Transition {
-                                    state,
-                                    stack_manipulations: vec![
-                                        stack::Manipulation::Pop,
-                                        stack::Manipulation::Push(stack::Value::AppendedSeparator),
-                                    ],
-                                });
-                            }
-                        }
-                        _ => {}
                     }
                 }
-            }
-        }
-
-        if matches!(s, stack::Value::AppendedSeparator) {
-            for transition in result.iter_mut() {
-                transition
-                    .stack_manipulations
-                    .insert(0, stack::Manipulation::Pop);
             }
         }
 
@@ -257,13 +234,18 @@ impl<'a> State<'a> {
 #[derive(Clone, Debug)]
 pub(crate) struct InstantaneousDescription<'a> {
     /// The current state.
-    state: &'a State<'a>,
+    pub state: &'a State<'a>,
     /// The current stack.
     stack: Vec<stack::Value<'a>>,
     /// The index within the input where this computation started.
     start: usize,
     /// The current end index, marking the range of input that has been computed.
     end: usize,
+    /// Whether the computation is within a separator grapheme.
+    ///
+    /// A separator grapheme is defined as a grapheme that starts on a Separator or SeparatorReturn
+    /// state.
+    separator_grapheme: bool,
 }
 
 impl<'a> InstantaneousDescription<'a> {
@@ -275,17 +257,17 @@ impl<'a> InstantaneousDescription<'a> {
             stack: Vec::new(),
             start,
             end: start,
+            separator_grapheme: false,
         }
     }
 
-    /// Return whether the current state is an accepting state.
+    /// Return whether the instantaneous description is an accepting state.
     ///
-    /// Whether the state is accepting is actually dependent on both the state's type and the top
-    /// of the stack. If the top of the stack is AppendedSeparator, then the state cannot be
-    /// accepting. Otherwise, the state is accepting is the type is Word or Exception.
+    /// An Instantaneous Description is accepting if it has an accepting state (Word or Exception),
+    /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_) | Type::Exception) && self.stack.is_empty()
+        matches!(self.state.r#type, Type::Word(_) | Type::Exception) && self.stack.is_empty() && !self.separator_grapheme
     }
 
     /// Return whether the state is a word.
@@ -355,8 +337,15 @@ impl<'a> InstantaneousDescription<'a> {
     }
 
     /// Step along the input `c`.
-    pub(crate) fn step(mut self, c: char) -> impl Iterator<Item = InstantaneousDescription<'a>> {
+    pub(crate) fn step(mut self, c: char, new_grapheme: bool) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
+        if new_grapheme {
+            if matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn) {
+                self.separator_grapheme = true;
+            } else {
+                self.separator_grapheme = false;
+            }
+        }
         self.transition(Some(c), &mut HashSet::new())
     }
 }

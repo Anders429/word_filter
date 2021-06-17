@@ -267,7 +267,9 @@ impl<'a> InstantaneousDescription<'a> {
     /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_) | Type::Exception) && self.stack.is_empty() && !self.separator_grapheme
+        matches!(self.state.r#type, Type::Word(_) | Type::Exception)
+            && self.stack.is_empty()
+            && !self.separator_grapheme
     }
 
     /// Return whether the state is a word.
@@ -337,7 +339,11 @@ impl<'a> InstantaneousDescription<'a> {
     }
 
     /// Step along the input `c`.
-    pub(crate) fn step(mut self, c: char, new_grapheme: bool) -> impl Iterator<Item = InstantaneousDescription<'a>> {
+    pub(crate) fn step(
+        mut self,
+        c: char,
+        new_grapheme: bool,
+    ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
         if new_grapheme {
             if matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn) {

@@ -204,3 +204,8 @@ fn censor_combining_separator_after_match() {
 fn do_not_censor_combining_separator_on_other_separator() {
     assert_eq!(COMBINING_SEPARATOR.censor("foo \u{303}"), "*** \u{303}");
 }
+
+#[test]
+fn repetition_does_not_match_word() {
+    assert_eq!(EXCEPTION.censor("foob"), "***b");
+}

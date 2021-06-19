@@ -12,7 +12,7 @@ use alloc::{
 const SEPARATOR_INDEX: usize = 1;
 
 /// Push-down automaton state code generator.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub(crate) struct State<'a> {
     pub(crate) r#type: Type<'a>,
     pub(crate) c_transitions: BTreeMap<char, usize>,

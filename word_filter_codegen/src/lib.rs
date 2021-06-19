@@ -478,6 +478,8 @@ impl WordFilterGenerator {
             pda.add_alias(&value, index, 0, &mut BTreeSet::new());
         }
 
+        pda.minimize();
+
         format!(
             "#[doc = \"{}\"]
             {} static {}: {} = {};",

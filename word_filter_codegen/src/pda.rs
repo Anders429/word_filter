@@ -3,6 +3,7 @@
 use crate::{r#type::Type, state::State};
 use alloc::{collections::BTreeSet, format, string::String, vec, vec::Vec};
 use debug_unreachable::debug_unreachable;
+use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
 // Reserved indices.
@@ -222,6 +223,116 @@ impl<'a> Pda<'a> {
             self.states[current_index]
                 .aliases
                 .insert((alias_index, return_index));
+        }
+    }
+
+    /// Minimize the push-down automaton.
+    ///
+    /// Combines states that have the exact same fields. This significantly reduces the size of
+    /// larger automaton, but at the const of longer compile time. The algorithm is pretty naive,
+    /// just looping through the states repeatedly until it no longer finds states that can be
+    /// combined.
+    pub(crate) fn minimize(&mut self) {
+        loop {
+            // Find the set of all distinct and duplicated states. The distinct states will be
+            // kept. 
+            let mut distinct_states = HashMap::new();
+            // Note that deleted_states will always be ordered from least to greatest.
+            let mut deleted_states = Vec::new();
+            for (index, state) in self.states.iter().cloned().enumerate() {
+                if let Some(canonical_index) = distinct_states.get(&state) {
+                    deleted_states.push((index, *canonical_index));
+                } else {
+                    distinct_states.insert(state, index);
+                }
+            }
+            if deleted_states.is_empty() {
+                break;
+            }
+            let mut new_states = Vec::new();
+            // Delete states.
+            'state_loop: for (index, mut state) in self.states.drain(..).enumerate() {
+                for (deleted_index, replacement_index) in &deleted_states {
+                    // Skip if this state is being deleted.
+                    if index == *deleted_index {
+                        continue 'state_loop;
+                    }
+                    for transition_index in state.c_transitions.values_mut() {
+                        if *transition_index == *deleted_index {
+                            *transition_index = *replacement_index;
+                        }
+                    }
+                    if let Some(repetition_index) = state.repetition {
+                        if repetition_index == *deleted_index {
+                            state.repetition = Some(*replacement_index);
+                        }
+                    }
+                    let mut new_aliases = BTreeSet::new();
+                    for (alias_index, return_index) in state.aliases {
+                        let mut new_alias_index = alias_index;
+                        let mut new_return_index = return_index;
+                        if alias_index == *deleted_index {
+                            new_alias_index = *replacement_index;
+                        }
+                        if return_index == *deleted_index {
+                            new_return_index = *replacement_index;
+                        }
+                        new_aliases.insert((new_alias_index, new_return_index));
+                    }
+                    state.aliases = new_aliases;
+                    let mut new_graphemes = BTreeSet::new();
+                    for grapheme_index in state.graphemes {
+                        let mut new_grapheme_index = grapheme_index;
+                        if grapheme_index == *deleted_index {
+                            new_grapheme_index = *replacement_index;
+                        }
+                        new_graphemes.insert(new_grapheme_index);
+                    }
+                    state.graphemes = new_graphemes;
+                }
+
+                new_states.push(state);
+            }
+
+            // Alter states' indices to acount for deletions.
+            for mut state in new_states.iter_mut() {
+                for (deleted_index, _) in deleted_states.iter().rev() {
+                    for transition_index in state.c_transitions.values_mut() {
+                        if *transition_index > *deleted_index {
+                            *transition_index -= 1;
+                        }
+                    }
+                    if let Some(repetition_index) = state.repetition {
+                        if repetition_index > *deleted_index {
+                            state.repetition = Some(repetition_index - 1);
+                        }
+                    }
+                    let mut new_aliases = BTreeSet::new();
+                    for (alias_index, return_index) in &state.aliases {
+                        let mut new_alias_index = *alias_index;
+                        let mut new_return_index = *return_index;
+                        if *alias_index > *deleted_index {
+                            new_alias_index -= 1;
+                        }
+                        if *return_index > *deleted_index {
+                            new_return_index -= 1;
+                        }
+                        new_aliases.insert((new_alias_index, new_return_index));
+                    }
+                    state.aliases = new_aliases;
+                    let mut new_graphemes = BTreeSet::new();
+                    for grapheme_index in &state.graphemes {
+                        let mut new_grapheme_index = *grapheme_index;
+                        if *grapheme_index > *deleted_index {
+                            new_grapheme_index -= 1;
+                        }
+                        new_graphemes.insert(new_grapheme_index);
+                    }
+                    state.graphemes = new_graphemes;
+                }
+            }
+
+            self.states = new_states;
         }
     }
 

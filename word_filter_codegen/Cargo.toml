@@ -12,6 +12,7 @@ keywords = ["wordfilter", "word", "filter", "censor", "string"]
 include = ["/src/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
 
 [dependencies]
+hashbrown = "0.11.2"
 new_debug_unreachable = "1.0.4"
 str_overlap = "0.4.3"
 unicode-segmentation = "1.7.1"

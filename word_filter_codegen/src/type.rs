@@ -3,7 +3,7 @@
 use alloc::{borrow::ToOwned, format, string::String};
 
 /// Code generator for a state's type.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum Type<'a> {
     None,
     Word(&'a str),

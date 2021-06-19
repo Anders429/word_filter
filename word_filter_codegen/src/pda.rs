@@ -235,7 +235,7 @@ impl<'a> Pda<'a> {
     pub(crate) fn minimize(&mut self) {
         loop {
             // Find the set of all distinct and duplicated states. The distinct states will be
-            // kept. 
+            // kept.
             let mut distinct_states = HashMap::new();
             // Note that deleted_states will always be ordered from least to greatest.
             let mut deleted_states = Vec::new();

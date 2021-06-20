@@ -9,8 +9,6 @@ use alloc::{
     vec::Vec,
 };
 
-const SEPARATOR_INDEX: usize = 1;
-
 /// Push-down automaton state code generator.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub(crate) struct State<'a> {
@@ -29,14 +27,14 @@ impl State<'_> {
             "::word_filter::pda::State {{
                 r#type: {},
                 c_transitions: {},
-                separator: {},
+                into_separator: {},
                 repetition: {},
                 aliases: {},
                 graphemes: {},
             }}",
             self.r#type.to_definition(),
             self.define_c_transition_function(identifier),
-            self.define_separator(identifier),
+            self.into_separator,
             self.define_repetition(identifier),
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
@@ -68,15 +66,6 @@ impl State<'_> {
             identifier,
             index
         )
-    }
-
-    /// Define the separator field.
-    fn define_separator(&self, identifier: &str) -> String {
-        if self.into_separator {
-            format!("Some(&{}.states[{}])", identifier, SEPARATOR_INDEX)
-        } else {
-            "None".to_owned()
-        }
     }
 
     /// Define the repetition transition field.

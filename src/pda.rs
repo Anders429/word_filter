@@ -106,11 +106,8 @@ pub struct State<'a> {
     /// When transitioning along this character, computation can return back to the previous state
     /// that is stored here.
     pub repetition: Option<&'a State<'a>>,
-    /// The separator state that may be entered from this state.
-    ///
-    /// The absence of a separator state indicates that this state cannot enter into a separator.
-    /// This is possible in, for example, graphemes or other separators.
-    pub separator: Option<&'a State<'a>>,
+    /// Whether the separator state can be entered from this state.
+    pub into_separator: bool,
     /// Alias states and their accompanying return states.
     ///
     /// These are pairs of the form (alias_state, return_state). When computation traversed to
@@ -129,7 +126,7 @@ impl<'a> State<'a> {
     ///
     /// To perform an ε-transition, a `None` value should be provided for the parameter `c`.
     #[inline]
-    fn transitions(&'a self, c: Option<char>, s: stack::Value<'a>) -> Vec<Transition<'a>> {
+    fn transitions(&'a self, c: Option<char>, s: stack::Value<'a>, separator: &'a State<'a>) -> Vec<Transition<'a>> {
         let mut result = Vec::new();
 
         if let stack::Value::Target(target_state) = s {
@@ -176,9 +173,9 @@ impl<'a> State<'a> {
                     }
                 }
                 None => {
-                    if let Some(state) = self.separator {
+                    if self.into_separator {
                         result.push(Transition {
-                            state,
+                            state: separator,
                             stack_manipulations: vec![stack::Manipulation::Push(
                                 stack::Value::Return(self),
                             )],
@@ -308,12 +305,13 @@ impl<'a> InstantaneousDescription<'a> {
     pub(crate) fn transition(
         &self,
         c: Option<char>,
+        separator: &'a State<'a>,
         visited: &mut HashSet<ByAddress<&State<'a>>>,
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         let mut new_ids = Vec::new();
         for transition in self
             .state
-            .transitions(c, self.stack.last().unwrap_or(&stack::Value::None).clone())
+            .transitions(c, self.stack.last().unwrap_or(&stack::Value::None).clone(), separator)
             .iter()
         {
             if !visited.contains(&ByAddress(transition.state)) {
@@ -329,7 +327,7 @@ impl<'a> InstantaneousDescription<'a> {
                 }
                 // ε-transitions.
                 visited.insert(ByAddress(transition.state));
-                new_ids.extend(new_id.transition(None, visited));
+                new_ids.extend(new_id.transition(None, separator, visited));
                 visited.remove(&ByAddress(transition.state));
 
                 new_ids.push(new_id);
@@ -342,6 +340,7 @@ impl<'a> InstantaneousDescription<'a> {
     pub(crate) fn step(
         mut self,
         c: char,
+        separator: &'a State<'a>,
         new_grapheme: bool,
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
@@ -352,7 +351,7 @@ impl<'a> InstantaneousDescription<'a> {
                 self.separator_grapheme = false;
             }
         }
-        self.transition(Some(c), &mut HashSet::new())
+        self.transition(Some(c), separator, &mut HashSet::new())
     }
 }
 

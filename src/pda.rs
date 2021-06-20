@@ -126,7 +126,12 @@ impl<'a> State<'a> {
     ///
     /// To perform an ε-transition, a `None` value should be provided for the parameter `c`.
     #[inline]
-    fn transitions(&'a self, c: Option<char>, s: stack::Value<'a>, separator: &'a State<'a>) -> Vec<Transition<'a>> {
+    fn transitions(
+        &'a self,
+        c: Option<char>,
+        s: stack::Value<'a>,
+        separator: &'a State<'a>,
+    ) -> Vec<Transition<'a>> {
         let mut result = Vec::new();
 
         if let stack::Value::Target(target_state) = s {
@@ -311,7 +316,11 @@ impl<'a> InstantaneousDescription<'a> {
         let mut new_ids = Vec::new();
         for transition in self
             .state
-            .transitions(c, self.stack.last().unwrap_or(&stack::Value::None).clone(), separator)
+            .transitions(
+                c,
+                self.stack.last().unwrap_or(&stack::Value::None).clone(),
+                separator,
+            )
             .iter()
         {
             if !visited.contains(&ByAddress(transition.state)) {

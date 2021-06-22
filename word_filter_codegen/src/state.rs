@@ -16,6 +16,8 @@ pub(crate) struct State<'a> {
     pub(crate) c_transitions: BTreeMap<char, usize>,
     pub(crate) into_separator: bool,
     pub(crate) repetition: Option<usize>,
+    pub(crate) into_repetition: bool,
+    pub(crate) take_repetition: bool,
     pub(crate) aliases: BTreeSet<(usize, usize)>,
     pub(crate) graphemes: BTreeSet<usize>,
 }
@@ -29,6 +31,8 @@ impl State<'_> {
                 c_transitions: {},
                 into_separator: {},
                 repetition: {},
+                into_repetition: {},
+                take_repetition: {},
                 aliases: {},
                 graphemes: {},
             }}",
@@ -36,6 +40,8 @@ impl State<'_> {
             self.define_c_transition_function(identifier),
             self.into_separator,
             self.define_repetition(identifier),
+            self.into_repetition,
+            self.take_repetition,
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )

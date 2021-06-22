@@ -481,8 +481,7 @@ impl WordFilterGenerator {
         pda.minimize();
 
         format!(
-            "#[doc = \"{}\"]
-            {} static {}: {} = {};",
+            "#[doc = \"{}\"]\n{} static {}: {} = {};",
             self.doc,
             self.visibility.to_string(),
             identifier,

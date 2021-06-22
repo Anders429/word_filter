@@ -340,14 +340,12 @@ impl<'a> Pda<'a> {
     /// Returns the generated `WordFilter`'s definition.
     pub(crate) fn to_definition(&self, identifier: &str) -> String {
         format!(
-            "::word_filter::WordFilter {{
-            states: [{}],
-        }}",
+            "::word_filter::WordFilter {{\n    states: [\n{}\n    ],\n}}",
             self.states
                 .iter()
                 .map(|state| state.to_definition(identifier))
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(",\n")
         )
     }
 }

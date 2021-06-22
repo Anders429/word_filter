@@ -161,12 +161,15 @@ impl<'a> Pda<'a> {
     }
 
     /// Create a new alias, returning the index of the alias's entry state.
-    pub(crate) fn initialize_alias(&mut self, s: &str) -> usize {
+    pub(crate) fn initialize_alias(&mut self) -> usize {
         let new_index = self.states.len();
         self.states.push(State::default());
         self.states[new_index].into_repetition = true;
-        self.add_path(s, Type::Return, new_index);
         new_index
+    }
+
+    pub(crate) fn add_return(&mut self, index: usize, s: &str) {
+        self.add_path(s, Type::Return, index)
     }
 
     /// Find the return states for defining an alias along the input `s`.

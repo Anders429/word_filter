@@ -24,7 +24,10 @@ impl<'a> Pda<'a> {
     pub(crate) fn new() -> Self {
         Self {
             states: vec![
-                State::default(),
+                State {
+                    into_repetition: true,
+                    ..Default::default()
+                },
                 State {
                     r#type: Type::Separator,
                     ..Default::default()
@@ -50,6 +53,7 @@ impl<'a> Pda<'a> {
             let new_index = self.states.len();
             self.states.push(State::default());
             self.states[index].graphemes.insert(new_index);
+            self.states[new_index].into_repetition = true;
             self.add_grapheme(grapheme, graphemes.as_str(), r#type, new_index, new_index);
         } else {
             let mut chars = s.chars();
@@ -68,8 +72,9 @@ impl<'a> Pda<'a> {
                     self.states.push(State::default());
                     // Add new state.
                     self.states[index].c_transitions.insert(c, new_index);
-                    // Add repeated transition to new state.
-                    self.states[new_index].repetition = Some(index);
+                    // Add repetition
+                    self.states[new_index].into_repetition = true;
+                    self.states[new_index].take_repetition = true;
                     // Add separator transition to new state.
                     self.states[new_index].into_separator = true;
                     new_index
@@ -101,8 +106,8 @@ impl<'a> Pda<'a> {
         self.states.push(State::default());
         self.states[index].c_transitions.insert(c, new_index);
         if remaining_g.is_empty() {
-            // Repeating transition.
-            self.states[new_index].repetition = Some(return_index);
+            // Make grapheme transition to repetition.
+            self.states[new_index].take_repetition = true;
             // Separator.
             self.states[new_index].into_separator = true;
             // Continue down normal path.
@@ -159,6 +164,7 @@ impl<'a> Pda<'a> {
     pub(crate) fn initialize_alias(&mut self, s: &str) -> usize {
         let new_index = self.states.len();
         self.states.push(State::default());
+        self.states[new_index].into_repetition = true;
         self.add_path(s, Type::Return, new_index);
         new_index
     }
@@ -262,11 +268,6 @@ impl<'a> Pda<'a> {
                             *transition_index = *replacement_index;
                         }
                     }
-                    if let Some(repetition_index) = state.repetition {
-                        if repetition_index == *deleted_index {
-                            state.repetition = Some(*replacement_index);
-                        }
-                    }
                     let mut new_aliases = BTreeSet::new();
                     for (alias_index, return_index) in state.aliases {
                         let mut new_alias_index = alias_index;
@@ -300,11 +301,6 @@ impl<'a> Pda<'a> {
                     for transition_index in state.c_transitions.values_mut() {
                         if *transition_index > *deleted_index {
                             *transition_index -= 1;
-                        }
-                    }
-                    if let Some(repetition_index) = state.repetition {
-                        if repetition_index > *deleted_index {
-                            state.repetition = Some(repetition_index - 1);
                         }
                     }
                     let mut new_aliases = BTreeSet::new();

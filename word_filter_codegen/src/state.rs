@@ -2,7 +2,6 @@
 
 use crate::r#type::Type;
 use alloc::{
-    borrow::ToOwned,
     collections::{BTreeMap, BTreeSet},
     format,
     string::String,
@@ -15,7 +14,8 @@ pub(crate) struct State<'a> {
     pub(crate) r#type: Type<'a>,
     pub(crate) c_transitions: BTreeMap<char, usize>,
     pub(crate) into_separator: bool,
-    pub(crate) repetition: Option<usize>,
+    pub(crate) into_repetition: bool,
+    pub(crate) take_repetition: bool,
     pub(crate) aliases: BTreeSet<(usize, usize)>,
     pub(crate) graphemes: BTreeSet<usize>,
 }
@@ -28,14 +28,16 @@ impl State<'_> {
                 r#type: {},
                 c_transitions: {},
                 into_separator: {},
-                repetition: {},
+                into_repetition: {},
+                take_repetition: {},
                 aliases: {},
                 graphemes: {},
             }}",
             self.r#type.to_definition(),
             self.define_c_transition_function(identifier),
             self.into_separator,
-            self.define_repetition(identifier),
+            self.into_repetition,
+            self.take_repetition,
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )
@@ -66,14 +68,6 @@ impl State<'_> {
             identifier,
             index
         )
-    }
-
-    /// Define the repetition transition field.
-    fn define_repetition(&self, identifier: &str) -> String {
-        match self.repetition {
-            Some(index) => format!("Some(&{}.states[{}])", identifier, index),
-            None => "None".to_owned(),
-        }
     }
 
     /// Define the aliases field.

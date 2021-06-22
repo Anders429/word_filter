@@ -24,15 +24,15 @@ impl State<'_> {
     /// Returns the state's generated definition.
     pub(crate) fn to_definition(&self, identifier: &str) -> String {
         format!(
-            "::word_filter::pda::State {{
-                r#type: {},
-                c_transitions: {},
-                into_separator: {},
-                into_repetition: {},
-                take_repetition: {},
-                aliases: {},
-                graphemes: {},
-            }}",
+            "        ::word_filter::pda::State {{
+            r#type: {},
+            c_transitions: {},
+            into_separator: {},
+            into_repetition: {},
+            take_repetition: {},
+            aliases: {},
+            graphemes: {},
+        }}",
             self.r#type.to_definition(),
             self.define_c_transition_function(identifier),
             self.into_separator,
@@ -47,8 +47,7 @@ impl State<'_> {
     fn define_c_transition_function(&self, identifier: &str) -> String {
         format!(
             "|c| {{
-                match c {{
-                    {}
+                match c {{\n{}
                     _ => None,
                 }}
             }}",
@@ -63,7 +62,7 @@ impl State<'_> {
     /// Define the transition statement for a singe character transition.
     fn define_c_transition(&self, identifier: &str, c: char, index: usize) -> String {
         format!(
-            "'{}' => Some(&{}.states[{}]),",
+            "                    '{}' => Some(&{}.states[{}]),",
             c.escape_default(),
             identifier,
             index
@@ -73,19 +72,19 @@ impl State<'_> {
     /// Define the aliases field.
     fn define_aliases(&self, identifier: &str) -> String {
         format!(
-            "&[{}]",
+            "&[\n{}\n                ]",
             self.aliases
                 .iter()
                 .map(|(alias, r#return)| self.define_alias(identifier, *alias, *r#return))
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(",\n")
         )
     }
 
     /// Define a single alias entry.
     fn define_alias(&self, identifier: &str, alias: usize, r#return: usize) -> String {
         format!(
-            "(&{}.states[{}], &{}.states[{}])",
+            "                    (&{}.states[{}], &{}.states[{}])",
             identifier, alias, identifier, r#return
         )
     }
@@ -93,17 +92,17 @@ impl State<'_> {
     /// Define the graphemes field.
     fn define_graphemes(&self, identifier: &str) -> String {
         format!(
-            "&[{}]",
+            "&[\n{}\n                ]",
             self.graphemes
                 .iter()
                 .map(|grapheme| self.define_grapheme(identifier, *grapheme))
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(",\n")
         )
     }
 
     /// Define a single grapheme entry.
     fn define_grapheme(&self, identifier: &str, grapheme: usize) -> String {
-        format!("&{}.states[{}]", identifier, grapheme)
+        format!("                    &{}.states[{}]", identifier, grapheme)
     }
 }

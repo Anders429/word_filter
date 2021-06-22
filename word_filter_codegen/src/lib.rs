@@ -71,6 +71,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use hashbrown::HashMap;
 use pda::Pda;
 use str_overlap::Overlap;
 
@@ -458,9 +459,10 @@ impl WordFilterGenerator {
                 }
             }
         }
-        let mut alias_indices = Vec::new();
+        let mut alias_indices = HashMap::new();
         for (value, alias) in aliases {
-            alias_indices.push((value, pda.initialize_alias(&alias)));
+            let index = alias_indices.entry(value).or_insert(pda.initialize_alias());
+            pda.add_return(*index, &alias);
         }
 
         // Apply aliases on each other.

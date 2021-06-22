@@ -102,11 +102,6 @@ pub struct State<'a> {
     ///
     /// Each character can only transition to one other state directly.
     pub c_transitions: fn(char) -> Option<&'a State<'a>>,
-    /// A possible repetition transition.
-    ///
-    /// When transitioning along this character, computation can return back to the previous state
-    /// that is stored here.
-    pub repetition: Option<&'a State<'a>>,
     /// Whether the state can be repeated to.
     pub into_repetition: bool,
     /// Whether the state can process a repetition on the stack.
@@ -419,7 +414,7 @@ impl<'a> InstantaneousDescription<'a> {
             )
             .iter()
         {
-            if !visited.contains(&ByAddress(transition.state)) {
+            if !visited.contains(&ByAddress(transition.state)) || matches!(transition.state.r#type, Type::Return) {
                 let mut new_id = self.clone();
                 new_id.state = transition.state;
                 for manipulation in &transition.stack_manipulations {

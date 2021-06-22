@@ -147,7 +147,9 @@ impl<'a> State<'a> {
                                 if self.into_repetition {
                                     result.push(Transition {
                                         state,
-                                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Repetition(self))],
+                                        stack_manipulations: vec![stack::Manipulation::Push(
+                                            stack::Value::Repetition(self),
+                                        )],
                                     });
                                 }
                             }
@@ -166,7 +168,10 @@ impl<'a> State<'a> {
                             // Take the repetition.
                             result.push(Transition {
                                 state: repetition_state,
-                                stack_manipulations: vec![stack::Manipulation::Pop, stack::Manipulation::Push(stack::Value::Target(self))],
+                                stack_manipulations: vec![
+                                    stack::Manipulation::Pop,
+                                    stack::Manipulation::Push(stack::Value::Target(self)),
+                                ],
                             })
                         } else {
                             for alias in self.aliases {
@@ -179,7 +184,14 @@ impl<'a> State<'a> {
                                 if self.into_repetition {
                                     result.push(Transition {
                                         state: alias.0,
-                                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Repetition(self)), stack::Manipulation::Push(stack::Value::Return(alias.1))],
+                                        stack_manipulations: vec![
+                                            stack::Manipulation::Push(stack::Value::Repetition(
+                                                self,
+                                            )),
+                                            stack::Manipulation::Push(stack::Value::Return(
+                                                alias.1,
+                                            )),
+                                        ],
                                     })
                                 }
                             }
@@ -193,66 +205,28 @@ impl<'a> State<'a> {
                     }
                 }
             }
-            stack::Value::Target(target_state) => {
-                match c {
-                    Some(c) => {
-                        if let Some(state) = (self.c_transitions)(c) {
-                            if state.take_repetition {
-                                if ptr::eq(state, target_state) {
-                                    result.push(Transition {
-                                        state,
-                                        stack_manipulations: vec![stack::Manipulation::Pop],
-                                    });
-                                    if self.into_repetition {
-                                        result.push(Transition {
-                                            state,
-                                            stack_manipulations: vec![stack::Manipulation::Pop, stack::Manipulation::Push(stack::Value::Repetition(self))],
-                                        });
-                                    }
-                                }
-                            } else {
+            stack::Value::Target(target_state) => match c {
+                Some(c) => {
+                    if let Some(state) = (self.c_transitions)(c) {
+                        if state.take_repetition {
+                            if ptr::eq(state, target_state) {
                                 result.push(Transition {
                                     state,
-                                    stack_manipulations: vec![],
+                                    stack_manipulations: vec![stack::Manipulation::Pop],
                                 });
                                 if self.into_repetition {
                                     result.push(Transition {
                                         state,
-                                        stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Repetition(self))],
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    None => {
-                        for alias in self.aliases {
-                            if ptr::eq(alias.1, target_state) {
-                                result.push(Transition {
-                                    state: alias.0,
-                                    stack_manipulations: vec![
-                                        stack::Manipulation::Pop,
-                                        stack::Manipulation::Push(stack::Value::Return(alias.1)),
-                                    ],
-                                });
-                                if self.into_repetition {
-                                    result.push(Transition {
-                                        state: alias.0,
                                         stack_manipulations: vec![
                                             stack::Manipulation::Pop,
-                                            stack::Manipulation::Push(stack::Value::Repetition(self)),
-                                            stack::Manipulation::Push(stack::Value::Return(alias.1)),
+                                            stack::Manipulation::Push(stack::Value::Repetition(
+                                                self,
+                                            )),
                                         ],
                                     });
                                 }
                             }
-                        }
-                    }
-                }
-            }
-            _ => {
-                match c {
-                    Some(c) => {
-                        if let Some(state) = (self.c_transitions)(c) {
+                        } else {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![],
@@ -260,56 +234,98 @@ impl<'a> State<'a> {
                             if self.into_repetition {
                                 result.push(Transition {
                                     state,
-                                    stack_manipulations: vec![stack::Manipulation::Push(stack::Value::Repetition(self))],
-                                });
-                            }
-                        }
-                    }
-                    None => {
-                        if self.into_separator {
-                            result.push(Transition {
-                                state: separator,
-                                stack_manipulations: vec![stack::Manipulation::Push(
-                                    stack::Value::Return(self),
-                                )],
-                            });
-                        }
-                        for alias in self.aliases {
-                            result.push(Transition {
-                                state: alias.0,
-                                stack_manipulations: vec![stack::Manipulation::Push(
-                                    stack::Value::Return(alias.1),
-                                )],
-                            });
-                            if self.into_repetition {
-                                result.push(Transition {
-                                    state: alias.0,
-                                    stack_manipulations: vec![
-                                        stack::Manipulation::Push(stack::Value::Repetition(self)),
-                                        stack::Manipulation::Push(
-                                            stack::Value::Return(alias.1),
-                                        )],
-                                });
-                            }
-                        }
-                        for grapheme in self.graphemes {
-                            result.push(Transition {
-                                state: grapheme,
-                                stack_manipulations: vec![],
-                            });
-                        }
-    
-                        if matches!(self.r#type, Type::Return | Type::SeparatorReturn) {
-                            if let stack::Value::Return(state) = s {
-                                result.push(Transition {
-                                    state,
-                                    stack_manipulations: vec![stack::Manipulation::Pop],
+                                    stack_manipulations: vec![stack::Manipulation::Push(
+                                        stack::Value::Repetition(self),
+                                    )],
                                 });
                             }
                         }
                     }
                 }
-            }
+                None => {
+                    for alias in self.aliases {
+                        if ptr::eq(alias.1, target_state) {
+                            result.push(Transition {
+                                state: alias.0,
+                                stack_manipulations: vec![
+                                    stack::Manipulation::Pop,
+                                    stack::Manipulation::Push(stack::Value::Return(alias.1)),
+                                ],
+                            });
+                            if self.into_repetition {
+                                result.push(Transition {
+                                    state: alias.0,
+                                    stack_manipulations: vec![
+                                        stack::Manipulation::Pop,
+                                        stack::Manipulation::Push(stack::Value::Repetition(self)),
+                                        stack::Manipulation::Push(stack::Value::Return(alias.1)),
+                                    ],
+                                });
+                            }
+                        }
+                    }
+                }
+            },
+            _ => match c {
+                Some(c) => {
+                    if let Some(state) = (self.c_transitions)(c) {
+                        result.push(Transition {
+                            state,
+                            stack_manipulations: vec![],
+                        });
+                        if self.into_repetition {
+                            result.push(Transition {
+                                state,
+                                stack_manipulations: vec![stack::Manipulation::Push(
+                                    stack::Value::Repetition(self),
+                                )],
+                            });
+                        }
+                    }
+                }
+                None => {
+                    if self.into_separator {
+                        result.push(Transition {
+                            state: separator,
+                            stack_manipulations: vec![stack::Manipulation::Push(
+                                stack::Value::Return(self),
+                            )],
+                        });
+                    }
+                    for alias in self.aliases {
+                        result.push(Transition {
+                            state: alias.0,
+                            stack_manipulations: vec![stack::Manipulation::Push(
+                                stack::Value::Return(alias.1),
+                            )],
+                        });
+                        if self.into_repetition {
+                            result.push(Transition {
+                                state: alias.0,
+                                stack_manipulations: vec![
+                                    stack::Manipulation::Push(stack::Value::Repetition(self)),
+                                    stack::Manipulation::Push(stack::Value::Return(alias.1)),
+                                ],
+                            });
+                        }
+                    }
+                    for grapheme in self.graphemes {
+                        result.push(Transition {
+                            state: grapheme,
+                            stack_manipulations: vec![],
+                        });
+                    }
+
+                    if matches!(self.r#type, Type::Return | Type::SeparatorReturn) {
+                        if let stack::Value::Return(state) = s {
+                            result.push(Transition {
+                                state,
+                                stack_manipulations: vec![stack::Manipulation::Pop],
+                            });
+                        }
+                    }
+                }
+            },
         }
 
         result
@@ -414,7 +430,9 @@ impl<'a> InstantaneousDescription<'a> {
             )
             .iter()
         {
-            if !visited.contains(&ByAddress(transition.state)) || matches!(transition.state.r#type, Type::Return) {
+            if !visited.contains(&ByAddress(transition.state))
+                || matches!(transition.state.r#type, Type::Return)
+            {
                 let mut new_id = self.clone();
                 new_id.state = transition.state;
                 for manipulation in &transition.stack_manipulations {

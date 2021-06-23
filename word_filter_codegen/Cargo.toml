@@ -1,6 +1,6 @@
 [package]
 name = "word_filter_codegen"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Anders Evensen"]
 edition = "2018"
 description = "Utilities for generating `WordFilter`s at compile-time."
@@ -18,5 +18,6 @@ str_overlap = "0.4.3"
 unicode-segmentation = "1.7.1"
 
 [dev-dependencies]
+indoc = "1.0.3"
 trybuild = "1.0.42"
-word_filter = {path = ".."}
+word_filter = {version = "0.6.0", path = ".."}

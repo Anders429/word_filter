@@ -17,7 +17,6 @@ fn check_only_partial() {
     assert!(!WORD.check("fo"));
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn censor() {
     assert_eq!(WORD.censor("foo"), "***");
@@ -67,7 +66,6 @@ fn separator_between_repeated_characters() {
         BAR_SEPARATOR.find("b a a r").collect::<Vec<_>>(),
         vec!["bar"]
     );
-    #[cfg(feature = "unicode-segmentation")]
     assert_eq!(BAR_SEPARATOR.censor(" b a a r "), " ******* ");
 }
 
@@ -128,19 +126,16 @@ fn alias_after_separator() {
     );
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn separator_at_front_and_back_of_match() {
     assert_eq!(SEPARATOR.censor("bar foo bar"), "bar *** bar");
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn censor_repeating() {
     assert_eq!(MULTIPLE_WORDS.censor("fbar"), "f***");
 }
 
-#[cfg(feature = "unicode-segmentation")]
 #[test]
 fn censor_repeated_alias() {
     assert_eq!(MULTIPLE_WORDS_AND_ALIAS.censor("fbaAaAaAar"), "f*********");
@@ -176,7 +171,6 @@ fn grapheme_in_alias() {
 
 #[test]
 fn alias_on_grapheme() {
-    dbg!(&ALIAS_ON_GRAPHEME);
     assert_eq!(
         ALIAS_ON_GRAPHEME.find("bõr").collect::<Vec<_>>(),
         vec!["bãr"]
@@ -189,4 +183,29 @@ fn grapheme_at_root() {
         GRAPHEME_AT_ROOT.find("ãbc").collect::<Vec<_>>(),
         vec!["ãbc"]
     );
+}
+
+#[test]
+fn censor_combining_separator() {
+    assert_eq!(COMBINING_SEPARATOR.censor("foõ"), "***");
+}
+
+#[test]
+fn censor_combining_separator_after_repetition() {
+    assert_eq!(COMBINING_SEPARATOR.censor("fooõ"), "****");
+}
+
+#[test]
+fn censor_combining_separator_after_match() {
+    assert_eq!(COMBINING_SEPARATOR.censor("foo foõ"), "*** ***");
+}
+
+#[test]
+fn do_not_censor_combining_separator_on_other_separator() {
+    assert_eq!(COMBINING_SEPARATOR.censor("foo \u{303}"), "*** \u{303}");
+}
+
+#[test]
+fn repetition_does_not_match_word() {
+    assert_eq!(EXCEPTION.censor("foob"), "***b");
 }

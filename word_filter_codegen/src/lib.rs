@@ -13,10 +13,10 @@
 //! ``` toml
 //! ...
 //! [dependencies]
-//! word_filter = "0.5.1"
+//! word_filter = "0.6.0"
 //!
 //! [build-dependencies]
-//! word_filter_codegen = "0.5.1"
+//! word_filter_codegen = "0.6.0"
 //! ...
 //! ```
 //!
@@ -54,23 +54,25 @@
 //! assert!(FILTER.censor("Should censor foo."), "Should censor ***.");
 //! ```
 //!
-//! [`WordFilter`]: https://docs.rs/word_filter/0.5.0/struct.WordFilter.html
+//! [`WordFilter`]: word_filter::WordFilter
 
 #![no_std]
 
 extern crate alloc;
 
-mod node;
+mod pda;
+mod state;
+mod r#type;
 
 use alloc::{
     borrow::ToOwned,
-    collections::VecDeque,
+    collections::{BTreeSet, VecDeque},
     format,
     string::{String, ToString},
     vec::Vec,
 };
 use hashbrown::HashMap;
-use node::NodeGenerator;
+use pda::Pda;
 use str_overlap::Overlap;
 
 /// Visibility of generated code.
@@ -89,7 +91,7 @@ use str_overlap::Overlap;
 ///     .generate("FILTER");
 /// ```
 ///
-/// [`WordFilter`]: https://docs.rs/word_filter/0.5.0/struct.WordFilter.html
+/// [`WordFilter`]: word_filter::WordFilter
 #[derive(Clone, Debug)]
 pub enum Visibility {
     Private,
@@ -115,17 +117,6 @@ impl ToString for Visibility {
     }
 }
 
-fn generate_nodes(nodes: &Vec<NodeGenerator>, identifier: &str) -> String {
-    format!(
-        "[{}]",
-        &nodes
-            .into_iter()
-            .map(|node| node.generate(identifier))
-            .collect::<Vec<_>>()
-            .join(",\n    ")
-    )
-}
-
 /// Code generator for [`WordFilter`]s, following the builder pattern.
 ///
 /// Generates code that can be compiled to a `WordFilter`. Filtered **words**, ignored
@@ -148,7 +139,7 @@ fn generate_nodes(nodes: &Vec<NodeGenerator>, identifier: &str) -> String {
 /// The generated code can then be written to a file in the `OUT_DIR`. See crate-level
 /// documentation for more details.
 ///
-/// [`WordFilter`]: https://docs.rs/word_filter/0.5.0/struct.WordFilter.html
+/// [`WordFilter`]: word_filter::WordFilter
 #[derive(Clone, Debug, Default)]
 pub struct WordFilterGenerator {
     words: Vec<String>,
@@ -156,6 +147,7 @@ pub struct WordFilterGenerator {
     separators: Vec<String>,
     aliases: Vec<(String, String)>,
     visibility: Visibility,
+    doc: String,
 }
 
 impl WordFilterGenerator {
@@ -346,6 +338,42 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Set the doc string of the generated code.
+    ///
+    /// The generated code will be generated with `doc` as the item-level doc-string.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.doc("foo");
+    /// ```
+    ///
+    /// ## Multiple Lines
+    /// For doc strings that contain multiple lines, users are advised to use the
+    /// [`indoc`](https://crates.io/crates/indoc) crate.
+    ///
+    /// ```
+    /// use word_filter_codegen::WordFilterGenerator;
+    /// use indoc::indoc;
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.doc(indoc!(
+    ///    "foo
+    ///
+    ///     bar baz quux"
+    /// ));
+    /// ```
+    #[inline]
+    pub fn doc<S>(&mut self, doc: S) -> &mut Self
+    where
+        S: ToString,
+    {
+        self.doc = doc.to_string();
+        self
+    }
+
     /// Generate code defining a [`WordFilter`] with the given words, exceptions, separators,
     /// aliases, and visibility.
     ///
@@ -376,31 +404,21 @@ impl WordFilterGenerator {
     /// }
     /// ```
     ///
-    /// [`WordFilter`]: https://docs.rs/word_filter/0.5.0/struct.WordFilter.html
+    /// [`WordFilter`]: word_filter::WordFilter
     pub fn generate(&self, identifier: &str) -> String {
-        let mut root = NodeGenerator::default();
-        let mut separator_root = NodeGenerator::default();
-        let mut nodes = Vec::new();
+        let mut pda = Pda::new();
 
         for word in &self.words {
-            root.add_match(word, &mut nodes);
+            pda.add_word(word);
         }
-
         for exception in &self.exceptions {
-            root.add_exception(exception, &mut nodes);
+            pda.add_exception(exception);
         }
-
         for separator in &self.separators {
-            separator_root.add_return(separator, &mut nodes);
+            pda.add_separator(separator);
         }
 
-        let mut alias_map = HashMap::new();
-        for (value, alias) in &self.aliases {
-            alias_map
-                .entry(value.clone())
-                .or_insert_with(|| NodeGenerator::default())
-                .add_return(alias, &mut nodes);
-        }
+        let mut aliases = self.aliases.clone();
         // Find merged aliases.
         // First, find all aliases that can possibly be combined by a value.
         let mut queue = VecDeque::new();
@@ -423,11 +441,10 @@ impl WordFilterGenerator {
             }
         }
         // Now, find aliases that complete the combination.
-        let mut new_aliases = Vec::new();
         while let Some((value, target_value, alias)) = queue.pop_front() {
             for (new_value, new_alias) in &self.aliases {
                 if target_value == *new_alias || new_alias.starts_with(&target_value) {
-                    new_aliases.push((value.clone() + new_value, alias.clone() + new_alias));
+                    aliases.push((value.clone() + new_value, alias.clone() + new_alias));
                 } else if target_value.starts_with(new_alias) {
                     // If the combination isn't complete, push it to the queue and try again.
                     queue.push_back((
@@ -442,49 +459,36 @@ impl WordFilterGenerator {
                 }
             }
         }
-        for (value, alias) in new_aliases {
-            alias_map
-                .entry(value)
-                .or_insert_with(|| NodeGenerator::default())
-                .add_return(&alias, &mut nodes);
-        }
-
-        // Add aliases to nodes list.
-        let mut indexed_aliases = Vec::new();
-        for (value, alias) in alias_map {
-            indexed_aliases.push((value, nodes.len()));
-            nodes.push(alias);
+        let mut alias_indices = HashMap::new();
+        for (value, alias) in aliases {
+            let index = alias_indices.entry(value).or_insert(pda.initialize_alias());
+            pda.add_return(*index, &alias);
         }
 
         // Apply aliases on each other.
-        for (value, index) in indexed_aliases.iter().cloned() {
-            for (alias_value, alias_index) in &indexed_aliases {
-                if value == *alias_value {
+        for (value, index) in &alias_indices {
+            for (alias_value, alias_index) in &alias_indices {
+                if value == alias_value {
                     continue;
                 }
-                unsafe { (&mut nodes[index] as *mut NodeGenerator).as_mut() }
-                    .unwrap()
-                    .add_alias(alias_value, &mut nodes, *alias_index);
+                pda.add_alias(alias_value, *alias_index, *index, &mut BTreeSet::new());
             }
         }
 
         // Apply aliases on root.
-        for (value, index) in indexed_aliases {
-            root.add_alias(&value, &mut nodes, index);
+        for (value, index) in alias_indices {
+            pda.add_alias(&value, index, 0, &mut BTreeSet::new());
         }
 
+        pda.minimize();
+
         format!(
-            "{} static {}: ::word_filter::WordFilter<{}> = ::word_filter::WordFilter {{
-    root: {},
-    separator_root: {},
-    nodes: {},
-}};",
+            "#[doc = \"{}\"]\n{} static {}: {} = {};",
+            self.doc,
             self.visibility.to_string(),
             identifier,
-            nodes.len(),
-            root.generate(identifier),
-            separator_root.generate(identifier),
-            generate_nodes(&nodes, identifier),
+            pda.to_type(),
+            pda.to_definition(identifier)
         )
     }
 }

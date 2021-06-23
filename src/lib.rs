@@ -26,10 +26,10 @@
 //! ``` toml
 //! ...
 //! [dependencies]
-//! word_filter = "0.5.1"
+//! word_filter = "0.6.0"
 //!
 //! [build-dependencies]
-//! word_filter_codegen = "0.5.1"
+//! word_filter_codegen = "0.6.0"
 //! ...
 //! ```
 //!
@@ -72,19 +72,15 @@
 extern crate alloc;
 
 pub mod censor;
-pub mod node;
-
-mod walker;
+pub mod pda;
 
 use alloc::{string::String, vec, vec::Vec};
-use core::{
-    iter::FromIterator,
-    ops::{Bound, RangeBounds},
-};
+use core::{cmp, iter::FromIterator};
 use debug_unreachable::debug_unreachable;
+use hashbrown::HashSet;
 use nested_containment_list::NestedContainmentList;
-use node::Node;
-use walker::{ContextualizedNode, Walker, WalkerBuilder};
+use pda::{InstantaneousDescription, State};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// A word filter for identifying filtered words within strings.
 ///
@@ -105,143 +101,56 @@ use walker::{ContextualizedNode, Walker, WalkerBuilder};
 #[derive(Debug)]
 pub struct WordFilter<'a, const N: usize> {
     #[doc(hidden)]
-    pub root: Node<'a>,
-    #[doc(hidden)]
-    pub separator_root: Node<'a>,
-    #[doc(hidden)]
-    pub nodes: [Node<'a>; N],
+    pub states: [State<'a>; N],
 }
 
-impl<const N: usize> WordFilter<'_, N> {
-    /// Spawns new `Walker`s at the `WordFilter`'s root position, returning them in an iterator.
+impl<'a, const N: usize> WordFilter<'a, N> {
+    /// Create all entry instantaneous descriptions.
     ///
-    /// This spawns a `Walker` at root, plus `Walker`s at the root's alias and grapheme subgraphs.
-    ///
-    /// Each spawned `Walker` will have a start position equal to `start`.
-    fn spawn_root_walkers_from_start_position(&self, start: usize) -> vec::IntoIter<Walker<'_>> {
-        let mut walkers = Vec::new();
-
-        let mut root_walker_builder = WalkerBuilder::new(&self.root).start(start);
-        root_walker_builder =
-            root_walker_builder.callbacks(vec![ContextualizedNode::InDirectPath(&self.root)]);
-        let root_walker = root_walker_builder.build();
-        walkers.extend(root_walker.branch_to_alias_subgraphs().map(|mut walker| {
-            walker
-                .callbacks
-                .push(ContextualizedNode::InSubgraph(&self.root));
-            walker
-        }));
-        walkers.extend(
-            root_walker
-                .branch_to_grapheme_subgraphs()
-                .map(|mut walker| {
-                    walker
-                        .callbacks
-                        .push(ContextualizedNode::InSubgraph(&self.root));
-                    walker
-                }),
-        );
-        walkers.push(root_walker);
-
-        walkers.into_iter()
+    /// This includes the standard entry state and all of its ε-transitions.
+    fn spawn_entry_ids(
+        &'a self,
+        start: usize,
+    ) -> impl Iterator<Item = InstantaneousDescription<'_>> {
+        let mut ids = vec![InstantaneousDescription::new(&self.states[0], start)];
+        ids.extend(ids[0].transition(None, &self.states[1], &mut HashSet::new()));
+        ids.into_iter()
     }
 
-    /// Finds all `Walker`s that encounter matches.
-    ///
-    /// This also excludes all `Walker`s that encountered matches but whose ranges also are
-    /// contained within ranges are `Walker`s who encountered exceptions.
-    fn find_walkers(&self, input: &str) -> impl Iterator<Item = Walker<'_>> {
-        let mut walkers: Vec<Walker<'_>> = self.spawn_root_walkers_from_start_position(0).collect();
-
-        let mut found = Vec::new();
-        for (i, c) in input.chars().enumerate() {
-            let mut new_walkers = Vec::new();
-            for mut walker in walkers.drain(..) {
-                match walker.step(c) {
-                    Ok(branches) => {
-                        // New branches.
-                        new_walkers.extend(branches.clone().map(|walker| {
-                            let mut separator_walker = walker.clone();
-                            separator_walker.node = &self.separator_root;
-                            separator_walker.returns.push(walker.node);
-                            separator_walker.in_separator = true;
-                            separator_walker
-                                .callbacks
-                                .push(ContextualizedNode::InSubgraph(walker.node));
-                            separator_walker
-                                .targets
-                                .push(ContextualizedNode::InSubgraph(walker.node));
-                            separator_walker
-                        }));
-                        new_walkers.extend(branches);
-
-                        // Aliases.
-                        let alias_walkers = walker.branch_to_alias_subgraphs();
-                        new_walkers.extend(alias_walkers.map(|mut inner_walker| {
-                            inner_walker
-                                .callbacks
-                                .push(ContextualizedNode::InSubgraph(walker.node));
-                            inner_walker
-                        }));
-
-                        // Graphemes.
-                        let grapheme_walkers = walker.branch_to_grapheme_subgraphs();
-                        new_walkers.extend(grapheme_walkers.map(|mut inner_walker| {
-                            inner_walker
-                                .callbacks
-                                .push(ContextualizedNode::InSubgraph(walker.node));
-                            inner_walker
-                        }));
-
-                        // Separators.
-                        let mut separator_walker = walker.clone();
-                        separator_walker.node = &self.separator_root;
-                        separator_walker.returns.push(walker.node);
-                        separator_walker.in_separator = true;
-                        separator_walker
-                            .callbacks
-                            .push(ContextualizedNode::InSubgraph(walker.node));
-                        separator_walker
-                            .targets
-                            .push(ContextualizedNode::InSubgraph(walker.node));
-                        new_walkers.push(separator_walker);
-
-                        // Direct path.
-                        walker
-                            .callbacks
-                            .push(ContextualizedNode::InDirectPath(walker.node));
-                        new_walkers.push(walker);
-                    }
-                    Err(_) => match walker.status {
-                        walker::Status::Match(_, _) | walker::Status::Exception(_, _) => {
-                            found.push(walker)
-                        }
-                        _ => {}
-                    },
+    /// Run the computation, finding all matched words within `input`.
+    fn compute(&'a self, input: &str) -> impl Iterator<Item = InstantaneousDescription<'_>> {
+        let mut ids = Vec::new();
+        let mut accepted_ids = Vec::new();
+        let mut index = 0;
+        // Handle the input one grapheme at a time. Only accepting states found at the end of
+        // graphemes are kept.
+        for grapheme in input.graphemes(true) {
+            ids.extend(self.spawn_entry_ids(index));
+            let mut first_c = true;
+            for c in grapheme.chars() {
+                let mut new_ids = Vec::new();
+                for id in ids.drain(..) {
+                    new_ids.extend(id.step(c, &self.states[1], first_c));
+                }
+                index += 1;
+                ids = new_ids;
+                first_c = false;
+            }
+            // Now that all characters within the grapheme have been processed, determine if any
+            // ids are in an accepting state.
+            for id in &ids {
+                if id.is_accepting() {
+                    accepted_ids.push(id.clone());
                 }
             }
-
-            // Add root again.
-            new_walkers.extend(self.spawn_root_walkers_from_start_position(i + 1));
-
-            walkers = new_walkers;
         }
-
-        // Evaluate all remaining walkers.
-        for walker in walkers.drain(..) {
-            match walker.status {
-                walker::Status::Match(_, _) | walker::Status::Exception(_, _) => found.push(walker),
-                walker::Status::None => {}
-            }
-        }
-
-        // Only return outer-most matched words which aren't part of a longer exception.
-        NestedContainmentList::from_iter(found)
+        // Return outer-most nested words, ignoring words and exceptions nested within.
+        NestedContainmentList::from_iter(accepted_ids)
             .into_iter()
             .filter_map(|element| {
-                let p = element.value;
-                if let walker::Status::Match(_, _) = p.status {
-                    Some(p)
+                let instant = element.value;
+                if instant.is_word() {
+                    Some(instant)
                 } else {
                     None
                 }
@@ -288,21 +197,10 @@ impl<const N: usize> WordFilter<'_, N> {
     /// ```
     ///
     /// [`Iterator`]: core::iter::Iterator
-    #[must_use]
-    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
-    pub fn find(&self, input: &str) -> impl Iterator<Item = &str> {
-        self.find_walkers(input).map(|walker| {
-            if let walker::Status::Match(_, s) = walker.status {
-                s
-            } else {
-                unsafe {
-                    // SAFETY: All `Walker`s returned from ``find_walkers()` are guaranteed to
-                    // be matches. In the event that this changes in the future, this call will
-                    // panic when `debug_assertions` is on.
-                    debug_unreachable!()
-                }
-            }
-        })
+    #[inline]
+    pub fn find(&'a self, input: &str) -> impl Iterator<Item = &str> {
+        self.compute(input)
+            .map(|id| unsafe { id.unwrap_word_unchecked() })
     }
 
     /// Check whether `input` contains any filtered words.
@@ -343,9 +241,10 @@ impl<const N: usize> WordFilter<'_, N> {
     ///
     /// assert!(FILTER.check("this string contains foo"));
     /// ```
+    #[inline]
     #[must_use]
-    pub fn check(&self, input: &str) -> bool {
-        self.find_walkers(input).next().is_some()
+    pub fn check(&'a self, input: &str) -> bool {
+        self.compute(input).next().is_some()
     }
 
     /// Censor all filtered words within `input`, replacing their occurances with the output of
@@ -392,65 +291,30 @@ impl<const N: usize> WordFilter<'_, N> {
     /// );
     /// ```
     #[must_use]
-    #[allow(clippy::missing_panics_doc)] // debug_unreachable won't ever actually panic.
-    pub fn censor_with(&self, input: &str, censor: fn(&str) -> String) -> String {
+    pub fn censor_with(&'a self, input: &str, censor: fn(&str) -> String) -> String {
         let mut output = String::with_capacity(input.len());
-        let mut char_indices = input.char_indices();
-        // Walkers are sorted on both start and end, due to use of NestedContainmentList.
         let mut prev_end = 0;
-        for walker in self.find_walkers(input) {
-            // Insert un-censored characters.
-            if walker.start > prev_end {
-                for _ in 0..(walker.start - prev_end) {
-                    output.push(match char_indices.next().map(|(_i, c)| c) {
+        let mut chars = input.chars();
+
+        for id in self.compute(input) {
+            if id.start() > prev_end {
+                for _ in 0..(id.start() - prev_end) {
+                    output.push(match chars.next() {
                         Some(c) => c,
-                        None => unsafe {
-                            // SAFETY: Each `walker` within `walkers` is guaranteed to be within
-                            // the bounds of `input`. Additionally, since the `walker`s are ordered
-                            // by the ordering provided by the `NestedContainmentList` and are
-                            // guaranteed by that same data structure to not include any nested
-                            // `walker`s, each subsequent `walker` will cover a new set of `input`
-                            // characters. Thus, `input_char_indices.next()` will always return a
-                            // value, and the `None` branch will never be reached.
-                            debug_unreachable!()
-                        },
+                        None => unsafe { debug_unreachable!() },
                     })
                 }
             }
-            // Censor the covered characters for this walker.
-            let len = match walker.end_bound() {
-                Bound::Excluded(end) => end + 1,
-                _ => continue,
-            } - core::cmp::max(walker.start, prev_end);
-
-            let (substring_start, current_char) = match char_indices.next() {
-                Some((start, c)) => (start, c),
-                None => unsafe { debug_unreachable!() },
-            };
-            let substring_end = if len > 2 {
-                match char_indices.nth(len - 3) {
-                    Some((end, c)) => end + c.len_utf8(),
-                    None => unsafe { debug_unreachable!() },
-                }
-            } else {
-                substring_start + current_char.len_utf8()
-            };
-
-            output.push_str(&(censor)(&input[substring_start..substring_end]));
-
-            prev_end = match walker.end_bound() {
-                Bound::Excluded(end) => end + 1,
-                _ => unsafe {
-                    // SAFETY: The `end_bound` on the `walker` will always be `Bound::Excluded`,
-                    // since any other branch resulted in a `continue` above.
-                    debug_unreachable!()
-                },
-            };
+            // Censor the covered characters for this ID.
+            output.push_str(&(censor)(
+                &chars
+                    .by_ref()
+                    .take(id.end() - cmp::max(id.start(), prev_end))
+                    .collect::<String>(),
+            ));
+            prev_end = id.end();
         }
-
-        // Add the rest of the characters.
-        output.push_str(char_indices.as_str());
-
+        output.push_str(chars.as_str());
         output
     }
 
@@ -494,10 +358,9 @@ impl<const N: usize> WordFilter<'_, N> {
     /// ```
     ///
     /// [`censor::replace_graphemes_with("*")`]: censor/macro.replace_graphemes_with.html
-    #[cfg(feature = "unicode-segmentation")]
     #[inline]
     #[must_use]
-    pub fn censor(&self, input: &str) -> String {
+    pub fn censor(&'a self, input: &str) -> String {
         self.censor_with(input, censor::replace_graphemes_with!("*"))
     }
 }

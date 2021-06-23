@@ -54,7 +54,7 @@
 //! assert!(FILTER.censor("Should censor foo."), "Should censor ***.");
 //! ```
 //!
-//! [`WordFilter`]: https://docs.rs/word_filter/0.6.0/struct.WordFilter.html
+//! [`WordFilter`]: word_filter::WordFilter
 
 #![no_std]
 
@@ -91,7 +91,7 @@ use str_overlap::Overlap;
 ///     .generate("FILTER");
 /// ```
 ///
-/// [`WordFilter`]: https://docs.rs/word_filter/0.6.0/struct.WordFilter.html
+/// [`WordFilter`]: word_filter::WordFilter
 #[derive(Clone, Debug)]
 pub enum Visibility {
     Private,
@@ -139,7 +139,7 @@ impl ToString for Visibility {
 /// The generated code can then be written to a file in the `OUT_DIR`. See crate-level
 /// documentation for more details.
 ///
-/// [`WordFilter`]: https://docs.rs/word_filter/0.6.0/struct.WordFilter.html
+/// [`WordFilter`]: word_filter::WordFilter
 #[derive(Clone, Debug, Default)]
 pub struct WordFilterGenerator {
     words: Vec<String>,
@@ -404,7 +404,7 @@ impl WordFilterGenerator {
     /// }
     /// ```
     ///
-    /// [`WordFilter`]: https://docs.rs/word_filter/0.6.0/struct.WordFilter.html
+    /// [`WordFilter`]: word_filter::WordFilter
     pub fn generate(&self, identifier: &str) -> String {
         let mut pda = Pda::new();
 

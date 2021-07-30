@@ -1,6 +1,6 @@
 [package]
 name = "word_filter_codegen"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Anders Evensen"]
 edition = "2018"
 description = "Utilities for generating `WordFilter`s at compile-time."

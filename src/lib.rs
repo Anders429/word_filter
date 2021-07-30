@@ -112,8 +112,12 @@ impl<'a, const N: usize> WordFilter<'a, N> {
         &'a self,
         start: usize,
     ) -> impl Iterator<Item = InstantaneousDescription<'_>> {
-        let mut ids = vec![InstantaneousDescription::new(&self.states[0], start)];
-        ids.extend(ids[0].transition(None, &self.states[1], &mut HashSet::new()));
+        let mut ids = vec![
+            InstantaneousDescription::new(&self.states[0], start),
+            InstantaneousDescription::new(&self.states[1], start),
+        ];
+        ids.extend(ids[0].transition(None, &self.states[2], &mut HashSet::new()));
+        ids.extend(ids[1].transition(None, &self.states[2], &mut HashSet::new()));
         ids.into_iter()
     }
 
@@ -130,7 +134,7 @@ impl<'a, const N: usize> WordFilter<'a, N> {
             for c in grapheme.chars() {
                 let mut new_ids = Vec::new();
                 for id in ids.drain(..) {
-                    new_ids.extend(id.step(c, &self.states[1], first_c));
+                    new_ids.extend(id.step(c, &self.states[2], first_c));
                 }
                 index += 1;
                 ids = new_ids;

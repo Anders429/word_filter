@@ -4,7 +4,7 @@ use std::{
     io::{BufWriter, Write},
     path::Path,
 };
-use word_filter_codegen::{Visibility, WordFilterGenerator};
+use word_filter_codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
 
 fn main() {
     let file = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
@@ -13,15 +13,21 @@ fn main() {
     let mut base_generator = WordFilterGenerator::new();
     base_generator.visibility(Visibility::Pub);
     let mut foo_generator = base_generator.clone();
-    foo_generator.word("foo");
+    foo_generator
+        .separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS)
+        .word("foo");
     let mut bar_generator = base_generator.clone();
-    bar_generator.word("bar");
+    bar_generator
+        .separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS)
+        .word("bar");
     let mut grapheme_generator = base_generator.clone();
-    grapheme_generator.word("bãr");
+    grapheme_generator
+        .separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS)
+        .word("bãr");
 
     writeln!(
         &mut file,
-        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
         foo_generator.generate("WORD"),
         foo_generator.clone().word("bar").generate("MULTIPLE_WORDS"),
         foo_generator
@@ -92,6 +98,18 @@ fn main() {
             .clone()
             .separators(&[' ', '\u{303}'])
             .generate("COMBINING_SEPARATOR"),
+        base_generator
+            .clone()
+            .separator(' ')
+            .word("foo")
+            .generate("NO_SEPARATOR_IN_MATCH"),
+        base_generator
+            .clone()
+            .separator_flags(SeparatorFlags::BETWEEN_WORDS)
+            .separator(" ")
+            .word("foo")
+            .exception("foobar")
+            .generate("NO_SEPARATOR_IN_EXCEPTION"),
     )
     .unwrap();
 }

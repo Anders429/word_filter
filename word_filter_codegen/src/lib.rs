@@ -71,6 +71,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use bitflags::bitflags;
 use hashbrown::HashMap;
 use pda::Pda;
 use str_overlap::Overlap;
@@ -117,6 +118,48 @@ impl ToString for Visibility {
     }
 }
 
+bitflags! {
+    /// Flags defining separator settings.
+    ///
+    /// These flags can be passed to a `WordFilterGenerator` to define when separators should be
+    /// allowed during matching.
+    ///
+    /// # Examples
+    /// To set separator flags within a `WordFilterGenerator`, simply provide the desired flags
+    /// with the `separator_flags` method:
+    ///
+    /// ```
+    /// use word_filter_codegen::{SeparatorFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    ///
+    /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS);
+    /// ```
+    ///
+    /// As these settings are bitflags, they can be combined by `or`ing them together. For example,
+    /// to set separators to be allowed between words and exceptions, combine the flags as follows:
+    ///
+    /// ```
+    /// use word_filter_codegen::{SeparatorFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    ///
+    /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS);
+    /// ```
+    pub struct SeparatorFlags: u8 {
+        /// Allow separators when matching words.
+        const BETWEEN_WORDS = 0x0000_0001;
+        /// Allow separators when matching exceptions.
+        const BETWEEN_EXCEPTIONS = 0x0000_0010;
+    }
+}
+
+impl Default for SeparatorFlags {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 /// Code generator for [`WordFilter`]s, following the builder pattern.
 ///
 /// Generates code that can be compiled to a `WordFilter`. Filtered **words**, ignored
@@ -147,6 +190,7 @@ pub struct WordFilterGenerator {
     separators: Vec<String>,
     aliases: Vec<(String, String)>,
     visibility: Visibility,
+    separator_flags: SeparatorFlags,
     doc: String,
 }
 
@@ -244,6 +288,9 @@ impl WordFilterGenerator {
 
     /// Add a single separator.
     ///
+    /// Note that separator flags must be set with [`separator_flags()`] for this to have any
+    /// effect.
+    ///
     /// # Example
     /// ```
     /// use word_filter_codegen::WordFilterGenerator;
@@ -251,6 +298,8 @@ impl WordFilterGenerator {
     /// let mut generator = WordFilterGenerator::new();
     /// generator.separator("foo");
     /// ```
+    ///
+    /// [`separator_flags()`]: WordFilterGenerator::separator_flags()
     #[inline]
     pub fn separator<S>(&mut self, separator: S) -> &mut Self
     where
@@ -262,6 +311,9 @@ impl WordFilterGenerator {
 
     /// Add separators.
     ///
+    /// Note that separator flags must be set with [`separator_flags()`] for this to have any
+    /// effect.
+    ///
     /// # Example
     /// ```
     /// use word_filter_codegen::WordFilterGenerator;
@@ -269,6 +321,8 @@ impl WordFilterGenerator {
     /// let mut generator = WordFilterGenerator::new();
     /// generator.separators(&["foo", "bar"]);
     /// ```
+    ///
+    /// [`separator_flags()`]: WordFilterGenerator::separator_flags()
     #[inline]
     pub fn separators<I, S>(&mut self, separators: I) -> &mut Self
     where
@@ -335,6 +389,12 @@ impl WordFilterGenerator {
     #[inline]
     pub fn visibility(&mut self, visibility: Visibility) -> &mut Self {
         self.visibility = visibility;
+        self
+    }
+
+    #[inline]
+    pub fn separator_flags(&mut self, separator_flags: SeparatorFlags) -> &mut Self {
+        self.separator_flags = separator_flags;
         self
     }
 
@@ -409,10 +469,17 @@ impl WordFilterGenerator {
         let mut pda = Pda::new();
 
         for word in &self.words {
-            pda.add_word(word);
+            pda.add_word(
+                word,
+                self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+            );
         }
         for exception in &self.exceptions {
-            pda.add_exception(exception);
+            pda.add_exception(
+                exception,
+                self.separator_flags
+                    .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+            );
         }
         for separator in &self.separators {
             pda.add_separator(separator);
@@ -478,6 +545,7 @@ impl WordFilterGenerator {
         // Apply aliases on root.
         for (value, index) in alias_indices {
             pda.add_alias(&value, index, 0, &mut BTreeSet::new());
+            pda.add_alias(&value, index, 1, &mut BTreeSet::new());
         }
 
         pda.minimize();

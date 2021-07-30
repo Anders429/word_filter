@@ -209,3 +209,18 @@ fn do_not_censor_combining_separator_on_other_separator() {
 fn repetition_does_not_match_word() {
     assert_eq!(EXCEPTION.censor("foob"), "***b");
 }
+
+#[test]
+fn no_separator_allowed_in_match() {
+    assert_eq!(NO_SEPARATOR_IN_MATCH.censor("f o o"), "f o o");
+}
+
+#[test]
+fn no_separator_allowed_in_exception() {
+    assert_eq!(NO_SEPARATOR_IN_EXCEPTION.censor("foo bar"), "*** bar");
+}
+
+#[test]
+fn separators_in_match_but_not_in_exception() {
+    assert_eq!(NO_SEPARATOR_IN_EXCEPTION.censor("f o o bar"), "***** bar");
+}

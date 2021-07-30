@@ -7,8 +7,9 @@ use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
 // Reserved indices.
-const ENTRY_INDEX: usize = 0;
-const SEPARATOR_INDEX: usize = 1;
+const WORD_INDEX: usize = 0;
+const EXCEPTION_INDEX: usize = 1;
+const SEPARATOR_INDEX: usize = 2;
 
 /// Push-down automaton code generator.
 ///
@@ -24,10 +25,17 @@ impl<'a> Pda<'a> {
     pub(crate) fn new() -> Self {
         Self {
             states: vec![
+                // Word entry state.
                 State {
                     into_repetition: true,
                     ..Default::default()
                 },
+                // Exception entry state.
+                State {
+                    into_repetition: true,
+                    ..Default::default()
+                },
+                // Separator entry state.
                 State {
                     r#type: Type::Separator,
                     ..Default::default()
@@ -37,7 +45,7 @@ impl<'a> Pda<'a> {
     }
 
     /// Add a path along input `s`, ending with state of the specified type.
-    fn add_path(&mut self, s: &str, r#type: Type<'a>, index: usize) {
+    fn add_path(&mut self, s: &str, r#type: Type<'a>, index: usize, into_separator: bool) {
         let mut graphemes = s.graphemes(true);
         let grapheme = match graphemes.next() {
             Some(g) => g,
@@ -54,7 +62,14 @@ impl<'a> Pda<'a> {
             self.states.push(State::default());
             self.states[index].graphemes.insert(new_index);
             self.states[new_index].into_repetition = true;
-            self.add_grapheme(grapheme, graphemes.as_str(), r#type, new_index, new_index);
+            self.add_grapheme(
+                grapheme,
+                graphemes.as_str(),
+                r#type,
+                new_index,
+                new_index,
+                into_separator,
+            );
         } else {
             let mut chars = s.chars();
             let c = match chars.next() {
@@ -76,12 +91,12 @@ impl<'a> Pda<'a> {
                     self.states[new_index].into_repetition = true;
                     self.states[new_index].take_repetition = true;
                     // Add separator transition to new state.
-                    self.states[new_index].into_separator = true;
+                    self.states[new_index].into_separator = into_separator;
                     new_index
                 }
             };
 
-            self.add_path(chars.as_str(), r#type, new_index)
+            self.add_path(chars.as_str(), r#type, new_index, into_separator)
         }
     }
 
@@ -95,6 +110,7 @@ impl<'a> Pda<'a> {
         r#type: Type<'a>,
         index: usize,
         return_index: usize,
+        into_separator: bool,
     ) {
         let mut chars = g.chars();
         let c = match chars.next() {
@@ -109,24 +125,31 @@ impl<'a> Pda<'a> {
             // Make grapheme transition to repetition.
             self.states[new_index].take_repetition = true;
             // Separator.
-            self.states[new_index].into_separator = true;
+            self.states[new_index].into_separator = into_separator;
             // Continue down normal path.
-            self.add_path(s, r#type, new_index);
+            self.add_path(s, r#type, new_index, into_separator);
         } else {
-            self.add_grapheme(remaining_g, s, r#type, new_index, return_index);
+            self.add_grapheme(
+                remaining_g,
+                s,
+                r#type,
+                new_index,
+                return_index,
+                into_separator,
+            );
         }
     }
 
     /// Add a word.
     #[inline]
-    pub(crate) fn add_word(&mut self, s: &'a str) {
-        self.add_path(s, Type::Word(s), ENTRY_INDEX)
+    pub(crate) fn add_word(&mut self, s: &'a str, into_separator: bool) {
+        self.add_path(s, Type::Word(s), WORD_INDEX, into_separator)
     }
 
     /// Add an exception.
     #[inline]
-    pub(crate) fn add_exception(&mut self, s: &str) {
-        self.add_path(s, Type::Exception, ENTRY_INDEX)
+    pub(crate) fn add_exception(&mut self, s: &str, into_separator: bool) {
+        self.add_path(s, Type::Exception, EXCEPTION_INDEX, into_separator)
     }
 
     /// Add separator states using input `s`.
@@ -169,7 +192,7 @@ impl<'a> Pda<'a> {
     }
 
     pub(crate) fn add_return(&mut self, index: usize, s: &str) {
-        self.add_path(s, Type::Return, index)
+        self.add_path(s, Type::Return, index, true)
     }
 
     /// Find the return states for defining an alias along the input `s`.

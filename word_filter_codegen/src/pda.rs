@@ -271,7 +271,8 @@ impl<'a> Pda<'a> {
             let mut distinct_states = HashMap::new();
             // Note that deleted_states will always be ordered from least to greatest.
             let mut deleted_states = Vec::new();
-            for (index, state) in self.states.iter().cloned().enumerate() {
+            // Skip the reserved indices during merging.
+            for (index, state) in self.states.iter().cloned().enumerate().skip(3) {
                 if let Some(canonical_index) = distinct_states.get(&state) {
                     deleted_states.push((index, *canonical_index));
                 } else {

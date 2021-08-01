@@ -26,10 +26,10 @@
 //! ``` toml
 //! ...
 //! [dependencies]
-//! word_filter = "0.6.0"
+//! word_filter = "0.7.0"
 //!
 //! [build-dependencies]
-//! word_filter_codegen = "0.6.0"
+//! word_filter_codegen = "0.7.0"
 //! ...
 //! ```
 //!
@@ -82,6 +82,10 @@ use nested_containment_list::NestedContainmentList;
 use pda::{InstantaneousDescription, State};
 use unicode_segmentation::UnicodeSegmentation;
 
+const WORD_INDEX: usize = 0;
+const EXCEPTION_INDEX: usize = 1;
+const SEPARATOR_INDEX: usize = 2;
+
 /// A word filter for identifying filtered words within strings.
 ///
 /// A `WordFilter` is constructed from **filtered words**, **exceptions**, **separators**,
@@ -112,8 +116,12 @@ impl<'a, const N: usize> WordFilter<'a, N> {
         &'a self,
         start: usize,
     ) -> impl Iterator<Item = InstantaneousDescription<'_>> {
-        let mut ids = vec![InstantaneousDescription::new(&self.states[0], start)];
-        ids.extend(ids[0].transition(None, &self.states[1], &mut HashSet::new()));
+        let mut ids = vec![
+            InstantaneousDescription::new(&self.states[WORD_INDEX], start),
+            InstantaneousDescription::new(&self.states[EXCEPTION_INDEX], start),
+        ];
+        ids.extend(ids[0].transition(None, &self.states[SEPARATOR_INDEX], &mut HashSet::new()));
+        ids.extend(ids[1].transition(None, &self.states[SEPARATOR_INDEX], &mut HashSet::new()));
         ids.into_iter()
     }
 
@@ -130,7 +138,7 @@ impl<'a, const N: usize> WordFilter<'a, N> {
             for c in grapheme.chars() {
                 let mut new_ids = Vec::new();
                 for id in ids.drain(..) {
-                    new_ids.extend(id.step(c, &self.states[1], first_c));
+                    new_ids.extend(id.step(c, &self.states[SEPARATOR_INDEX], first_c));
                 }
                 index += 1;
                 ids = new_ids;

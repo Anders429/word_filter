@@ -4,7 +4,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
 };
-use word_filter_codegen::{Visibility, WordFilterGenerator};
+use word_filter_codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
 
 macro_rules! compiles {
     ($test_name:ident, $generator:expr) => {
@@ -126,4 +126,8 @@ compiles!(
     
         bar"
     ))
+);
+compiles!(
+    separator_flags,
+    WordFilterGenerator::new().separator_flags(SeparatorFlags::BETWEEN_EXCEPTIONS)
 );

@@ -13,10 +13,10 @@
 //! ``` toml
 //! ...
 //! [dependencies]
-//! word_filter = "0.6.0"
+//! word_filter = "0.7.0"
 //!
 //! [build-dependencies]
-//! word_filter_codegen = "0.6.0"
+//! word_filter_codegen = "0.7.0"
 //! ...
 //! ```
 //!
@@ -66,12 +66,12 @@ mod r#type;
 
 use alloc::{
     borrow::ToOwned,
-    collections::{BTreeSet, VecDeque},
+    collections::VecDeque,
     format,
     string::{String, ToString},
     vec::Vec,
 };
-use hashbrown::HashMap;
+use bitflags::bitflags;
 use pda::Pda;
 use str_overlap::Overlap;
 
@@ -117,6 +117,51 @@ impl ToString for Visibility {
     }
 }
 
+bitflags! {
+    /// Flags defining separator settings.
+    ///
+    /// These flags can be passed to a `WordFilterGenerator` to define when separators should be
+    /// allowed during matching.
+    ///
+    /// # Examples
+    /// To set separator flags within a `WordFilterGenerator`, simply provide the desired flags
+    /// with the `separator_flags` method:
+    ///
+    /// ```
+    /// use word_filter_codegen::{SeparatorFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    ///
+    /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS);
+    /// ```
+    ///
+    /// As these settings are bitflags, they can be combined by `or`ing them together. For example,
+    /// to set separators to be allowed between words and exceptions, combine the flags as follows:
+    ///
+    /// ```
+    /// use word_filter_codegen::{SeparatorFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    ///
+    /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS);
+    /// ```
+    ///
+    /// Note that a `WordFilter` will default to having `BETWEEN_WORDS` and `BETWEEN_EXCEPTIONS`.
+    /// set.
+    pub struct SeparatorFlags: u8 {
+        /// Allow separators when matching words.
+        const BETWEEN_WORDS = 0x0000_0001;
+        /// Allow separators when matching exceptions.
+        const BETWEEN_EXCEPTIONS = 0x0000_0010;
+    }
+}
+
+impl Default for SeparatorFlags {
+    fn default() -> Self {
+        Self::all()
+    }
+}
+
 /// Code generator for [`WordFilter`]s, following the builder pattern.
 ///
 /// Generates code that can be compiled to a `WordFilter`. Filtered **words**, ignored
@@ -147,6 +192,7 @@ pub struct WordFilterGenerator {
     separators: Vec<String>,
     aliases: Vec<(String, String)>,
     visibility: Visibility,
+    separator_flags: SeparatorFlags,
     doc: String,
 }
 
@@ -338,6 +384,12 @@ impl WordFilterGenerator {
         self
     }
 
+    #[inline]
+    pub fn separator_flags(&mut self, separator_flags: SeparatorFlags) -> &mut Self {
+        self.separator_flags = separator_flags;
+        self
+    }
+
     /// Set the doc string of the generated code.
     ///
     /// The generated code will be generated with `doc` as the item-level doc-string.
@@ -409,10 +461,17 @@ impl WordFilterGenerator {
         let mut pda = Pda::new();
 
         for word in &self.words {
-            pda.add_word(word);
+            pda.add_word(
+                word,
+                self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+            );
         }
         for exception in &self.exceptions {
-            pda.add_exception(exception);
+            pda.add_exception(
+                exception,
+                self.separator_flags
+                    .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+            );
         }
         for separator in &self.separators {
             pda.add_separator(separator);
@@ -459,26 +518,18 @@ impl WordFilterGenerator {
                 }
             }
         }
-        let mut alias_indices = HashMap::new();
-        for (value, alias) in aliases {
-            let index = alias_indices.entry(value).or_insert(pda.initialize_alias());
-            pda.add_return(*index, &alias);
-        }
 
-        // Apply aliases on each other.
-        for (value, index) in &alias_indices {
-            for (alias_value, alias_index) in &alias_indices {
-                if value == alias_value {
-                    continue;
-                }
-                pda.add_alias(alias_value, *alias_index, *index, &mut BTreeSet::new());
-            }
-        }
-
-        // Apply aliases on root.
-        for (value, index) in alias_indices {
-            pda.add_alias(&value, index, 0, &mut BTreeSet::new());
-        }
+        pda.apply_aliases(
+            &aliases,
+            self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+            pda::WORD_INDEX,
+        );
+        pda.apply_aliases(
+            &aliases,
+            self.separator_flags
+                .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+            pda::EXCEPTION_INDEX,
+        );
 
         pda.minimize();
 

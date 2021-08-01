@@ -4,7 +4,7 @@ use std::{
     io::{BufWriter, Write},
     path::Path,
 };
-use word_filter_codegen::{Visibility, WordFilterGenerator};
+use word_filter_codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
 
 fn main() {
     let file = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
@@ -21,7 +21,7 @@ fn main() {
 
     writeln!(
         &mut file,
-        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
         foo_generator.generate("WORD"),
         foo_generator.clone().word("bar").generate("MULTIPLE_WORDS"),
         foo_generator
@@ -92,6 +92,20 @@ fn main() {
             .clone()
             .separators(&[' ', '\u{303}'])
             .generate("COMBINING_SEPARATOR"),
+        base_generator
+            .clone()
+            .separator_flags(SeparatorFlags::empty())
+            .separator(' ')
+            .word("foo")
+            .generate("NO_SEPARATOR_IN_MATCH"),
+        base_generator
+            .clone()
+            .separator_flags(SeparatorFlags::BETWEEN_WORDS)
+            .separator(" ")
+            .word("foo")
+            .exception("foobar")
+            .generate("NO_SEPARATOR_IN_EXCEPTION"),
+        base_generator.clone().generate("EMPTY"),
     )
     .unwrap();
 }

@@ -191,8 +191,8 @@ impl<'a> Pda<'a> {
         new_index
     }
 
-    pub(crate) fn add_return(&mut self, index: usize, s: &str) {
-        self.add_path(s, Type::Return, index, true)
+    pub(crate) fn add_return(&mut self, index: usize, s: &str, into_separator: bool) {
+        self.add_path(s, Type::Return, index, into_separator)
     }
 
     /// Find the return states for defining an alias along the input `s`.

@@ -519,25 +519,42 @@ impl WordFilterGenerator {
                 }
             }
         }
-        let mut alias_indices = HashMap::new();
-        for (value, alias) in aliases {
-            let index = alias_indices.entry(value).or_insert(pda.initialize_alias());
-            pda.add_return(*index, &alias);
-        }
 
+        let mut word_alias_indices = HashMap::new();
+        for (value, alias) in &aliases {
+            let index = word_alias_indices.entry(value).or_insert(pda.initialize_alias());
+            pda.add_return(*index, &alias, self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS));
+        }
         // Apply aliases on each other.
-        for (value, index) in &alias_indices {
-            for (alias_value, alias_index) in &alias_indices {
+        for (value, index) in &word_alias_indices {
+            for (alias_value, alias_index) in &word_alias_indices {
                 if value == alias_value {
                     continue;
                 }
                 pda.add_alias(alias_value, *alias_index, *index, &mut BTreeSet::new());
             }
         }
-
         // Apply aliases on root.
-        for (value, index) in alias_indices {
+        for (value, index) in word_alias_indices {
             pda.add_alias(&value, index, pda::WORD_INDEX, &mut BTreeSet::new());
+        }
+
+        let mut exception_alias_indices = HashMap::new();
+        for (value, alias) in &aliases {
+            let index = exception_alias_indices.entry(value).or_insert(pda.initialize_alias());
+            pda.add_return(*index, &alias, self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS));
+        }
+        // Apply aliases on each other.
+        for (value, index) in &exception_alias_indices {
+            for (alias_value, alias_index) in &exception_alias_indices {
+                if value == alias_value {
+                    continue;
+                }
+                pda.add_alias(alias_value, *alias_index, *index, &mut BTreeSet::new());
+            }
+        }
+        // Apply aliases on root.
+        for (value, index) in exception_alias_indices {
             pda.add_alias(&value, index, pda::EXCEPTION_INDEX, &mut BTreeSet::new());
         }
 

@@ -184,14 +184,14 @@ impl<'a> Pda<'a> {
     }
 
     /// Create a new alias, returning the index of the alias's entry state.
-    pub(crate) fn initialize_alias(&mut self) -> usize {
+    fn initialize_alias(&mut self) -> usize {
         let new_index = self.states.len();
         self.states.push(State::default());
         self.states[new_index].into_repetition = true;
         new_index
     }
 
-    pub(crate) fn add_return(&mut self, index: usize, s: &str, into_separator: bool) {
+    fn add_return(&mut self, index: usize, s: &str, into_separator: bool) {
         self.add_path(s, Type::Return, index, into_separator)
     }
 
@@ -227,7 +227,7 @@ impl<'a> Pda<'a> {
     }
 
     /// Apply alias in every possible place along the main path of the push-down automaton.
-    pub(crate) fn add_alias(
+    fn add_alias(
         &mut self,
         s: &str,
         alias_index: usize,
@@ -255,6 +255,34 @@ impl<'a> Pda<'a> {
             self.states[current_index]
                 .aliases
                 .insert((alias_index, return_index));
+        }
+    }
+
+    pub(crate) fn apply_aliases(
+        &mut self,
+        aliases: &[(String, String)],
+        into_separator: bool,
+        root_index: usize,
+    ) {
+        let mut alias_indices = HashMap::new();
+        for (value, alias) in aliases {
+            let index = alias_indices
+                .entry(value)
+                .or_insert(self.initialize_alias());
+            self.add_return(*index, &alias, into_separator);
+        }
+        // Apply aliases on each other.
+        for (value, index) in &alias_indices {
+            for (alias_value, alias_index) in &alias_indices {
+                if value == alias_value {
+                    continue;
+                }
+                self.add_alias(alias_value, *alias_index, *index, &mut BTreeSet::new());
+            }
+        }
+        // Apply aliases on root.
+        for (value, index) in alias_indices {
+            self.add_alias(&value, index, root_index, &mut BTreeSet::new());
         }
     }
 

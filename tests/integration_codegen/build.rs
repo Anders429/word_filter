@@ -13,14 +13,11 @@ fn main() {
     let mut base_generator = WordFilterGenerator::new();
     base_generator.visibility(Visibility::Pub);
     let mut foo_generator = base_generator.clone();
-    foo_generator
-        .word("foo");
+    foo_generator.word("foo");
     let mut bar_generator = base_generator.clone();
-    bar_generator
-        .word("bar");
+    bar_generator.word("bar");
     let mut grapheme_generator = base_generator.clone();
-    grapheme_generator
-        .word("bãr");
+    grapheme_generator.word("bãr");
 
     writeln!(
         &mut file,

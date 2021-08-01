@@ -127,4 +127,7 @@ compiles!(
         bar"
     ))
 );
-compiles!(separator_flags, WordFilterGenerator::new().separator_flags(SeparatorFlags::BETWEEN_EXCEPTIONS));
+compiles!(
+    separator_flags,
+    WordFilterGenerator::new().separator_flags(SeparatorFlags::BETWEEN_EXCEPTIONS)
+);

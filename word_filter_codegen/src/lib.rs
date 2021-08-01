@@ -209,8 +209,16 @@ impl WordFilterGenerator {
     /// ```
     #[inline]
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self {
+            words: Vec::new(),
+            exceptions: Vec::new(),
+            separators: Vec::new(),
+            aliases: Vec::new(),
+            visibility: Visibility::Private,
+            separator_flags: SeparatorFlags::all(),
+            doc: String::new(),
+        }
     }
 
     /// Add a single word.

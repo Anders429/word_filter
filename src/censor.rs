@@ -14,7 +14,7 @@
 //!     io::{BufWriter, Write},
 //!     path::Path,
 //! };
-//! use word_filter_codegen::{Visibility, WordFilterGenerator};
+//! use word_filter_codegen::WordFilterGenerator;
 //!
 //! fn main() {
 //!     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
@@ -24,7 +24,6 @@
 //!         &mut file,
 //!         "{}",
 //!         WordFilterGenerator::new()
-//!             .visibility(Visibility::Pub)
 //!             .word("foo")
 //!             .generate("FILTER")
 //!         );
@@ -64,7 +63,7 @@ pub use unicode_segmentation::UnicodeSegmentation;
 ///     io::{BufWriter, Write},
 ///     path::Path,
 /// };
-/// use word_filter_codegen::{Visibility, WordFilterGenerator};
+/// use word_filter_codegen::WordFilterGenerator;
 ///
 /// fn main() {
 ///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
@@ -121,7 +120,7 @@ pub use _replace_graphemes_with as replace_graphemes_with;
 ///     io::{BufWriter, Write},
 ///     path::Path,
 /// };
-/// use word_filter_codegen::{Visibility, WordFilterGenerator};
+/// use word_filter_codegen::WordFilterGenerator;
 ///
 /// fn main() {
 ///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");

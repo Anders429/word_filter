@@ -27,7 +27,7 @@ fn main() {
 
     writeln!(
         &mut file,
-        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
         foo_generator.generate("WORD"),
         foo_generator.clone().word("bar").generate("MULTIPLE_WORDS"),
         foo_generator
@@ -110,6 +110,7 @@ fn main() {
             .word("foo")
             .exception("foobar")
             .generate("NO_SEPARATOR_IN_EXCEPTION"),
+        base_generator.clone().generate("EMPTY"),
     )
     .unwrap();
 }

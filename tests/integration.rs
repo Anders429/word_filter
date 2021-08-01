@@ -224,3 +224,8 @@ fn no_separator_allowed_in_exception() {
 fn separators_in_match_but_not_in_exception() {
     assert_eq!(NO_SEPARATOR_IN_EXCEPTION.censor("f o o bar"), "***** bar");
 }
+
+#[test]
+fn empty() {
+    assert_eq!(EMPTY.censor("foo"), "foo");
+}

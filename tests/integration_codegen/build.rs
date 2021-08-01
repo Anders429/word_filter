@@ -14,15 +14,12 @@ fn main() {
     base_generator.visibility(Visibility::Pub);
     let mut foo_generator = base_generator.clone();
     foo_generator
-        .separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS)
         .word("foo");
     let mut bar_generator = base_generator.clone();
     bar_generator
-        .separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS)
         .word("bar");
     let mut grapheme_generator = base_generator.clone();
     grapheme_generator
-        .separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS)
         .word("bãr");
 
     writeln!(
@@ -100,6 +97,7 @@ fn main() {
             .generate("COMBINING_SEPARATOR"),
         base_generator
             .clone()
+            .separator_flags(SeparatorFlags::empty())
             .separator(' ')
             .word("foo")
             .generate("NO_SEPARATOR_IN_MATCH"),

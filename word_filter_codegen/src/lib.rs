@@ -146,6 +146,9 @@ bitflags! {
     ///
     /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS);
     /// ```
+    ///
+    /// Note that a `WordFilter` will default to having `BETWEEN_WORDS` and `BETWEEN_EXCEPTIONS`.
+    /// set.
     pub struct SeparatorFlags: u8 {
         /// Allow separators when matching words.
         const BETWEEN_WORDS = 0x0000_0001;
@@ -156,7 +159,7 @@ bitflags! {
 
 impl Default for SeparatorFlags {
     fn default() -> Self {
-        Self::empty()
+        Self::all()
     }
 }
 
@@ -288,9 +291,6 @@ impl WordFilterGenerator {
 
     /// Add a single separator.
     ///
-    /// Note that separator flags must be set with [`separator_flags()`] for this to have any
-    /// effect.
-    ///
     /// # Example
     /// ```
     /// use word_filter_codegen::WordFilterGenerator;
@@ -298,8 +298,6 @@ impl WordFilterGenerator {
     /// let mut generator = WordFilterGenerator::new();
     /// generator.separator("foo");
     /// ```
-    ///
-    /// [`separator_flags()`]: WordFilterGenerator::separator_flags()
     #[inline]
     pub fn separator<S>(&mut self, separator: S) -> &mut Self
     where
@@ -311,9 +309,6 @@ impl WordFilterGenerator {
 
     /// Add separators.
     ///
-    /// Note that separator flags must be set with [`separator_flags()`] for this to have any
-    /// effect.
-    ///
     /// # Example
     /// ```
     /// use word_filter_codegen::WordFilterGenerator;
@@ -321,8 +316,6 @@ impl WordFilterGenerator {
     /// let mut generator = WordFilterGenerator::new();
     /// generator.separators(&["foo", "bar"]);
     /// ```
-    ///
-    /// [`separator_flags()`]: WordFilterGenerator::separator_flags()
     #[inline]
     pub fn separators<I, S>(&mut self, separators: I) -> &mut Self
     where

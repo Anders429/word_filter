@@ -21,4 +21,4 @@ unicode-segmentation = "1.7.1"
 [dev-dependencies]
 indoc = "1.0.3"
 trybuild = "1.0.42"
-word_filter = {version = "0.6.0", path = ".."}
+word_filter = {version = "0.7.0", path = ".."}

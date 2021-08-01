@@ -544,8 +544,8 @@ impl WordFilterGenerator {
 
         // Apply aliases on root.
         for (value, index) in alias_indices {
-            pda.add_alias(&value, index, 0, &mut BTreeSet::new());
-            pda.add_alias(&value, index, 1, &mut BTreeSet::new());
+            pda.add_alias(&value, index, pda::WORD_INDEX, &mut BTreeSet::new());
+            pda.add_alias(&value, index, pda::EXCEPTION_INDEX, &mut BTreeSet::new());
         }
 
         pda.minimize();

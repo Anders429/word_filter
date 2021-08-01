@@ -7,9 +7,9 @@ use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
 // Reserved indices.
-const WORD_INDEX: usize = 0;
-const EXCEPTION_INDEX: usize = 1;
-const SEPARATOR_INDEX: usize = 2;
+pub(crate) const WORD_INDEX: usize = 0;
+pub(crate) const EXCEPTION_INDEX: usize = 1;
+pub(crate) const SEPARATOR_INDEX: usize = 2;
 
 /// Push-down automaton code generator.
 ///

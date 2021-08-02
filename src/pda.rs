@@ -458,6 +458,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// Transition using the input character `c`.
     ///
     /// If an ε-transition is desired, `None` should be provided for `c`.
+    #[inline]
     pub(crate) fn transition(
         &self,
         c: Option<char>,

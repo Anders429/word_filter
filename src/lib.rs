@@ -315,7 +315,11 @@ impl<'a, const N: usize> WordFilter<'a, N> {
                 for _ in 0..(id.start() - prev_end) {
                     output.push(match chars.next() {
                         Some(c) => c,
-                        None => unsafe { debug_unreachable!() },
+                        None => unsafe {
+                            // SAFETY: `chars.next()` is guaranteed to return a value, since
+                            // `id.start()` will always be bound by the length of `input`.
+                            debug_unreachable!()
+                        },
                     })
                 }
             }

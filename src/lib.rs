@@ -77,7 +77,6 @@ pub mod pda;
 use alloc::{string::String, vec, vec::Vec};
 use core::{cmp, iter::FromIterator};
 use debug_unreachable::debug_unreachable;
-use hashbrown::HashSet;
 use nested_containment_list::NestedContainmentList;
 use pda::{InstantaneousDescription, State};
 use unicode_segmentation::UnicodeSegmentation;
@@ -120,8 +119,8 @@ impl<'a, const N: usize> WordFilter<'a, N> {
             InstantaneousDescription::new(&self.states[WORD_INDEX], start),
             InstantaneousDescription::new(&self.states[EXCEPTION_INDEX], start),
         ];
-        ids.extend(ids[0].transition(None, &self.states[SEPARATOR_INDEX], &mut HashSet::new()));
-        ids.extend(ids[1].transition(None, &self.states[SEPARATOR_INDEX], &mut HashSet::new()));
+        ids.extend(ids[0].transition(None, &self.states[SEPARATOR_INDEX]));
+        ids.extend(ids[1].transition(None, &self.states[SEPARATOR_INDEX]));
         ids.into_iter()
     }
 

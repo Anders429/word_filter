@@ -475,11 +475,8 @@ impl<'a> InstantaneousDescription<'a> {
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
         if new_grapheme {
-            if matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn) {
-                self.separator_grapheme = true;
-            } else {
-                self.separator_grapheme = false;
-            }
+            self.separator_grapheme =
+                matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn);
         }
         self.transition(Some(c), separator)
     }

@@ -211,8 +211,10 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     /// [`Iterator`]: core::iter::Iterator
     #[inline]
     pub fn find(&'a self, input: &str) -> impl Iterator<Item = &str> {
-        self.compute(input)
-            .map(|id| unsafe { id.unwrap_word_unchecked() })
+        self.compute(input).map(|id| unsafe {
+            // SAFETY: Each item returned from `self.compute()` is guaranteed to contain a word.
+            id.unwrap_word_unchecked()
+        })
     }
 
     /// Check whether `input` contains any filtered words.

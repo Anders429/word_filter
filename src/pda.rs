@@ -411,10 +411,11 @@ impl<'a> InstantaneousDescription<'a> {
         self.end
     }
 
-    /// Transition using the input character `c`.
+    /// Internal transition method, with visited context.
     ///
-    /// If an ε-transition is desired, `None` should be provided for `c`.
-    pub(crate) fn transition(
+    /// This allows transitions to keep track of which states have already been visited to prevent
+    /// getting stuck in infinite loops.
+    fn transition_with_visited(
         &self,
         c: Option<char>,
         separator: &'a State<'a>,
@@ -445,13 +446,24 @@ impl<'a> InstantaneousDescription<'a> {
                 }
                 // ε-transitions.
                 visited.insert(ByAddress(transition.state));
-                new_ids.extend(new_id.transition(None, separator, visited));
+                new_ids.extend(new_id.transition_with_visited(None, separator, visited));
                 visited.remove(&ByAddress(transition.state));
 
                 new_ids.push(new_id);
             }
         }
         new_ids.into_iter()
+    }
+
+    /// Transition using the input character `c`.
+    ///
+    /// If an ε-transition is desired, `None` should be provided for `c`.
+    pub(crate) fn transition(
+        &self,
+        c: Option<char>,
+        separator: &'a State<'a>,
+    ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
+        self.transition_with_visited(c, separator, &mut HashSet::new())
     }
 
     /// Step along the input `c`.
@@ -469,7 +481,7 @@ impl<'a> InstantaneousDescription<'a> {
                 self.separator_grapheme = false;
             }
         }
-        self.transition(Some(c), separator, &mut HashSet::new())
+        self.transition(Some(c), separator)
     }
 }
 

@@ -1,7 +1,8 @@
 //! Code generation logic for a state within the push-down automaton.
 
-use crate::r#type::Type;
+use crate::{flags::Flags, r#type::Type};
 use alloc::{
+    borrow::ToOwned,
     collections::{BTreeMap, BTreeSet},
     format,
     string::String,
@@ -11,6 +12,8 @@ use alloc::{
 /// Push-down automaton state code generator.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub(crate) struct State<'a> {
+    pub(crate) flags: Flags,
+    pub(crate) word: Option<&'a str>,
     pub(crate) r#type: Type<'a>,
     pub(crate) c_transitions: BTreeMap<char, usize>,
     pub(crate) into_separator: bool,
@@ -25,6 +28,8 @@ impl State<'_> {
     pub(crate) fn to_definition(&self, identifier: &str) -> String {
         format!(
             "        ::word_filter::pda::State {{
+            flags: {},
+            word: {},
             r#type: {},
             c_transitions: {},
             into_separator: {},
@@ -33,6 +38,8 @@ impl State<'_> {
             aliases: {},
             graphemes: {},
         }}",
+            self.flags.to_definition(),
+            self.define_word(),
             self.r#type.to_definition(),
             self.define_c_transition_function(identifier),
             self.into_separator,
@@ -41,6 +48,13 @@ impl State<'_> {
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )
+    }
+
+    fn define_word(&self) -> String {
+        match self.word {
+            Some(word) => format!("Some(\"{}\")", word),
+            None => "None".to_owned(),
+        }
     }
 
     /// Define the transition function for all direct character transitions.

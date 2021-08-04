@@ -122,6 +122,8 @@ struct Transition<'a> {
 /// and `graphemes` define ε-transitions.
 #[derive(Debug)]
 pub struct State<'a> {
+    pub flags: Flags,
+    pub word: Option<&'a str>,
     /// The state's type.
     pub r#type: Type<'a>,
     /// Direct character transitions.

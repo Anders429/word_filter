@@ -32,3 +32,9 @@ impl Flags {
         format!("word_filter::pda::Flags::from_bits_truncate({})", self.bits())
     }
 }
+
+impl Default for Flags {
+    fn default() -> Self {
+        Self::empty()
+    }
+}

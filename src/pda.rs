@@ -419,7 +419,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// Return whether the state is a word.
     #[inline]
     pub(crate) fn is_word(&self) -> bool {
-        self.state.flags.contains(Flags::WORD)
+        self.state.flags.contains(Flags::WORD) && self.state.word.is_some()
     }
 
     /// Unwrap the word that is contained in the state's type.

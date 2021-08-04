@@ -60,6 +60,7 @@
 
 extern crate alloc;
 
+mod flags;
 mod pda;
 mod state;
 mod r#type;

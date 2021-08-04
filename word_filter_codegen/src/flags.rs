@@ -23,6 +23,9 @@ bitflags! {
         const TAKE_REPETITION = 0b0010_0000;
         /// This state can enter a separator subroutine.
         const INTO_SEPARATOR = 0b0100_0000;
+
+        /// All flags defining a state type.
+        const STATE_TYPES = Self::WORD.bits() | Self::EXCEPTION.bits() | Self::SEPARATOR.bits() | Self::RETURN.bits();
     }
 }
 

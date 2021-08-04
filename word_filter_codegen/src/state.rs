@@ -14,11 +14,7 @@ use alloc::{
 pub(crate) struct State<'a> {
     pub(crate) flags: Flags,
     pub(crate) word: Option<&'a str>,
-    pub(crate) r#type: Type<'a>,
     pub(crate) c_transitions: BTreeMap<char, usize>,
-    pub(crate) into_separator: bool,
-    pub(crate) into_repetition: bool,
-    pub(crate) take_repetition: bool,
     pub(crate) aliases: BTreeSet<(usize, usize)>,
     pub(crate) graphemes: BTreeSet<usize>,
 }
@@ -30,21 +26,13 @@ impl State<'_> {
             "        ::word_filter::pda::State {{
             flags: {},
             word: {},
-            r#type: {},
             c_transitions: {},
-            into_separator: {},
-            into_repetition: {},
-            take_repetition: {},
             aliases: {},
             graphemes: {},
         }}",
             self.flags.to_definition(),
             self.define_word(),
-            self.r#type.to_definition(),
             self.define_c_transition_function(identifier),
-            self.into_separator,
-            self.into_repetition,
-            self.take_repetition,
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )

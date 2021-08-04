@@ -124,18 +124,10 @@ struct Transition<'a> {
 pub struct State<'a> {
     pub flags: Flags,
     pub word: Option<&'a str>,
-    /// The state's type.
-    pub r#type: Type<'a>,
     /// Direct character transitions.
     ///
     /// Each character can only transition to one other state directly.
     pub c_transitions: fn(char) -> Option<&'a State<'a>>,
-    /// Whether the state can be repeated to.
-    pub into_repetition: bool,
-    /// Whether the state can process a repetition on the stack.
-    pub take_repetition: bool,
-    /// Whether the separator state can be entered from this state.
-    pub into_separator: bool,
     /// Alias states and their accompanying return states.
     ///
     /// These are pairs of the form (alias_state, return_state). When computation traversed to
@@ -150,6 +142,21 @@ pub struct State<'a> {
 }
 
 impl<'a> State<'a> {
+    #[inline]
+    fn into_repetition(&self) -> bool {
+        self.flags.contains(Flags::INTO_REPETITION)
+    }
+
+    #[inline]
+    fn take_repetition(&self) -> bool {
+        self.flags.contains(Flags::TAKE_REPETITION)
+    }
+
+    #[inline]
+    fn into_separator(&self) -> bool {
+        self.flags.contains(Flags::INTO_SEPARATOR)
+    }
+
     /// Transition using the given input character `c` with the top-of-stack value `s`.
     ///
     /// To perform an ε-transition, a `None` value should be provided for the parameter `c`.
@@ -166,13 +173,13 @@ impl<'a> State<'a> {
             stack::Value::Repetition(repetition_state) => {
                 match c {
                     Some(c) => {
-                        if !self.take_repetition {
+                        if !self.take_repetition() {
                             if let Some(state) = (self.c_transitions)(c) {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![],
                                 });
-                                if self.into_repetition {
+                                if self.into_repetition() {
                                     result.push(Transition {
                                         state,
                                         stack_manipulations: vec![stack::Manipulation::Push(
@@ -184,7 +191,7 @@ impl<'a> State<'a> {
                         }
                     }
                     None => {
-                        if self.into_separator {
+                        if self.into_separator() {
                             result.push(Transition {
                                 state: separator,
                                 stack_manipulations: vec![stack::Manipulation::Push(
@@ -192,7 +199,7 @@ impl<'a> State<'a> {
                                 )],
                             });
                         }
-                        if self.take_repetition {
+                        if self.take_repetition() {
                             // Take the repetition.
                             result.push(Transition {
                                 state: repetition_state,
@@ -209,7 +216,7 @@ impl<'a> State<'a> {
                                         stack::Value::Return(alias.1),
                                     )],
                                 });
-                                if self.into_repetition {
+                                if self.into_repetition() {
                                     result.push(Transition {
                                         state: alias.0,
                                         stack_manipulations: vec![
@@ -236,13 +243,13 @@ impl<'a> State<'a> {
             stack::Value::Target(target_state) => match c {
                 Some(c) => {
                     if let Some(state) = (self.c_transitions)(c) {
-                        if state.take_repetition {
+                        if state.take_repetition() {
                             if ptr::eq(state, target_state) {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Pop],
                                 });
-                                if self.into_repetition {
+                                if self.into_repetition() {
                                     result.push(Transition {
                                         state,
                                         stack_manipulations: vec![
@@ -259,7 +266,7 @@ impl<'a> State<'a> {
                                 state,
                                 stack_manipulations: vec![],
                             });
-                            if self.into_repetition {
+                            if self.into_repetition() {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Push(
@@ -280,7 +287,7 @@ impl<'a> State<'a> {
                                     stack::Manipulation::Push(stack::Value::Return(alias.1)),
                                 ],
                             });
-                            if self.into_repetition {
+                            if self.into_repetition() {
                                 result.push(Transition {
                                     state: alias.0,
                                     stack_manipulations: vec![
@@ -301,7 +308,7 @@ impl<'a> State<'a> {
                             state,
                             stack_manipulations: vec![],
                         });
-                        if self.into_repetition {
+                        if self.into_repetition() {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![stack::Manipulation::Push(
@@ -312,7 +319,7 @@ impl<'a> State<'a> {
                     }
                 }
                 None => {
-                    if self.into_separator {
+                    if self.into_separator() {
                         result.push(Transition {
                             state: separator,
                             stack_manipulations: vec![stack::Manipulation::Push(
@@ -327,7 +334,7 @@ impl<'a> State<'a> {
                                 stack::Value::Return(alias.1),
                             )],
                         });
-                        if self.into_repetition {
+                        if self.into_repetition() {
                             result.push(Transition {
                                 state: alias.0,
                                 stack_manipulations: vec![
@@ -344,7 +351,7 @@ impl<'a> State<'a> {
                         });
                     }
 
-                    if matches!(self.r#type, Type::Return | Type::SeparatorReturn) {
+                    if self.flags.contains(Flags::RETURN) {
                         if let stack::Value::Return(state) = s {
                             result.push(Transition {
                                 state,
@@ -404,7 +411,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_) | Type::Exception)
+        self.state.flags.intersects(Flags::WORD | Flags::EXCEPTION)
             && self.stack.is_empty()
             && !self.separator_grapheme
     }
@@ -412,7 +419,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// Return whether the state is a word.
     #[inline]
     pub(crate) fn is_word(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_))
+        self.state.flags.contains(Flags::WORD)
     }
 
     /// Unwrap the word that is contained in the state's type.
@@ -421,9 +428,9 @@ impl<'a> InstantaneousDescription<'a> {
     /// calling.
     #[inline]
     pub(crate) unsafe fn unwrap_word_unchecked(self) -> &'a str {
-        match self.state.r#type {
-            Type::Word(s) => s,
-            _ => debug_unreachable!(),
+        match self.state.word {
+            Some(s) => s,
+            None => debug_unreachable!(),
         }
     }
 
@@ -460,7 +467,7 @@ impl<'a> InstantaneousDescription<'a> {
             .iter()
         {
             if !visited.contains(&ByAddress(transition.state))
-                || matches!(transition.state.r#type, Type::Return)
+                || transition.state.flags.contains(Flags::RETURN)
             {
                 let mut new_id = self.clone();
                 new_id.state = transition.state;
@@ -505,7 +512,7 @@ impl<'a> InstantaneousDescription<'a> {
         self.end += 1;
         if new_grapheme {
             self.separator_grapheme =
-                matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn);
+                self.state.flags.contains(Flags::SEPARATOR);
         }
         self.transition(Some(c), separator)
     }
@@ -526,9 +533,10 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     /// which case it is inclusive. This is to ensure that Exceptions take precedence over Words.
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
-        match self.state.r#type {
-            Type::Exception => Bound::Included(&self.end),
-            _ => Bound::Excluded(&self.end),
+        if self.state.flags.contains(Flags::EXCEPTION) {
+            Bound::Included(&self.end)
+        } else {
+            Bound::Excluded(&self.end)
         }
     }
 }

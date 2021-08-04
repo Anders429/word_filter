@@ -458,6 +458,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// Transition using the input character `c`.
     ///
     /// If an ε-transition is desired, `None` should be provided for `c`.
+    #[inline]
     pub(crate) fn transition(
         &self,
         c: Option<char>,
@@ -475,11 +476,8 @@ impl<'a> InstantaneousDescription<'a> {
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
         if new_grapheme {
-            if matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn) {
-                self.separator_grapheme = true;
-            } else {
-                self.separator_grapheme = false;
-            }
+            self.separator_grapheme =
+                matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn);
         }
         self.transition(Some(c), separator)
     }

@@ -119,8 +119,13 @@ impl<'a, const N: usize> WordFilter<'a, N> {
             InstantaneousDescription::new(&self.states[WORD_INDEX], start),
             InstantaneousDescription::new(&self.states[EXCEPTION_INDEX], start),
         ];
-        ids.extend(ids[0].transition(None, &self.states[SEPARATOR_INDEX]));
-        ids.extend(ids[1].transition(None, &self.states[SEPARATOR_INDEX]));
+
+        ids.extend(
+            ids.iter()
+                .map(|id| id.transition(None, &self.states[SEPARATOR_INDEX]))
+                .flatten()
+                .collect::<Vec<_>>(),
+        );
         ids.into_iter()
     }
 
@@ -206,8 +211,10 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     /// [`Iterator`]: core::iter::Iterator
     #[inline]
     pub fn find(&'a self, input: &str) -> impl Iterator<Item = &str> {
-        self.compute(input)
-            .map(|id| unsafe { id.unwrap_word_unchecked() })
+        self.compute(input).map(|id| unsafe {
+            // SAFETY: Each item returned from `self.compute()` is guaranteed to contain a word.
+            id.unwrap_word_unchecked()
+        })
     }
 
     /// Check whether `input` contains any filtered words.
@@ -308,7 +315,11 @@ impl<'a, const N: usize> WordFilter<'a, N> {
                 for _ in 0..(id.start() - prev_end) {
                     output.push(match chars.next() {
                         Some(c) => c,
-                        None => unsafe { debug_unreachable!() },
+                        None => unsafe {
+                            // SAFETY: `chars.next()` is guaranteed to return a value, since
+                            // `id.start()` will always be bound by the length of `input`.
+                            debug_unreachable!()
+                        },
                     })
                 }
             }

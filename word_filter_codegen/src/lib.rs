@@ -384,6 +384,18 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Set separator flags to be used when generating code.
+    ///
+    /// These flags specify how separators should be allowed during parsing. By default, the value
+    /// used will be [`SeparatorFlags::all()`], allowing separators between every character.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter_codegen::{SeparatorFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS);
+    /// ```
     #[inline]
     pub fn separator_flags(&mut self, separator_flags: SeparatorFlags) -> &mut Self {
         self.separator_flags = separator_flags;

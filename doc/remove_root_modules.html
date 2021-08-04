@@ -4,7 +4,8 @@
         macros.nextElementSibling.remove();
         macros.remove();
         window.onload = function() {document.getElementsByClassName("block items")[0].getElementsByTagName("LI")[1].remove();}
-    } else if (document.title != "word_filter::censor::replace_chars_with - Rust" && document.title != "word_filter::censor::replace_graphemes_with - Rust") {
+    }
+    if (document.title != "replace_chars_with in word_filter::censor - Rust" && document.title != "replace_graphemes_with in word_filter::censor - Rust") {
         window.onload = function() {document.getElementsByClassName("block macro")[0].remove();}
     }
 </script>

@@ -28,11 +28,15 @@ bitflags! {
     /// These flags define boolean attributes on a `State`. Multiple flags may be set at the same
     /// time.
     pub struct Flags: u8 {
-        /// The state is matching state, matching a word.
+        /// The state is a matching state, matching a word.
         ///
         /// If this flag is set, a word should be stored within the state as well.
+        ///
+        /// This flag cannot be set if `EXCEPTION` is set.
         const WORD = 0b0000_0001;
         /// The state is a matching state, matching an exception.
+        ///
+        /// This flag cannot be set if `WORD` is set.
         const EXCEPTION = 0b0000_0010;
         /// This is a separator state, existing within a separator subroutine.
         const SEPARATOR = 0b0000_0100;
@@ -45,6 +49,11 @@ bitflags! {
         /// This state can enter a separator subroutine.
         const INTO_SEPARATOR = 0b0100_0000;
 
+        /// This state is an accepting state.
+        ///
+        /// This is the same as saying the state is a matching state. A state should not be set
+        /// with these flags, as it would set both the `WORD` and `EXCEPTION` bits, which is not
+        /// valid for constructing a state.
         const ACCEPTING = Flags::WORD.bits() | Flags::EXCEPTION.bits();
     }
 }
@@ -56,6 +65,15 @@ pub struct Attributes<'a> {
 }
 
 impl<'a> Attributes<'a> {
+    /// Create a new `Attributes` struct containing the given `flags` and `word`.
+    ///
+    /// This associated function checks that the following invariants are upheld:
+    /// - If the `WORD` flag is set, then `word` must not be `None`.
+    /// - The `WORD` and `EXCEPTION` flags cannot both be set.
+    ///
+    /// If a strange error is encountered within this method, it is likely one of these invariants
+    /// is not upheld. The strangeness of the error is consequential of the difficulty is asserting
+    /// values at compile-time.
     pub const fn new(flags: Flags, word: Option<&'a str>) -> Self {
         // If this errors with some weird error, it means that the invariant between the WORD flag
         // and the `word` attribute is not upheld.
@@ -67,41 +85,49 @@ impl<'a> Attributes<'a> {
         Self { flags, word }
     }
 
+    /// Returns whether the `WORD` flag is set.
     #[inline]
     fn word(&self) -> bool {
         self.flags.contains(Flags::WORD)
     }
 
+    /// Returns whether the `EXCEPTION` flag is set.
     #[inline]
     fn exception(&self) -> bool {
         self.flags.contains(Flags::EXCEPTION)
     }
 
+    /// Returns whether the `SEPARATOR` flag is set.
     #[inline]
     fn separator(&self) -> bool {
         self.flags.contains(Flags::SEPARATOR)
     }
 
+    /// Returns whether the `RETURN` flag is set.
     #[inline]
     fn r#return(&self) -> bool {
         self.flags.contains(Flags::RETURN)
     }
 
+    /// Returns whether the `INTO_REPETITION` flag is set.
     #[inline]
     fn into_repetition(&self) -> bool {
         self.flags.contains(Flags::INTO_REPETITION)
     }
 
+    /// Returns whether the `TAKE_REPETITION` flag is set.
     #[inline]
     fn take_repetition(&self) -> bool {
         self.flags.contains(Flags::TAKE_REPETITION)
     }
 
+    /// Returns whether the `INTO_SEPARATOR` flag is set.
     #[inline]
     fn into_separator(&self) -> bool {
         self.flags.contains(Flags::INTO_SEPARATOR)
     }
 
+    /// Returns whether one of the `WORD` or `EXCEPTION` flags are set.
     #[inline]
     fn accepting(&self) -> bool {
         self.flags.intersects(Flags::ACCEPTING)

@@ -215,16 +215,19 @@ pub struct State<'a> {
 }
 
 impl<'a> State<'a> {
+    /// Returns whether the state can be repeated to.
     #[inline]
     fn into_repetition(&self) -> bool {
         self.attributes.into_repetition()
     }
 
+    /// Returns whether the state can process a repetition on the stack.
     #[inline]
     fn take_repetition(&self) -> bool {
         self.attributes.take_repetition()
     }
 
+    /// Returns whether the state can enter a separator.
     #[inline]
     fn into_separator(&self) -> bool {
         self.attributes.into_separator()

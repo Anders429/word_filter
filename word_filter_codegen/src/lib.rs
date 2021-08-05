@@ -63,7 +63,6 @@ extern crate alloc;
 mod flags;
 mod pda;
 mod state;
-mod r#type;
 
 use alloc::{
     borrow::ToOwned,

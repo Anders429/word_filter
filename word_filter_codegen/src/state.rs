@@ -1,6 +1,6 @@
 //! Code generation logic for a state within the push-down automaton.
 
-use crate::{flags::Flags, r#type::Type};
+use crate::flags::Flags;
 use alloc::{
     borrow::ToOwned,
     collections::{BTreeMap, BTreeSet},

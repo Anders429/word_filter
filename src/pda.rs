@@ -46,32 +46,6 @@ bitflags! {
     }
 }
 
-/// The different types of states.
-///
-/// Note that Word and Exception states are considered accepting states.
-#[derive(Debug)]
-pub enum Type<'a> {
-    /// A standard state.
-    None,
-    /// Indicates a matching state, matching the stored word.
-    Word(&'a str),
-    /// Indicates a matching state that is an exception.
-    Exception,
-    /// A separator state.
-    ///
-    /// Indicates that the current state is within a separator, and should be treated as such when
-    /// matching during computation.
-    Separator,
-    /// A return state.
-    ///
-    /// Traversal from this state will pop the top-most state on the stack and traverse to it.
-    Return,
-    /// A separator return state.
-    ///
-    /// This should be treated as a combination of the Separator and Return types.
-    SeparatorReturn,
-}
-
 /// Stack-related enums.
 mod stack {
     use super::State;

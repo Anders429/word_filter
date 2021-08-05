@@ -24,18 +24,23 @@ impl State<'_> {
     pub(crate) fn to_definition(&self, identifier: &str) -> String {
         format!(
             "        ::word_filter::pda::State {{
-            flags: {},
-            word: {},
+            attributes: {},
             c_transitions: {},
             aliases: {},
             graphemes: {},
         }}",
-            self.flags.to_definition(),
-            self.define_word(),
+            self.define_attributes(),
             self.define_c_transition_function(identifier),
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )
+    }
+
+    fn define_attributes(&self) -> String {
+        format!("word_filter::pda::Attributes::new(
+                {},
+                {},
+            )", self.flags.to_definition(), self.define_word())
     }
 
     fn define_word(&self) -> String {

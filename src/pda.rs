@@ -14,6 +14,7 @@
 use alloc::{vec, vec::Vec};
 use bitflags::bitflags;
 use by_address::ByAddress;
+use const_fn_assert::cfn_assert_eq;
 use core::{
     ops::{Bound, RangeBounds},
     ptr,
@@ -24,7 +25,7 @@ use hashbrown::HashSet;
 bitflags! {
     /// Bitflags that define attributes on a [`State`].
     ///
-    /// These flags define specific attributes on a `State`. Multiple flags may be set at the same
+    /// These flags define boolean attributes on a `State`. Multiple flags may be set at the same
     /// time.
     pub struct Flags: u8 {
         /// The state is matching state, matching a word.
@@ -43,6 +44,66 @@ bitflags! {
         const TAKE_REPETITION = 0b0010_0000;
         /// This state can enter a separator subroutine.
         const INTO_SEPARATOR = 0b0100_0000;
+
+        const ACCEPTING = Flags::WORD.bits() | Flags::EXCEPTION.bits();
+    }
+}
+
+#[derive(Debug)]
+pub struct Attributes<'a> {
+    flags: Flags,
+    word: Option<&'a str>,
+}
+
+impl<'a> Attributes<'a> {
+    pub const fn new(flags: Flags, word: Option<&'a str>) -> Self {
+        // If this errors with some weird error, it means that the invariant between the WORD flag
+        // and the `word` attribute is not upheld.
+        cfn_assert_eq!(flags.contains(Flags::WORD), word.is_some());
+        
+        Self {
+            flags,
+            word,
+        }
+    }
+
+    fn word(&self) -> bool {
+        self.flags.contains(Flags::WORD)
+    }
+
+    fn exception(&self) -> bool {
+        self.flags.contains(Flags::EXCEPTION)
+    }
+
+    fn separator(&self) -> bool {
+        self.flags.contains(Flags::SEPARATOR)
+    }
+
+    fn r#return(&self) -> bool {
+        self.flags.contains(Flags::RETURN)
+    }
+
+    fn into_repetition(&self) -> bool {
+        self.flags.contains(Flags::INTO_REPETITION)
+    }
+
+    fn take_repetition(&self) -> bool {
+        self.flags.contains(Flags::TAKE_REPETITION)
+    }
+
+    fn into_separator(&self) -> bool {
+        self.flags.contains(Flags::INTO_SEPARATOR)
+    }
+
+    fn accepting(&self) -> bool {
+        self.flags.intersects(Flags::ACCEPTING)
+    }
+
+    unsafe fn unwrap_word_unchecked(&self) -> &'a str {
+        match self.word {
+            Some(word) => word,
+            None => debug_unreachable!(),
+        }
     }
 }
 
@@ -96,8 +157,7 @@ struct Transition<'a> {
 /// and `graphemes` define ε-transitions.
 #[derive(Debug)]
 pub struct State<'a> {
-    pub flags: Flags,
-    pub word: Option<&'a str>,
+    pub attributes: Attributes<'a>,
     /// Direct character transitions.
     ///
     /// Each character can only transition to one other state directly.
@@ -118,17 +178,17 @@ pub struct State<'a> {
 impl<'a> State<'a> {
     #[inline]
     fn into_repetition(&self) -> bool {
-        self.flags.contains(Flags::INTO_REPETITION)
+        self.attributes.into_repetition()
     }
 
     #[inline]
     fn take_repetition(&self) -> bool {
-        self.flags.contains(Flags::TAKE_REPETITION)
+        self.attributes.take_repetition()
     }
 
     #[inline]
     fn into_separator(&self) -> bool {
-        self.flags.contains(Flags::INTO_SEPARATOR)
+        self.attributes.into_separator()
     }
 
     /// Transition using the given input character `c` with the top-of-stack value `s`.
@@ -325,7 +385,7 @@ impl<'a> State<'a> {
                         });
                     }
 
-                    if self.flags.contains(Flags::RETURN) {
+                    if self.attributes.r#return() {
                         if let stack::Value::Return(state) = s {
                             result.push(Transition {
                                 state,
@@ -385,7 +445,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        self.state.flags.intersects(Flags::WORD | Flags::EXCEPTION)
+        self.state.attributes.accepting()
             && self.stack.is_empty()
             && !self.separator_grapheme
     }
@@ -393,7 +453,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// Return whether the state is a word.
     #[inline]
     pub(crate) fn is_word(&self) -> bool {
-        self.state.flags.contains(Flags::WORD) && self.state.word.is_some()
+        self.state.attributes.word()
     }
 
     /// Unwrap the word that is contained in the state's type.
@@ -402,10 +462,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// calling.
     #[inline]
     pub(crate) unsafe fn unwrap_word_unchecked(self) -> &'a str {
-        match self.state.word {
-            Some(s) => s,
-            None => debug_unreachable!(),
-        }
+        self.state.attributes.unwrap_word_unchecked()
     }
 
     /// Return the start index.
@@ -441,7 +498,7 @@ impl<'a> InstantaneousDescription<'a> {
             .iter()
         {
             if !visited.contains(&ByAddress(transition.state))
-                || transition.state.flags.contains(Flags::RETURN)
+                || transition.state.attributes.r#return()
             {
                 let mut new_id = self.clone();
                 new_id.state = transition.state;
@@ -485,8 +542,7 @@ impl<'a> InstantaneousDescription<'a> {
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
         if new_grapheme {
-            self.separator_grapheme =
-                self.state.flags.contains(Flags::SEPARATOR);
+            self.separator_grapheme = self.state.attributes.separator();
         }
         self.transition(Some(c), separator)
     }
@@ -507,7 +563,7 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     /// which case it is inclusive. This is to ensure that Exceptions take precedence over Words.
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
-        if self.state.flags.contains(Flags::EXCEPTION) {
+        if self.state.attributes.exception() {
             Bound::Included(&self.end)
         } else {
             Bound::Excluded(&self.end)

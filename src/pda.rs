@@ -64,10 +64,7 @@ impl<'a> Attributes<'a> {
         // Same as above, but with regards to only one accepting flag.
         cfn_assert!(!flags.contains(Flags::ACCEPTING));
 
-        Self {
-            flags,
-            word,
-        }
+        Self { flags, word }
     }
 
     #[inline]
@@ -449,9 +446,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        self.state.attributes.accepting()
-            && self.stack.is_empty()
-            && !self.separator_grapheme
+        self.state.attributes.accepting() && self.stack.is_empty() && !self.separator_grapheme
     }
 
     /// Return whether the state is a word.

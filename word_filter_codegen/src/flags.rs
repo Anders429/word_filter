@@ -32,7 +32,10 @@ bitflags! {
 impl Flags {
     /// Returns the generated definition of this type.
     pub(crate) fn to_definition(&self) -> String {
-        format!("word_filter::pda::Flags::from_bits_truncate({})", self.bits())
+        format!(
+            "word_filter::pda::Flags::from_bits_truncate({})",
+            self.bits()
+        )
     }
 }
 

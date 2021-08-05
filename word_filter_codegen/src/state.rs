@@ -37,10 +37,14 @@ impl State<'_> {
     }
 
     fn define_attributes(&self) -> String {
-        format!("word_filter::pda::Attributes::new(
+        format!(
+            "word_filter::pda::Attributes::new(
                 {},
                 {},
-            )", self.flags.to_definition(), self.define_word())
+            )",
+            self.flags.to_definition(),
+            self.define_word()
+        )
     }
 
     fn define_word(&self) -> String {

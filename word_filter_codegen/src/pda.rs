@@ -45,7 +45,14 @@ impl<'a> Pda<'a> {
     }
 
     /// Add a path along input `s`, ending with state of the specified type.
-    fn add_path(&mut self, s: &str, flags: Flags, word: Option<&'a str>, index: usize, into_separator: bool) {
+    fn add_path(
+        &mut self,
+        s: &str,
+        flags: Flags,
+        word: Option<&'a str>,
+        index: usize,
+        into_separator: bool,
+    ) {
         let mut graphemes = s.graphemes(true);
         let grapheme = match graphemes.next() {
             Some(g) => g,
@@ -90,7 +97,9 @@ impl<'a> Pda<'a> {
                     // Add new state.
                     self.states[index].c_transitions.insert(c, new_index);
                     // Add repetition
-                    self.states[new_index].flags.insert(Flags::INTO_REPETITION | Flags::TAKE_REPETITION);
+                    self.states[new_index]
+                        .flags
+                        .insert(Flags::INTO_REPETITION | Flags::TAKE_REPETITION);
                     // Add separator transition to new state.
                     if into_separator {
                         self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
@@ -165,7 +174,9 @@ impl<'a> Pda<'a> {
         let c = match chars.next() {
             Some(c) => c,
             None => {
-                self.states[index].flags.insert(Flags::SEPARATOR | Flags::RETURN);
+                self.states[index]
+                    .flags
+                    .insert(Flags::SEPARATOR | Flags::RETURN);
                 return;
             }
         };

@@ -1,6 +1,6 @@
 //! Code generation logic for the push-down automaton structure that makes up a `WordFilter`.
 
-use crate::{r#type::Type, state::State};
+use crate::{flags::Flags, state::State};
 use alloc::{collections::BTreeSet, format, string::String, vec, vec::Vec};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
@@ -27,17 +27,17 @@ impl<'a> Pda<'a> {
             states: vec![
                 // Word entry state.
                 State {
-                    into_repetition: true,
+                    flags: Flags::INTO_REPETITION,
                     ..Default::default()
                 },
                 // Exception entry state.
                 State {
-                    into_repetition: true,
+                    flags: Flags::INTO_REPETITION,
                     ..Default::default()
                 },
                 // Separator entry state.
                 State {
-                    r#type: Type::Separator,
+                    flags: Flags::SEPARATOR,
                     ..Default::default()
                 },
             ],
@@ -45,14 +45,22 @@ impl<'a> Pda<'a> {
     }
 
     /// Add a path along input `s`, ending with state of the specified type.
-    fn add_path(&mut self, s: &str, r#type: Type<'a>, index: usize, into_separator: bool) {
+    fn add_path(
+        &mut self,
+        s: &str,
+        flags: Flags,
+        word: Option<&'a str>,
+        index: usize,
+        into_separator: bool,
+    ) {
         let mut graphemes = s.graphemes(true);
         let grapheme = match graphemes.next() {
             Some(g) => g,
             None => {
                 let mut state = &mut self.states[index];
-                if matches!(state.r#type, Type::None) {
-                    state.r#type = r#type;
+                if !state.flags.intersects(Flags::STATE_TYPES) {
+                    state.flags.insert(flags);
+                    state.word = word;
                 }
                 return;
             }
@@ -61,11 +69,12 @@ impl<'a> Pda<'a> {
             let new_index = self.states.len();
             self.states.push(State::default());
             self.states[index].graphemes.insert(new_index);
-            self.states[new_index].into_repetition = true;
+            self.states[new_index].flags.insert(Flags::INTO_REPETITION);
             self.add_grapheme(
                 grapheme,
                 graphemes.as_str(),
-                r#type,
+                flags,
+                word,
                 new_index,
                 new_index,
                 into_separator,
@@ -88,15 +97,18 @@ impl<'a> Pda<'a> {
                     // Add new state.
                     self.states[index].c_transitions.insert(c, new_index);
                     // Add repetition
-                    self.states[new_index].into_repetition = true;
-                    self.states[new_index].take_repetition = true;
+                    self.states[new_index]
+                        .flags
+                        .insert(Flags::INTO_REPETITION | Flags::TAKE_REPETITION);
                     // Add separator transition to new state.
-                    self.states[new_index].into_separator = into_separator;
+                    if into_separator {
+                        self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
+                    }
                     new_index
                 }
             };
 
-            self.add_path(chars.as_str(), r#type, new_index, into_separator)
+            self.add_path(chars.as_str(), flags, word, new_index, into_separator)
         }
     }
 
@@ -107,7 +119,8 @@ impl<'a> Pda<'a> {
         &mut self,
         g: &str,
         s: &str,
-        r#type: Type<'a>,
+        flags: Flags,
+        word: Option<&'a str>,
         index: usize,
         return_index: usize,
         into_separator: bool,
@@ -123,16 +136,19 @@ impl<'a> Pda<'a> {
         self.states[index].c_transitions.insert(c, new_index);
         if remaining_g.is_empty() {
             // Make grapheme transition to repetition.
-            self.states[new_index].take_repetition = true;
+            self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
             // Separator.
-            self.states[new_index].into_separator = into_separator;
+            if into_separator {
+                self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
+            }
             // Continue down normal path.
-            self.add_path(s, r#type, new_index, into_separator);
+            self.add_path(s, flags, word, new_index, into_separator);
         } else {
             self.add_grapheme(
                 remaining_g,
                 s,
-                r#type,
+                flags,
+                word,
                 new_index,
                 return_index,
                 into_separator,
@@ -143,13 +159,13 @@ impl<'a> Pda<'a> {
     /// Add a word.
     #[inline]
     pub(crate) fn add_word(&mut self, s: &'a str, into_separator: bool) {
-        self.add_path(s, Type::Word(s), WORD_INDEX, into_separator)
+        self.add_path(s, Flags::WORD, Some(s), WORD_INDEX, into_separator)
     }
 
     /// Add an exception.
     #[inline]
     pub(crate) fn add_exception(&mut self, s: &str, into_separator: bool) {
-        self.add_path(s, Type::Exception, EXCEPTION_INDEX, into_separator)
+        self.add_path(s, Flags::EXCEPTION, None, EXCEPTION_INDEX, into_separator)
     }
 
     /// Add separator states using input `s`.
@@ -158,7 +174,9 @@ impl<'a> Pda<'a> {
         let c = match chars.next() {
             Some(c) => c,
             None => {
-                self.states[index].r#type = Type::SeparatorReturn;
+                self.states[index]
+                    .flags
+                    .insert(Flags::SEPARATOR | Flags::RETURN);
                 return;
             }
         };
@@ -167,7 +185,7 @@ impl<'a> Pda<'a> {
             None => {
                 let new_index = self.states.len();
                 self.states.push(State {
-                    r#type: Type::Separator,
+                    flags: Flags::SEPARATOR,
                     ..Default::default()
                 });
                 self.states[index].c_transitions.insert(c, new_index);
@@ -187,12 +205,12 @@ impl<'a> Pda<'a> {
     fn initialize_alias(&mut self) -> usize {
         let new_index = self.states.len();
         self.states.push(State::default());
-        self.states[new_index].into_repetition = true;
+        self.states[new_index].flags.insert(Flags::INTO_REPETITION);
         new_index
     }
 
     fn add_return(&mut self, index: usize, s: &str, into_separator: bool) {
-        self.add_path(s, Type::Return, index, into_separator)
+        self.add_path(s, Flags::RETURN, None, index, into_separator)
     }
 
     /// Find the return states for defining an alias along the input `s`.

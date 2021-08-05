@@ -12,7 +12,9 @@
 #![doc(hidden)]
 
 use alloc::{vec, vec::Vec};
+use bitflags::bitflags;
 use by_address::ByAddress;
+use const_fn_assert::{cfn_assert, cfn_assert_eq};
 use core::{
     ops::{Bound, RangeBounds},
     ptr,
@@ -20,30 +22,127 @@ use core::{
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashSet;
 
-/// The different types of states.
+bitflags! {
+    /// Bitflags that define attributes on a [`State`].
+    ///
+    /// These flags define boolean attributes on a `State`. Multiple flags may be set at the same
+    /// time.
+    pub struct Flags: u8 {
+        /// The state is a matching state, matching a word.
+        ///
+        /// If this flag is set, a word should be stored within the state as well.
+        ///
+        /// This flag cannot be set if `EXCEPTION` is set.
+        const WORD = 0b0000_0001;
+        /// The state is a matching state, matching an exception.
+        ///
+        /// This flag cannot be set if `WORD` is set.
+        const EXCEPTION = 0b0000_0010;
+        /// This is a separator state, existing within a separator subroutine.
+        const SEPARATOR = 0b0000_0100;
+        /// [`InstantaneousDescription`]s can return from this state.
+        const RETURN = 0b0000_1000;
+        /// This state can be repeated to.
+        const INTO_REPETITION = 0b0001_0000;
+        /// This state can process a repetition on the stack.
+        const TAKE_REPETITION = 0b0010_0000;
+        /// This state can enter a separator subroutine.
+        const INTO_SEPARATOR = 0b0100_0000;
+
+        /// This state is an accepting state.
+        ///
+        /// This is the same as saying the state is a matching state. A state should not be set
+        /// with these flags, as it would set both the `WORD` and `EXCEPTION` bits, which is not
+        /// valid for constructing a state.
+        const ACCEPTING = Flags::WORD.bits() | Flags::EXCEPTION.bits();
+    }
+}
+
+/// Attributes of a [`State`].
 ///
-/// Note that Word and Exception states are considered accepting states.
+/// Contains binary flags and an optional string containing the `State`'s matched word.
+///
+/// Having these attributes stored together ensures that invariants can be upheld on the flags and
+/// the associated word. The `WORD` flag will invariantly be set when the `word` field is not
+/// `None`, and the `WORD` and `EXCEPTION` flags will never be set at the same time.
 #[derive(Debug)]
-pub enum Type<'a> {
-    /// A standard state.
-    None,
-    /// Indicates a matching state, matching the stored word.
-    Word(&'a str),
-    /// Indicates a matching state that is an exception.
-    Exception,
-    /// A separator state.
+pub struct Attributes<'a> {
+    /// Flags defining binary attributes.
+    flags: Flags,
+    /// A possible associated word with the state.
     ///
-    /// Indicates that the current state is within a separator, and should be treated as such when
-    /// matching during computation.
-    Separator,
-    /// A return state.
+    /// This will be provided if and only if the `WORD` flag is present in `flags`.
+    word: Option<&'a str>,
+}
+
+impl<'a> Attributes<'a> {
+    /// Create a new `Attributes` struct containing the given `flags` and `word`.
     ///
-    /// Traversal from this state will pop the top-most state on the stack and traverse to it.
-    Return,
-    /// A separator return state.
+    /// This associated function checks that the following invariants are upheld:
+    /// - If the `WORD` flag is set, then `word` must not be `None`.
+    /// - The `WORD` and `EXCEPTION` flags cannot both be set.
     ///
-    /// This should be treated as a combination of the Separator and Return types.
-    SeparatorReturn,
+    /// If a strange error is encountered within this method, it is likely one of these invariants
+    /// is not upheld. The strangeness of the error is consequential of the difficulty is asserting
+    /// values at compile-time.
+    pub const fn new(flags: Flags, word: Option<&'a str>) -> Self {
+        // If this errors with some weird error, it means that the invariant between the WORD flag
+        // and the `word` attribute is not upheld.
+        cfn_assert_eq!(flags.contains(Flags::WORD), word.is_some());
+
+        // Same as above, but with regards to only one accepting flag.
+        cfn_assert!(!flags.contains(Flags::ACCEPTING));
+
+        Self { flags, word }
+    }
+
+    /// Returns whether the `WORD` flag is set.
+    #[inline]
+    fn word(&self) -> bool {
+        self.flags.contains(Flags::WORD)
+    }
+
+    /// Returns whether the `EXCEPTION` flag is set.
+    #[inline]
+    fn exception(&self) -> bool {
+        self.flags.contains(Flags::EXCEPTION)
+    }
+
+    /// Returns whether the `SEPARATOR` flag is set.
+    #[inline]
+    fn separator(&self) -> bool {
+        self.flags.contains(Flags::SEPARATOR)
+    }
+
+    /// Returns whether the `RETURN` flag is set.
+    #[inline]
+    fn r#return(&self) -> bool {
+        self.flags.contains(Flags::RETURN)
+    }
+
+    /// Returns whether the `INTO_REPETITION` flag is set.
+    #[inline]
+    fn into_repetition(&self) -> bool {
+        self.flags.contains(Flags::INTO_REPETITION)
+    }
+
+    /// Returns whether the `TAKE_REPETITION` flag is set.
+    #[inline]
+    fn take_repetition(&self) -> bool {
+        self.flags.contains(Flags::TAKE_REPETITION)
+    }
+
+    /// Returns whether the `INTO_SEPARATOR` flag is set.
+    #[inline]
+    fn into_separator(&self) -> bool {
+        self.flags.contains(Flags::INTO_SEPARATOR)
+    }
+
+    /// Returns whether one of the `WORD` or `EXCEPTION` flags are set.
+    #[inline]
+    fn accepting(&self) -> bool {
+        self.flags.intersects(Flags::ACCEPTING)
+    }
 }
 
 /// Stack-related enums.
@@ -96,18 +195,12 @@ struct Transition<'a> {
 /// and `graphemes` define ε-transitions.
 #[derive(Debug)]
 pub struct State<'a> {
-    /// The state's type.
-    pub r#type: Type<'a>,
+    /// The state's associated attributes.
+    pub attributes: Attributes<'a>,
     /// Direct character transitions.
     ///
     /// Each character can only transition to one other state directly.
     pub c_transitions: fn(char) -> Option<&'a State<'a>>,
-    /// Whether the state can be repeated to.
-    pub into_repetition: bool,
-    /// Whether the state can process a repetition on the stack.
-    pub take_repetition: bool,
-    /// Whether the separator state can be entered from this state.
-    pub into_separator: bool,
     /// Alias states and their accompanying return states.
     ///
     /// These are pairs of the form (alias_state, return_state). When computation traversed to
@@ -122,6 +215,24 @@ pub struct State<'a> {
 }
 
 impl<'a> State<'a> {
+    /// Returns whether the state can be repeated to.
+    #[inline]
+    fn into_repetition(&self) -> bool {
+        self.attributes.into_repetition()
+    }
+
+    /// Returns whether the state can process a repetition on the stack.
+    #[inline]
+    fn take_repetition(&self) -> bool {
+        self.attributes.take_repetition()
+    }
+
+    /// Returns whether the state can enter a separator.
+    #[inline]
+    fn into_separator(&self) -> bool {
+        self.attributes.into_separator()
+    }
+
     /// Transition using the given input character `c` with the top-of-stack value `s`.
     ///
     /// To perform an ε-transition, a `None` value should be provided for the parameter `c`.
@@ -138,13 +249,13 @@ impl<'a> State<'a> {
             stack::Value::Repetition(repetition_state) => {
                 match c {
                     Some(c) => {
-                        if !self.take_repetition {
+                        if !self.take_repetition() {
                             if let Some(state) = (self.c_transitions)(c) {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![],
                                 });
-                                if self.into_repetition {
+                                if self.into_repetition() {
                                     result.push(Transition {
                                         state,
                                         stack_manipulations: vec![stack::Manipulation::Push(
@@ -156,7 +267,7 @@ impl<'a> State<'a> {
                         }
                     }
                     None => {
-                        if self.into_separator {
+                        if self.into_separator() {
                             result.push(Transition {
                                 state: separator,
                                 stack_manipulations: vec![stack::Manipulation::Push(
@@ -164,7 +275,7 @@ impl<'a> State<'a> {
                                 )],
                             });
                         }
-                        if self.take_repetition {
+                        if self.take_repetition() {
                             // Take the repetition.
                             result.push(Transition {
                                 state: repetition_state,
@@ -181,7 +292,7 @@ impl<'a> State<'a> {
                                         stack::Value::Return(alias.1),
                                     )],
                                 });
-                                if self.into_repetition {
+                                if self.into_repetition() {
                                     result.push(Transition {
                                         state: alias.0,
                                         stack_manipulations: vec![
@@ -208,13 +319,13 @@ impl<'a> State<'a> {
             stack::Value::Target(target_state) => match c {
                 Some(c) => {
                     if let Some(state) = (self.c_transitions)(c) {
-                        if state.take_repetition {
+                        if state.take_repetition() {
                             if ptr::eq(state, target_state) {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Pop],
                                 });
-                                if self.into_repetition {
+                                if self.into_repetition() {
                                     result.push(Transition {
                                         state,
                                         stack_manipulations: vec![
@@ -231,7 +342,7 @@ impl<'a> State<'a> {
                                 state,
                                 stack_manipulations: vec![],
                             });
-                            if self.into_repetition {
+                            if self.into_repetition() {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Push(
@@ -252,7 +363,7 @@ impl<'a> State<'a> {
                                     stack::Manipulation::Push(stack::Value::Return(alias.1)),
                                 ],
                             });
-                            if self.into_repetition {
+                            if self.into_repetition() {
                                 result.push(Transition {
                                     state: alias.0,
                                     stack_manipulations: vec![
@@ -273,7 +384,7 @@ impl<'a> State<'a> {
                             state,
                             stack_manipulations: vec![],
                         });
-                        if self.into_repetition {
+                        if self.into_repetition() {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![stack::Manipulation::Push(
@@ -284,7 +395,7 @@ impl<'a> State<'a> {
                     }
                 }
                 None => {
-                    if self.into_separator {
+                    if self.into_separator() {
                         result.push(Transition {
                             state: separator,
                             stack_manipulations: vec![stack::Manipulation::Push(
@@ -299,7 +410,7 @@ impl<'a> State<'a> {
                                 stack::Value::Return(alias.1),
                             )],
                         });
-                        if self.into_repetition {
+                        if self.into_repetition() {
                             result.push(Transition {
                                 state: alias.0,
                                 stack_manipulations: vec![
@@ -316,7 +427,7 @@ impl<'a> State<'a> {
                         });
                     }
 
-                    if matches!(self.r#type, Type::Return | Type::SeparatorReturn) {
+                    if self.attributes.r#return() {
                         if let stack::Value::Return(state) = s {
                             result.push(Transition {
                                 state,
@@ -376,15 +487,13 @@ impl<'a> InstantaneousDescription<'a> {
     /// if the stack is empty, and if the computation is not currently within a separator grapheme.
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_) | Type::Exception)
-            && self.stack.is_empty()
-            && !self.separator_grapheme
+        self.state.attributes.accepting() && self.stack.is_empty() && !self.separator_grapheme
     }
 
     /// Return whether the state is a word.
     #[inline]
     pub(crate) fn is_word(&self) -> bool {
-        matches!(self.state.r#type, Type::Word(_))
+        self.state.attributes.word()
     }
 
     /// Unwrap the word that is contained in the state's type.
@@ -393,9 +502,9 @@ impl<'a> InstantaneousDescription<'a> {
     /// calling.
     #[inline]
     pub(crate) unsafe fn unwrap_word_unchecked(self) -> &'a str {
-        match self.state.r#type {
-            Type::Word(s) => s,
-            _ => debug_unreachable!(),
+        match self.state.attributes.word {
+            Some(word) => word,
+            None => debug_unreachable!(),
         }
     }
 
@@ -432,7 +541,7 @@ impl<'a> InstantaneousDescription<'a> {
             .iter()
         {
             if !visited.contains(&ByAddress(transition.state))
-                || matches!(transition.state.r#type, Type::Return)
+                || transition.state.attributes.r#return()
             {
                 let mut new_id = self.clone();
                 new_id.state = transition.state;
@@ -476,8 +585,7 @@ impl<'a> InstantaneousDescription<'a> {
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
         if new_grapheme {
-            self.separator_grapheme =
-                matches!(self.state.r#type, Type::Separator | Type::SeparatorReturn);
+            self.separator_grapheme = self.state.attributes.separator();
         }
         self.transition(Some(c), separator)
     }
@@ -498,9 +606,10 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     /// which case it is inclusive. This is to ensure that Exceptions take precedence over Words.
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
-        match self.state.r#type {
-            Type::Exception => Bound::Included(&self.end),
-            _ => Bound::Excluded(&self.end),
+        if self.state.attributes.exception() {
+            Bound::Included(&self.end)
+        } else {
+            Bound::Excluded(&self.end)
         }
     }
 }

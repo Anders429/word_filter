@@ -1,7 +1,8 @@
 //! Code generation logic for a state within the push-down automaton.
 
-use crate::r#type::Type;
+use crate::flags::Flags;
 use alloc::{
+    borrow::ToOwned,
     collections::{BTreeMap, BTreeSet},
     format,
     string::String,
@@ -11,11 +12,9 @@ use alloc::{
 /// Push-down automaton state code generator.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub(crate) struct State<'a> {
-    pub(crate) r#type: Type<'a>,
+    pub(crate) flags: Flags,
+    pub(crate) word: Option<&'a str>,
     pub(crate) c_transitions: BTreeMap<char, usize>,
-    pub(crate) into_separator: bool,
-    pub(crate) into_repetition: bool,
-    pub(crate) take_repetition: bool,
     pub(crate) aliases: BTreeSet<(usize, usize)>,
     pub(crate) graphemes: BTreeSet<usize>,
 }
@@ -25,22 +24,34 @@ impl State<'_> {
     pub(crate) fn to_definition(&self, identifier: &str) -> String {
         format!(
             "        ::word_filter::pda::State {{
-            r#type: {},
+            attributes: {},
             c_transitions: {},
-            into_separator: {},
-            into_repetition: {},
-            take_repetition: {},
             aliases: {},
             graphemes: {},
         }}",
-            self.r#type.to_definition(),
+            self.define_attributes(),
             self.define_c_transition_function(identifier),
-            self.into_separator,
-            self.into_repetition,
-            self.take_repetition,
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )
+    }
+
+    fn define_attributes(&self) -> String {
+        format!(
+            "word_filter::pda::Attributes::new(
+                {},
+                {},
+            )",
+            self.flags.to_definition(),
+            self.define_word()
+        )
+    }
+
+    fn define_word(&self) -> String {
+        match self.word {
+            Some(word) => format!("Some(\"{}\")", word),
+            None => "None".to_owned(),
+        }
     }
 
     /// Define the transition function for all direct character transitions.

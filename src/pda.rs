@@ -184,6 +184,7 @@ struct Transition<'a> {
 /// and `graphemes` define ε-transitions.
 #[derive(Debug)]
 pub struct State<'a> {
+    /// The state's associated attributes.
     pub attributes: Attributes<'a>,
     /// Direct character transitions.
     ///

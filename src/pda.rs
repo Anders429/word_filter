@@ -14,7 +14,7 @@
 use alloc::{vec, vec::Vec};
 use bitflags::bitflags;
 use by_address::ByAddress;
-use const_fn_assert::cfn_assert_eq;
+use const_fn_assert::{cfn_assert, cfn_assert_eq};
 use core::{
     ops::{Bound, RangeBounds},
     ptr,
@@ -60,50 +60,54 @@ impl<'a> Attributes<'a> {
         // If this errors with some weird error, it means that the invariant between the WORD flag
         // and the `word` attribute is not upheld.
         cfn_assert_eq!(flags.contains(Flags::WORD), word.is_some());
-        
+
+        // Same as above, but with regards to only one accepting flag.
+        cfn_assert!(!flags.contains(Flags::ACCEPTING));
+
         Self {
             flags,
             word,
         }
     }
 
+    #[inline]
     fn word(&self) -> bool {
         self.flags.contains(Flags::WORD)
     }
 
+    #[inline]
     fn exception(&self) -> bool {
         self.flags.contains(Flags::EXCEPTION)
     }
 
+    #[inline]
     fn separator(&self) -> bool {
         self.flags.contains(Flags::SEPARATOR)
     }
 
+    #[inline]
     fn r#return(&self) -> bool {
         self.flags.contains(Flags::RETURN)
     }
 
+    #[inline]
     fn into_repetition(&self) -> bool {
         self.flags.contains(Flags::INTO_REPETITION)
     }
 
+    #[inline]
     fn take_repetition(&self) -> bool {
         self.flags.contains(Flags::TAKE_REPETITION)
     }
 
+    #[inline]
     fn into_separator(&self) -> bool {
         self.flags.contains(Flags::INTO_SEPARATOR)
     }
 
+    #[inline]
     fn accepting(&self) -> bool {
         self.flags.intersects(Flags::ACCEPTING)
-    }
-
-    unsafe fn unwrap_word_unchecked(&self) -> &'a str {
-        match self.word {
-            Some(word) => word,
-            None => debug_unreachable!(),
-        }
     }
 }
 
@@ -462,7 +466,10 @@ impl<'a> InstantaneousDescription<'a> {
     /// calling.
     #[inline]
     pub(crate) unsafe fn unwrap_word_unchecked(self) -> &'a str {
-        self.state.attributes.unwrap_word_unchecked()
+        match self.state.attributes.word {
+            Some(word) => word,
+            None => debug_unreachable!(),
+        }
     }
 
     /// Return the start index.

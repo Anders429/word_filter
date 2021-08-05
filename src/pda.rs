@@ -58,9 +58,20 @@ bitflags! {
     }
 }
 
+/// Attributes of a [`State`].
+///
+/// Contains binary flags and an optional string containing the `State`'s matched word.
+///
+/// Having these attributes stored together ensures that invariants can be upheld on the flags and
+/// the associated word. The `WORD` flag will invariantly be set when the `word` field is not
+/// `None`, and the `WORD` and `EXCEPTION` flags will never be set at the same time.
 #[derive(Debug)]
 pub struct Attributes<'a> {
+    /// Flags defining binary attributes.
     flags: Flags,
+    /// A possible associated word with the state.
+    ///
+    /// This will be provided if and only if the `WORD` flag is present in `flags`.
     word: Option<&'a str>,
 }
 

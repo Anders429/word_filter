@@ -5,7 +5,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-word_filter = {path = "../..", default-features = false}
+word_filter = {path = "../.."}
 
 [build-dependencies]
-word_filter_codegen = {path = "../../word_filter_codegen"}
+word_filter = {path = "../../"}

@@ -72,6 +72,7 @@
 extern crate alloc;
 
 pub mod censor;
+pub mod codegen;
 pub mod pda;
 
 mod constants;

@@ -1,7 +1,10 @@
 //! Code generation logic for the push-down automaton structure that makes up a `WordFilter`.
 
-use crate::{constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX}, pda::Flags};
 use super::state::State;
+use crate::{
+    constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX},
+    pda::Flags,
+};
 use alloc::{collections::BTreeSet, format, string::String, vec, vec::Vec};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
@@ -12,13 +15,13 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Contains the logic for both constructing the word filter push-down automaton and generating a
 /// resulting `WordFilter`.
 #[derive(Debug)]
-pub(crate) struct Pda<'a> {
+pub(super) struct Pda<'a> {
     states: Vec<State<'a>>,
 }
 
 impl<'a> Pda<'a> {
     /// Create a new push-down automaton code generator.
-    pub(crate) fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             states: vec![
                 // Word entry state.
@@ -154,13 +157,13 @@ impl<'a> Pda<'a> {
 
     /// Add a word.
     #[inline]
-    pub(crate) fn add_word(&mut self, s: &'a str, into_separator: bool) {
+    pub(super) fn add_word(&mut self, s: &'a str, into_separator: bool) {
         self.add_path(s, Flags::WORD, Some(s), WORD_INDEX, into_separator)
     }
 
     /// Add an exception.
     #[inline]
-    pub(crate) fn add_exception(&mut self, s: &str, into_separator: bool) {
+    pub(super) fn add_exception(&mut self, s: &str, into_separator: bool) {
         self.add_path(s, Flags::EXCEPTION, None, EXCEPTION_INDEX, into_separator)
     }
 
@@ -193,7 +196,7 @@ impl<'a> Pda<'a> {
 
     /// Add a separator.
     #[inline]
-    pub(crate) fn add_separator(&mut self, s: &str) {
+    pub(super) fn add_separator(&mut self, s: &str) {
         self.add_separator_internal(s, SEPARATOR_INDEX)
     }
 
@@ -272,7 +275,7 @@ impl<'a> Pda<'a> {
         }
     }
 
-    pub(crate) fn apply_aliases(
+    pub(super) fn apply_aliases(
         &mut self,
         aliases: &[(String, String)],
         into_separator: bool,
@@ -306,7 +309,7 @@ impl<'a> Pda<'a> {
     /// larger automaton, but at the const of longer compile time. The algorithm is pretty naive,
     /// just looping through the states repeatedly until it no longer finds states that can be
     /// combined.
-    pub(crate) fn minimize(&mut self) {
+    pub(super) fn minimize(&mut self) {
         loop {
             // Find the set of all distinct and duplicated states. The distinct states will be
             // kept.
@@ -402,12 +405,12 @@ impl<'a> Pda<'a> {
     }
 
     /// Returns the generated `WordFilter`'s type.
-    pub(crate) fn to_type(&self) -> String {
+    pub(super) fn to_type(&self) -> String {
         format!("::word_filter::WordFilter<{}>", self.states.len())
     }
 
     /// Returns the generated `WordFilter`'s definition.
-    pub(crate) fn to_definition(&self, identifier: &str) -> String {
+    pub(super) fn to_definition(&self, identifier: &str) -> String {
         format!(
             "::word_filter::WordFilter {{\n    states: [\n{}\n    ],\n}}",
             self.states

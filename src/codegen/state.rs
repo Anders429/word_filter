@@ -11,7 +11,7 @@ use alloc::{
 
 impl Flags {
     /// Returns the generated definition of this type.
-    pub(crate) fn to_definition(&self) -> String {
+    pub(super) fn to_definition(&self) -> String {
         format!(
             "word_filter::pda::Flags::from_bits_truncate({})",
             self.bits()
@@ -27,17 +27,17 @@ impl Default for Flags {
 
 /// Push-down automaton state code generator.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
-pub(crate) struct State<'a> {
-    pub(crate) flags: Flags,
-    pub(crate) word: Option<&'a str>,
-    pub(crate) c_transitions: BTreeMap<char, usize>,
-    pub(crate) aliases: BTreeSet<(usize, usize)>,
-    pub(crate) graphemes: BTreeSet<usize>,
+pub(super) struct State<'a> {
+    pub(super) flags: Flags,
+    pub(super) word: Option<&'a str>,
+    pub(super) c_transitions: BTreeMap<char, usize>,
+    pub(super) aliases: BTreeSet<(usize, usize)>,
+    pub(super) graphemes: BTreeSet<usize>,
 }
 
 impl State<'_> {
     /// Returns the state's generated definition.
-    pub(crate) fn to_definition(&self, identifier: &str) -> String {
+    pub(super) fn to_definition(&self, identifier: &str) -> String {
         format!(
             "        ::word_filter::pda::State {{
             attributes: {},

@@ -56,7 +56,6 @@
 //!
 //! [`WordFilter`]: word_filter::WordFilter
 
-mod flags;
 mod pda;
 mod state;
 

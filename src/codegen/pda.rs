@@ -1,7 +1,7 @@
 //! Code generation logic for the push-down automaton structure that makes up a `WordFilter`.
 
-use crate::constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX};
-use super::{flags::Flags, state::State};
+use crate::{constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX}, pda::Flags};
+use super::state::State;
 use alloc::{collections::BTreeSet, format, string::String, vec, vec::Vec};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;

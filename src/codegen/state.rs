@@ -1,6 +1,6 @@
 //! Code generation logic for a state within the push-down automaton.
 
-use super::flags::Flags;
+use crate::pda::Flags;
 use alloc::{
     borrow::ToOwned,
     collections::{BTreeMap, BTreeSet},
@@ -8,6 +8,22 @@ use alloc::{
     string::String,
     vec::Vec,
 };
+
+impl Flags {
+    /// Returns the generated definition of this type.
+    pub(crate) fn to_definition(&self) -> String {
+        format!(
+            "word_filter::pda::Flags::from_bits_truncate({})",
+            self.bits()
+        )
+    }
+}
+
+impl Default for Flags {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
 
 /// Push-down automaton state code generator.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]

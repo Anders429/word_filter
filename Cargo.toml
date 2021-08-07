@@ -12,10 +12,7 @@ keywords = ["wordfilter", "word", "filter", "censor", "string"]
 include = ["/src/**/*", "/doc/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
-
-[workspace]
-members = ["word_filter_codegen"]
+rustdoc-args = ["--html-after-content", "doc/remove_root_macros.html"]
 
 [dependencies]
 bitflags = "1.2.1"
@@ -24,8 +21,11 @@ const_fn_assert = "0.1.2"
 hashbrown = "0.11.2"
 nested_containment_list = "0.3.0"
 new_debug_unreachable = "1.0.4"
+str_overlap = "0.4.3"
 unicode-segmentation = "1.7.1"
 
 [dev-dependencies]
 claim = "0.5.0"
+indoc = "1.0.3"
 integration_codegen = {path = "tests/integration_codegen"}
+trybuild = "1.0.42"

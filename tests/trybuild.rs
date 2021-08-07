@@ -4,7 +4,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
 };
-use word_filter_codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
+use word_filter::codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
 
 macro_rules! compiles {
     ($test_name:ident, $generator:expr) => {

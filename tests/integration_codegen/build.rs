@@ -4,7 +4,7 @@ use std::{
     io::{BufWriter, Write},
     path::Path,
 };
-use word_filter_codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
+use word_filter::codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
 
 fn main() {
     let file = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");

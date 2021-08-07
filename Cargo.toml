@@ -12,7 +12,7 @@ keywords = ["wordfilter", "word", "filter", "censor", "string"]
 include = ["/src/**/*", "/doc/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
+rustdoc-args = ["--html-after-content", "doc/remove_root_macros.html"]
 
 [dependencies]
 bitflags = "1.2.1"

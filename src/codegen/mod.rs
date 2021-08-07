@@ -85,8 +85,6 @@ use str_overlap::Overlap;
 ///     .word("foo")
 ///     .generate("FILTER");
 /// ```
-///
-/// [`WordFilter`]: word_filter::WordFilter
 #[derive(Clone, Debug)]
 pub enum Visibility {
     Private,
@@ -115,7 +113,7 @@ impl ToString for Visibility {
 bitflags! {
     /// Flags defining separator settings.
     ///
-    /// These flags can be passed to a `WordFilterGenerator` to define when separators should be
+    /// These flags can be passed to a [`WordFilterGenerator`] to define when separators should be
     /// allowed during matching.
     ///
     /// # Examples
@@ -141,7 +139,7 @@ bitflags! {
     /// generator.separator_flags(SeparatorFlags::BETWEEN_WORDS | SeparatorFlags::BETWEEN_EXCEPTIONS);
     /// ```
     ///
-    /// Note that a `WordFilter` will default to having `BETWEEN_WORDS` and `BETWEEN_EXCEPTIONS`.
+    /// Note that a [`WordFilter`] will default to having `BETWEEN_WORDS` and `BETWEEN_EXCEPTIONS`
     /// set.
     pub struct SeparatorFlags: u8 {
         /// Allow separators when matching words.
@@ -176,10 +174,8 @@ impl Default for SeparatorFlags {
 ///     .generate("FILTER");
 /// ```
 ///
-/// The generated code can then be written to a file in the `OUT_DIR`. See crate-level
+/// The generated code can then be written to a file in the `OUT_DIR`. See module-level
 /// documentation for more details.
-///
-/// [`WordFilter`]: word_filter::WordFilter
 #[derive(Clone, Debug, Default)]
 pub struct WordFilterGenerator {
     words: Vec<String>,
@@ -192,7 +188,7 @@ pub struct WordFilterGenerator {
 }
 
 impl WordFilterGenerator {
-    /// Creates a new WordFilterGenerator.
+    /// Creates a new `WordFilterGenerator`.
     ///
     /// This is equivalent to `WordFilterGenerator::default()`.
     ///
@@ -462,8 +458,6 @@ impl WordFilterGenerator {
     ///         );
     /// }
     /// ```
-    ///
-    /// [`WordFilter`]: word_filter::WordFilter
     pub fn generate(&self, identifier: &str) -> String {
         let mut pda = Pda::new();
 

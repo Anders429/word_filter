@@ -43,7 +43,7 @@ word_filter = "0.7.0"
 word_filter = "0.7.0"
 ```
 
-Next, generate the [`WordFilter`] in the `build.rs` file.
+Next, generate the `WordFilter` in the `build.rs` file.
 
 ``` rust
 use std::{

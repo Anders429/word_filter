@@ -74,16 +74,15 @@ extern crate alloc;
 pub mod censor;
 pub mod pda;
 
+mod constants;
+
 use alloc::{string::String, vec, vec::Vec};
+use constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX};
 use core::{cmp, iter::FromIterator};
 use debug_unreachable::debug_unreachable;
 use nested_containment_list::NestedContainmentList;
 use pda::{InstantaneousDescription, State};
 use unicode_segmentation::UnicodeSegmentation;
-
-const WORD_INDEX: usize = 0;
-const EXCEPTION_INDEX: usize = 1;
-const SEPARATOR_INDEX: usize = 2;
 
 /// A word filter for identifying filtered words within strings.
 ///

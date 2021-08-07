@@ -36,13 +36,11 @@ First, add the `word_filter` crate to both the `Cargo.toml` `[dependencies]` and
 `[build-dependencies]` lists.
 
 ``` toml
-...
 [dependencies]
 word_filter = "0.7.0"
 
 [build-dependencies]
 word_filter = "0.7.0"
-...
 ```
 
 Next, generate the [`WordFilter`] in the `build.rs` file.

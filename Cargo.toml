@@ -14,9 +14,6 @@ include = ["/src/**/*", "/doc/**/*", "/LICENSE-*", "/build.rs", "/README.md"]
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-after-content", "doc/remove_root_modules.html"]
 
-[workspace]
-members = ["word_filter_codegen"]
-
 [dependencies]
 bitflags = "1.2.1"
 by_address = "1.0.4"

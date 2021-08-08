@@ -113,10 +113,11 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     fn spawn_entry_ids(
         &'a self,
         start: usize,
+        start_bytes: usize,
     ) -> impl Iterator<Item = InstantaneousDescription<'_>> {
         let mut ids = vec![
-            InstantaneousDescription::new(&self.states[WORD_INDEX], start),
-            InstantaneousDescription::new(&self.states[EXCEPTION_INDEX], start),
+            InstantaneousDescription::new(&self.states[WORD_INDEX], start, start_bytes),
+            InstantaneousDescription::new(&self.states[EXCEPTION_INDEX], start, start_bytes),
         ];
 
         ids.extend(
@@ -133,10 +134,11 @@ impl<'a, const N: usize> WordFilter<'a, N> {
         let mut ids = Vec::new();
         let mut accepted_ids = Vec::new();
         let mut index = 0;
+        let mut byte_index = 0;
         // Handle the input one grapheme at a time. Only accepting states found at the end of
         // graphemes are kept.
         for grapheme in input.graphemes(true) {
-            ids.extend(self.spawn_entry_ids(index));
+            ids.extend(self.spawn_entry_ids(index, byte_index));
             let mut first_c = true;
             for c in grapheme.chars() {
                 let mut new_ids = Vec::new();
@@ -144,6 +146,7 @@ impl<'a, const N: usize> WordFilter<'a, N> {
                     new_ids.extend(id.step(c, &self.states[SEPARATOR_INDEX], first_c));
                 }
                 index += 1;
+                byte_index += c.len_utf8();
                 ids = new_ids;
                 first_c = false;
             }
@@ -209,11 +212,69 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     ///
     /// [`Iterator`]: core::iter::Iterator
     #[inline]
+    #[must_use]
     pub fn find(&'a self, input: &str) -> impl Iterator<Item = &str> {
         self.compute(input).map(|id| unsafe {
             // SAFETY: Each item returned from `self.compute()` is guaranteed to contain a word.
             id.unwrap_word_unchecked()
         })
+    }
+
+    /// Find all raw string slices matched in `input`.
+    ///
+    /// Returns an iterator over all matched slices in `input`.
+    ///
+    /// /// # Example
+    ///
+    /// Assuming a compile-time constructed `WordFilter` `FILTER`, defined in a `build.rs` as:
+    ///
+    /// ``` ignore
+    /// use std::{
+    ///     env,
+    ///     fs::File,
+    ///     io::{BufWriter, Write},
+    ///     path::Path,
+    /// };
+    /// use word_filter::codegen::{Visibility, WordFilterGenerator};
+    ///
+    /// fn main() {
+    ///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
+    ///     let mut file = BufWriter::new(File::create(&path).unwrap());
+    ///
+    ///     writeln!(
+    ///         &mut file,
+    ///         "{}",
+    ///         WordFilterGenerator::new()
+    ///             .word("foo")
+    ///             .alias('o', 'a')
+    ///             .generate("FILTER")
+    ///         );
+    /// }
+    /// ```
+    ///
+    /// this method is used as follows:
+    ///
+    /// ``` ignore
+    /// include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
+    ///
+    /// assert_eq!(FILTER.find_raw("this string contains fao").collect::<Vec<_>>(), vec!["fao"]);
+    /// ```
+    ///
+    /// [`Iterator`]: core::iter::Iterator
+    #[inline]
+    #[must_use]
+    pub fn find_raw<'b, 'c>(&'a self, input: &'b str) -> impl Iterator<Item = &'c str>
+    where
+        'a: 'c,
+        'b: 'c,
+    {
+        self.compute(input)
+            .map(move |id| unsafe {
+                // SAFETY: The `start_bytes` and `end_bytes` in `id` are guaranteed to be on UTF8
+                // bounds of `input`, since `id` is generated during `compute()` using the `char`s
+                // in `input`.
+                input.get_unchecked(id.start_bytes()..id.end_bytes())
+            })
     }
 
     /// Check whether `input` contains any filtered words.

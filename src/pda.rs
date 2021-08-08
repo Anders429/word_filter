@@ -463,6 +463,10 @@ pub(crate) struct InstantaneousDescription<'a> {
     start: usize,
     /// The current end index, marking the range of input that has been computed.
     end: usize,
+    /// The start index in bytes.
+    start_bytes: usize,
+    /// The current end index in bytes.
+    end_bytes: usize,
     /// Whether the computation is within a separator grapheme.
     ///
     /// A separator grapheme is defined as a grapheme that starts on a Separator or SeparatorReturn
@@ -473,12 +477,14 @@ pub(crate) struct InstantaneousDescription<'a> {
 impl<'a> InstantaneousDescription<'a> {
     /// Creates a new Instantaneous Description, starting from `state` with computation beginning
     /// at index `start` in the input.
-    pub(crate) fn new(state: &'a State<'a>, start: usize) -> Self {
+    pub(crate) fn new(state: &'a State<'a>, start: usize, start_bytes: usize) -> Self {
         Self {
             state,
             stack: Vec::new(),
             start,
             end: start,
+            start_bytes,
+            end_bytes: start_bytes,
             separator_grapheme: false,
         }
     }
@@ -520,6 +526,18 @@ impl<'a> InstantaneousDescription<'a> {
     #[inline]
     pub(crate) fn end(&self) -> usize {
         self.end
+    }
+
+    /// Return the start index in bytes.
+    #[inline]
+    pub(crate) fn start_bytes(&self) -> usize {
+        self.start_bytes
+    }
+
+    /// Return the end index in bytes.
+    #[inline]
+    pub(crate) fn end_bytes(&self) -> usize {
+        self.end_bytes
     }
 
     /// Internal transition method, with visited context.
@@ -586,6 +604,7 @@ impl<'a> InstantaneousDescription<'a> {
         new_grapheme: bool,
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += 1;
+        self.end_bytes += c.len_utf8();
         if new_grapheme {
             self.separator_grapheme = self.state.attributes.separator();
         }

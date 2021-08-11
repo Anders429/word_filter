@@ -463,10 +463,6 @@ pub(crate) struct InstantaneousDescription<'a> {
     start: usize,
     /// The current end index, marking the range of input that has been computed.
     end: usize,
-    /// The start index in bytes.
-    start_bytes: usize,
-    /// The current end index in bytes.
-    end_bytes: usize,
     /// Whether the computation is within a separator grapheme.
     ///
     /// A separator grapheme is defined as a grapheme that starts on a Separator or SeparatorReturn
@@ -477,14 +473,12 @@ pub(crate) struct InstantaneousDescription<'a> {
 impl<'a> InstantaneousDescription<'a> {
     /// Creates a new Instantaneous Description, starting from `state` with computation beginning
     /// at index `start` in the input.
-    pub(crate) fn new(state: &'a State<'a>, start: usize, start_bytes: usize) -> Self {
+    pub(crate) fn new(state: &'a State<'a>, start: usize) -> Self {
         Self {
             state,
             stack: Vec::new(),
             start,
             end: start,
-            start_bytes,
-            end_bytes: start_bytes,
             separator_grapheme: false,
         }
     }
@@ -526,18 +520,6 @@ impl<'a> InstantaneousDescription<'a> {
     #[inline]
     pub(crate) fn end(&self) -> usize {
         self.end
-    }
-
-    /// Return the start index in bytes.
-    #[inline]
-    pub(crate) fn start_bytes(&self) -> usize {
-        self.start_bytes
-    }
-
-    /// Return the end index in bytes.
-    #[inline]
-    pub(crate) fn end_bytes(&self) -> usize {
-        self.end_bytes
     }
 
     /// Internal transition method, with visited context.
@@ -603,8 +585,7 @@ impl<'a> InstantaneousDescription<'a> {
         separator: &'a State<'a>,
         new_grapheme: bool,
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
-        self.end += 1;
-        self.end_bytes += c.len_utf8();
+        self.end += c.len_utf8();
         if new_grapheme {
             self.separator_grapheme = self.state.attributes.separator();
         }
@@ -620,7 +601,7 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     /// The start bound, which is always inclusive.
     #[inline]
     fn start_bound(&self) -> Bound<&usize> {
-        Bound::Included(&self.start_bytes)
+        Bound::Included(&self.start)
     }
 
     /// The end bound. This is always exclusive, except when the state's type is Exception, in
@@ -628,9 +609,9 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
         if self.state.attributes.exception() {
-            Bound::Included(&self.end_bytes)
+            Bound::Included(&self.end)
         } else {
-            Bound::Excluded(&self.end_bytes)
+            Bound::Excluded(&self.end)
         }
     }
 }

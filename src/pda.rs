@@ -620,7 +620,7 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     /// The start bound, which is always inclusive.
     #[inline]
     fn start_bound(&self) -> Bound<&usize> {
-        Bound::Included(&self.start)
+        Bound::Included(&self.start_bytes)
     }
 
     /// The end bound. This is always exclusive, except when the state's type is Exception, in
@@ -628,9 +628,9 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
         if self.state.attributes.exception() {
-            Bound::Included(&self.end)
+            Bound::Included(&self.end_bytes)
         } else {
-            Bound::Excluded(&self.end)
+            Bound::Excluded(&self.end_bytes)
         }
     }
 }

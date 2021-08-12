@@ -187,6 +187,7 @@ struct Transition<'a> {
     state: &'a State<'a>,
     /// Manipulations to the stack that should occur if this transition is taken.
     stack_manipulations: Vec<stack::Manipulation<'a>>,
+    took_repetition: bool,
 }
 
 /// A valid state within the push-down automaton.
@@ -256,14 +257,28 @@ impl<'a> State<'a> {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![],
+                                    took_repetition: false,
                                 });
                                 if self.into_repetition() {
-                                    result.push(Transition {
-                                        state,
-                                        stack_manipulations: vec![stack::Manipulation::Push(
-                                            stack::Value::Repetition(self),
-                                        )],
-                                    });
+                                    if let Some(future_same_c_state) = (state.c_transitions)(c) {
+                                        if !state.into_repetition() || !future_same_c_state.take_repetition() {
+                                            result.push(Transition {
+                                                state,
+                                                stack_manipulations: vec![stack::Manipulation::Push(
+                                                    stack::Value::Repetition(self),
+                                                )],
+                                                took_repetition: false,
+                                            });
+                                        }
+                                    } else {
+                                        result.push(Transition {
+                                            state,
+                                            stack_manipulations: vec![stack::Manipulation::Push(
+                                                stack::Value::Repetition(self),
+                                            )],
+                                            took_repetition: false,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -275,6 +290,7 @@ impl<'a> State<'a> {
                                 stack_manipulations: vec![stack::Manipulation::Push(
                                     stack::Value::Return(self),
                                 )],
+                                took_repetition: false,
                             });
                         }
                         if self.take_repetition() {
@@ -285,6 +301,7 @@ impl<'a> State<'a> {
                                     stack::Manipulation::Pop,
                                     stack::Manipulation::Push(stack::Value::Target(self)),
                                 ],
+                                took_repetition: true,
                             })
                         } else {
                             for alias in self.aliases {
@@ -293,6 +310,7 @@ impl<'a> State<'a> {
                                     stack_manipulations: vec![stack::Manipulation::Push(
                                         stack::Value::Return(alias.1),
                                     )],
+                                    took_repetition: false,
                                 });
                                 if self.into_repetition() {
                                     result.push(Transition {
@@ -305,6 +323,7 @@ impl<'a> State<'a> {
                                                 alias.1,
                                             )),
                                         ],
+                                        took_repetition: false,
                                     })
                                 }
                             }
@@ -312,6 +331,7 @@ impl<'a> State<'a> {
                                 result.push(Transition {
                                     state: grapheme,
                                     stack_manipulations: vec![],
+                                    took_repetition: false,
                                 });
                             }
                         }
@@ -326,23 +346,38 @@ impl<'a> State<'a> {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Pop],
+                                    took_repetition: false,
                                 });
                                 if self.into_repetition() {
-                                    result.push(Transition {
-                                        state,
-                                        stack_manipulations: vec![
-                                            stack::Manipulation::Pop,
-                                            stack::Manipulation::Push(stack::Value::Repetition(
-                                                self,
-                                            )),
-                                        ],
-                                    });
+                                    if let Some(future_same_c_state) = (state.c_transitions)(c) {
+                                        if !state.into_repetition() || !future_same_c_state.take_repetition() {
+                                            result.push(Transition {
+                                                state,
+                                                stack_manipulations: vec![
+                                                    stack::Manipulation::Pop,stack::Manipulation::Push(
+                                                    stack::Value::Repetition(self),
+                                                )],
+                                                took_repetition: false,
+                                            });
+                                        }
+                                    } else {
+                                        result.push(Transition {
+                                            state,
+                                            stack_manipulations: vec![
+                                                stack::Manipulation::Pop,
+                                                stack::Manipulation::Push(
+                                                stack::Value::Repetition(self),
+                                            )],
+                                            took_repetition: false,
+                                        });
+                                    }
                                 }
                             }
                         } else {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![],
+                                took_repetition: false,
                             });
                             if self.into_repetition() {
                                 result.push(Transition {
@@ -350,6 +385,7 @@ impl<'a> State<'a> {
                                     stack_manipulations: vec![stack::Manipulation::Push(
                                         stack::Value::Repetition(self),
                                     )],
+                                    took_repetition: false,
                                 });
                             }
                         }
@@ -364,6 +400,7 @@ impl<'a> State<'a> {
                                     stack::Manipulation::Pop,
                                     stack::Manipulation::Push(stack::Value::Return(alias.1)),
                                 ],
+                                took_repetition: false,
                             });
                             if self.into_repetition() {
                                 result.push(Transition {
@@ -373,6 +410,7 @@ impl<'a> State<'a> {
                                         stack::Manipulation::Push(stack::Value::Repetition(self)),
                                         stack::Manipulation::Push(stack::Value::Return(alias.1)),
                                     ],
+                                    took_repetition: false,
                                 });
                             }
                         }
@@ -385,14 +423,28 @@ impl<'a> State<'a> {
                         result.push(Transition {
                             state,
                             stack_manipulations: vec![],
+                            took_repetition: false,
                         });
                         if self.into_repetition() {
-                            result.push(Transition {
-                                state,
-                                stack_manipulations: vec![stack::Manipulation::Push(
-                                    stack::Value::Repetition(self),
-                                )],
-                            });
+                            if let Some(future_same_c_state) = (state.c_transitions)(c) {
+                                if !state.into_repetition() || !future_same_c_state.take_repetition() {
+                                    result.push(Transition {
+                                        state,
+                                        stack_manipulations: vec![stack::Manipulation::Push(
+                                            stack::Value::Repetition(self),
+                                        )],
+                                        took_repetition: false,
+                                    });
+                                }
+                            } else {
+                                result.push(Transition {
+                                    state,
+                                    stack_manipulations: vec![stack::Manipulation::Push(
+                                        stack::Value::Repetition(self),
+                                    )],
+                                    took_repetition: false,
+                                });
+                            }
                         }
                     }
                 }
@@ -403,6 +455,7 @@ impl<'a> State<'a> {
                             stack_manipulations: vec![stack::Manipulation::Push(
                                 stack::Value::Return(self),
                             )],
+                            took_repetition: false,
                         });
                     }
                     for alias in self.aliases {
@@ -411,6 +464,7 @@ impl<'a> State<'a> {
                             stack_manipulations: vec![stack::Manipulation::Push(
                                 stack::Value::Return(alias.1),
                             )],
+                            took_repetition: false,
                         });
                         if self.into_repetition() {
                             result.push(Transition {
@@ -419,6 +473,7 @@ impl<'a> State<'a> {
                                     stack::Manipulation::Push(stack::Value::Repetition(self)),
                                     stack::Manipulation::Push(stack::Value::Return(alias.1)),
                                 ],
+                                took_repetition: false,
                             });
                         }
                     }
@@ -426,6 +481,7 @@ impl<'a> State<'a> {
                         result.push(Transition {
                             state: grapheme,
                             stack_manipulations: vec![],
+                            took_repetition: false,
                         });
                     }
 
@@ -434,6 +490,7 @@ impl<'a> State<'a> {
                             result.push(Transition {
                                 state,
                                 stack_manipulations: vec![stack::Manipulation::Pop],
+                                took_repetition: false,
                             });
                         }
                     }
@@ -468,6 +525,7 @@ pub(crate) struct InstantaneousDescription<'a> {
     /// A separator grapheme is defined as a grapheme that starts on a Separator or SeparatorReturn
     /// state.
     separator_grapheme: bool,
+    took_repetition: bool,
 }
 
 impl<'a> InstantaneousDescription<'a> {
@@ -480,6 +538,7 @@ impl<'a> InstantaneousDescription<'a> {
             start,
             end: start,
             separator_grapheme: false,
+            took_repetition: false,
         }
     }
 
@@ -555,6 +614,9 @@ impl<'a> InstantaneousDescription<'a> {
                         }
                     }
                 }
+                if transition.took_repetition {
+                    new_id.took_repetition = true;
+                }
                 // ε-transitions.
                 visited.insert(ByAddress(transition.state));
                 new_ids.extend(new_id.transition_with_visited(None, separator, visited));
@@ -587,8 +649,13 @@ impl<'a> InstantaneousDescription<'a> {
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
         self.end += c.len_utf8();
         if new_grapheme {
-            self.separator_grapheme = self.state.attributes.separator();
+            self.separator_grapheme = if self.separator_grapheme && self.took_repetition {
+                true
+            } else {
+                self.state.attributes.separator()
+            };
         }
+        self.took_repetition = false;
         self.transition(Some(c), separator)
     }
 }

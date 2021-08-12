@@ -10,7 +10,10 @@ fn find() {
 fn find_raw() {
     assert_eq!(WORD.find_raw("foo").collect::<Vec<_>>(), vec!["foo"]);
     assert_eq!(ALIAS.find_raw("fao").collect::<Vec<_>>(), vec!["fao"]);
-    assert_eq!(GRAPHEME_IN_ALIAS.find_raw("bãr").collect::<Vec<_>>(), vec!["bãr"]);
+    assert_eq!(
+        GRAPHEME_IN_ALIAS.find_raw("bãr").collect::<Vec<_>>(),
+        vec!["bãr"]
+    );
 }
 
 #[test]

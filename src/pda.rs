@@ -261,12 +261,16 @@ impl<'a> State<'a> {
                                 });
                                 if self.into_repetition() {
                                     if let Some(future_same_c_state) = (state.c_transitions)(c) {
-                                        if !state.into_repetition() || !future_same_c_state.take_repetition() {
+                                        if !state.into_repetition()
+                                            || !future_same_c_state.take_repetition()
+                                        {
                                             result.push(Transition {
                                                 state,
-                                                stack_manipulations: vec![stack::Manipulation::Push(
-                                                    stack::Value::Repetition(self),
-                                                )],
+                                                stack_manipulations: vec![
+                                                    stack::Manipulation::Push(
+                                                        stack::Value::Repetition(self),
+                                                    ),
+                                                ],
                                                 took_repetition: false,
                                             });
                                         }
@@ -350,13 +354,17 @@ impl<'a> State<'a> {
                                 });
                                 if self.into_repetition() {
                                     if let Some(future_same_c_state) = (state.c_transitions)(c) {
-                                        if !state.into_repetition() || !future_same_c_state.take_repetition() {
+                                        if !state.into_repetition()
+                                            || !future_same_c_state.take_repetition()
+                                        {
                                             result.push(Transition {
                                                 state,
                                                 stack_manipulations: vec![
-                                                    stack::Manipulation::Pop,stack::Manipulation::Push(
-                                                    stack::Value::Repetition(self),
-                                                )],
+                                                    stack::Manipulation::Pop,
+                                                    stack::Manipulation::Push(
+                                                        stack::Value::Repetition(self),
+                                                    ),
+                                                ],
                                                 took_repetition: false,
                                             });
                                         }
@@ -366,8 +374,9 @@ impl<'a> State<'a> {
                                             stack_manipulations: vec![
                                                 stack::Manipulation::Pop,
                                                 stack::Manipulation::Push(
-                                                stack::Value::Repetition(self),
-                                            )],
+                                                    stack::Value::Repetition(self),
+                                                ),
+                                            ],
                                             took_repetition: false,
                                         });
                                     }
@@ -427,7 +436,9 @@ impl<'a> State<'a> {
                         });
                         if self.into_repetition() {
                             if let Some(future_same_c_state) = (state.c_transitions)(c) {
-                                if !state.into_repetition() || !future_same_c_state.take_repetition() {
+                                if !state.into_repetition()
+                                    || !future_same_c_state.take_repetition()
+                                {
                                     result.push(Transition {
                                         state,
                                         stack_manipulations: vec![stack::Manipulation::Push(

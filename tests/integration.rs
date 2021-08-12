@@ -242,5 +242,6 @@ fn empty() {
 
 #[test]
 fn repetition_after_separator_at_end_of_match() {
+    assert_eq!(BAR_SEPARATOR.censor("bar roar"), "*** roar");
     assert_eq!(SEPARATOR.censor("foo or bar"), "*** or bar");
 }

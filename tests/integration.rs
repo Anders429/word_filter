@@ -239,3 +239,8 @@ fn separators_in_match_but_not_in_exception() {
 fn empty() {
     assert_eq!(EMPTY.censor("foo"), "foo");
 }
+
+#[test]
+fn repetition_after_separator_at_end_of_match() {
+    assert_eq!(SEPARATOR.censor("foo or bar"), "*** or bar");
+}

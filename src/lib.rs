@@ -264,13 +264,12 @@ impl<'a, const N: usize> WordFilter<'a, N> {
         'a: 'c,
         'b: 'c,
     {
-        self.compute(input)
-            .map(move |id| unsafe {
-                // SAFETY: The `start` and `end` in `id` are guaranteed to be on UTF8
-                // bounds of `input`, since `id` is generated during `compute()` using the `char`s
-                // in `input`.
-                input.get_unchecked(id.start()..id.end())
-            })
+        self.compute(input).map(move |id| unsafe {
+            // SAFETY: The `start` and `end` in `id` are guaranteed to be on UTF8
+            // bounds of `input`, since `id` is generated during `compute()` using the `char`s
+            // in `input`.
+            input.get_unchecked(id.start()..id.end())
+        })
     }
 
     /// Check whether `input` contains any filtered words.
@@ -367,13 +366,24 @@ impl<'a, const N: usize> WordFilter<'a, N> {
 
         for id in self.compute(input) {
             if id.start() > prev_end {
-                output.push_str(&input[prev_end..id.start()]);
+                output.push_str(unsafe {
+                    // SAFETY: Both `prev_end` and `id.start()` are guaranteed to be on valid UTF-8
+                    // boundaries of `input`.
+                    input.get_unchecked(prev_end..id.start())
+                });
             }
             // Censor the covered characters for this ID.
-            output.push_str(&(censor)(&input[cmp::max(id.start(), prev_end)..id.end()]));
+            output.push_str(&(censor)(unsafe {
+                // SAFETY: `id.start()`, `id.end()`, and `prev_end` are all guaranteed to be on
+                // valid UTF-8 boundaries of `input`.
+                input.get_unchecked(cmp::max(id.start(), prev_end)..id.end())
+            }));
             prev_end = id.end();
         }
-        output.push_str(&input[prev_end..]);
+        output.push_str(unsafe {
+            // SAFETY: `prev_end` is guaranteed to be on a valid UTF-8 boundary of `input`.
+            input.get_unchecked(prev_end..)
+        });
         output
     }
 

@@ -80,7 +80,6 @@ mod constants;
 use alloc::{string::String, vec, vec::Vec};
 use constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX};
 use core::{cmp, iter::FromIterator};
-use debug_unreachable::debug_unreachable;
 use nested_containment_list::NestedContainmentList;
 use pda::{InstantaneousDescription, State};
 use unicode_segmentation::UnicodeSegmentation;
@@ -143,7 +142,7 @@ impl<'a, const N: usize> WordFilter<'a, N> {
                 for id in ids.drain(..) {
                     new_ids.extend(id.step(c, &self.states[SEPARATOR_INDEX], first_c));
                 }
-                index += 1;
+                index += c.len_utf8();
                 ids = new_ids;
                 first_c = false;
             }
@@ -209,10 +208,67 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     ///
     /// [`Iterator`]: core::iter::Iterator
     #[inline]
+    #[must_use]
     pub fn find(&'a self, input: &str) -> impl Iterator<Item = &str> {
         self.compute(input).map(|id| unsafe {
             // SAFETY: Each item returned from `self.compute()` is guaranteed to contain a word.
             id.unwrap_word_unchecked()
+        })
+    }
+
+    /// Find all raw string slices matched in `input`.
+    ///
+    /// Returns an iterator over all matched slices in `input`.
+    ///
+    /// /// # Example
+    ///
+    /// Assuming a compile-time constructed `WordFilter` `FILTER`, defined in a `build.rs` as:
+    ///
+    /// ``` ignore
+    /// use std::{
+    ///     env,
+    ///     fs::File,
+    ///     io::{BufWriter, Write},
+    ///     path::Path,
+    /// };
+    /// use word_filter::codegen::{Visibility, WordFilterGenerator};
+    ///
+    /// fn main() {
+    ///     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
+    ///     let mut file = BufWriter::new(File::create(&path).unwrap());
+    ///
+    ///     writeln!(
+    ///         &mut file,
+    ///         "{}",
+    ///         WordFilterGenerator::new()
+    ///             .word("foo")
+    ///             .alias('o', 'a')
+    ///             .generate("FILTER")
+    ///         );
+    /// }
+    /// ```
+    ///
+    /// this method is used as follows:
+    ///
+    /// ``` ignore
+    /// include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
+    ///
+    /// assert_eq!(FILTER.find_raw("this string contains fao").collect::<Vec<_>>(), vec!["fao"]);
+    /// ```
+    ///
+    /// [`Iterator`]: core::iter::Iterator
+    #[inline]
+    #[must_use]
+    pub fn find_raw<'b, 'c>(&'a self, input: &'b str) -> impl Iterator<Item = &'c str>
+    where
+        'a: 'c,
+        'b: 'c,
+    {
+        self.compute(input).map(move |id| unsafe {
+            // SAFETY: The `start` and `end` in `id` are guaranteed to be on UTF8
+            // bounds of `input`, since `id` is generated during `compute()` using the `char`s
+            // in `input`.
+            input.get_unchecked(id.start()..id.end())
         })
     }
 
@@ -307,31 +363,27 @@ impl<'a, const N: usize> WordFilter<'a, N> {
     pub fn censor_with(&'a self, input: &str, censor: fn(&str) -> String) -> String {
         let mut output = String::with_capacity(input.len());
         let mut prev_end = 0;
-        let mut chars = input.chars();
 
         for id in self.compute(input) {
             if id.start() > prev_end {
-                for _ in 0..(id.start() - prev_end) {
-                    output.push(match chars.next() {
-                        Some(c) => c,
-                        None => unsafe {
-                            // SAFETY: `chars.next()` is guaranteed to return a value, since
-                            // `id.start()` will always be bound by the length of `input`.
-                            debug_unreachable!()
-                        },
-                    })
-                }
+                output.push_str(unsafe {
+                    // SAFETY: Both `prev_end` and `id.start()` are guaranteed to be on valid UTF-8
+                    // boundaries of `input`.
+                    input.get_unchecked(prev_end..id.start())
+                });
             }
             // Censor the covered characters for this ID.
-            output.push_str(&(censor)(
-                &chars
-                    .by_ref()
-                    .take(id.end() - cmp::max(id.start(), prev_end))
-                    .collect::<String>(),
-            ));
+            output.push_str(&(censor)(unsafe {
+                // SAFETY: `id.start()`, `id.end()`, and `prev_end` are all guaranteed to be on
+                // valid UTF-8 boundaries of `input`.
+                input.get_unchecked(cmp::max(id.start(), prev_end)..id.end())
+            }));
             prev_end = id.end();
         }
-        output.push_str(chars.as_str());
+        output.push_str(unsafe {
+            // SAFETY: `prev_end` is guaranteed to be on a valid UTF-8 boundary of `input`.
+            input.get_unchecked(prev_end..)
+        });
         output
     }
 

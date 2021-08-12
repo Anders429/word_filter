@@ -585,7 +585,7 @@ impl<'a> InstantaneousDescription<'a> {
         separator: &'a State<'a>,
         new_grapheme: bool,
     ) -> impl Iterator<Item = InstantaneousDescription<'a>> {
-        self.end += 1;
+        self.end += c.len_utf8();
         if new_grapheme {
             self.separator_grapheme = self.state.attributes.separator();
         }

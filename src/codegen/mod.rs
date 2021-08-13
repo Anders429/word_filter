@@ -529,6 +529,8 @@ impl WordFilterGenerator {
             self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
             self.repetition_flags
                 .contains(RepetitionFlags::IN_EXCEPTIONS),
+            self.repetition_flags
+                .contains(RepetitionFlags::IN_SEPARATORS),
         );
 
         for word in &self.words {
@@ -548,7 +550,11 @@ impl WordFilterGenerator {
             );
         }
         for separator in &self.separators {
-            pda.add_separator(separator);
+            pda.add_separator(
+                separator,
+                self.repetition_flags
+                    .contains(RepetitionFlags::IN_SEPARATORS),
+            );
         }
 
         let mut aliases = self.aliases.clone();

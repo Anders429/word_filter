@@ -245,3 +245,26 @@ fn repetition_after_separator_at_end_of_match() {
     assert_eq!(BAR_SEPARATOR.censor("bar roar"), "*** roar");
     assert_eq!(SEPARATOR.censor("foo or bar"), "*** or bar");
 }
+
+#[test]
+fn no_repetitions_in_word_when_disabled() {
+    assert_eq!(NO_REPETITIONS.censor("foooo"), "***oo");
+}
+
+#[test]
+fn no_repetitions_in_exception_when_disabled() {
+    assert_eq!(NO_REPETITIONS.censor("foobar"), "foobar");
+    assert_eq!(NO_REPETITIONS.censor("foobbar"), "***bbar");
+}
+
+#[test]
+fn no_repetition_in_separator_when_disabled() {
+    assert_eq!(NO_REPETITIONS.censor("fbazoo"), "******");
+    assert_eq!(NO_REPETITIONS.censor("fbaazoo"), "fbaazoo");
+}
+
+#[test]
+fn repetitions_in_separator() {
+    assert_eq!(SEPARATOR_REPETITIONS.censor("fbazoo"), "******");
+    assert_eq!(SEPARATOR_REPETITIONS.censor("fbaazoo"), "*******");
+}

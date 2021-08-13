@@ -259,6 +259,7 @@ impl<'a> Pda<'a> {
                     if into_repetition {
                         self.states[new_index].flags.insert(Flags::INTO_REPETITION);
                     }
+                    self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
                     new_index
                 }
             };

@@ -143,13 +143,60 @@ bitflags! {
     /// set.
     pub struct SeparatorFlags: u8 {
         /// Allow separators when matching words.
-        const BETWEEN_WORDS = 0x0000_0001;
+        const BETWEEN_WORDS = 0b0000_0001;
         /// Allow separators when matching exceptions.
-        const BETWEEN_EXCEPTIONS = 0x0000_0010;
+        const BETWEEN_EXCEPTIONS = 0b0000_0010;
     }
 }
 
 impl Default for SeparatorFlags {
+    fn default() -> Self {
+        Self::all()
+    }
+}
+
+bitflags! {
+    /// Flags defining repetition settings.
+    ///
+    /// These flags can be passed to a [`WordFilterGenerator`] to define when repetitions should be
+    /// allowed during matching.
+    ///
+    /// # Examples
+    /// To set repetition flags within a `WordFilterGenerator`, simply provide the desired flags
+    /// with the `repetition_flags` method:
+    ///
+    /// ```
+    /// use word_filter::codegen::{RepetitionFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    ///
+    /// generator.repetition_flags(RepetitionFlags::IN_WORDS);
+    /// ```
+    ///
+    /// As these settings are bitflags, they can be combined by `or`ing them together. For example,
+    /// to set repetitions to be allowed in words and exceptions, combine the flags as follows:
+    ///
+    /// ```
+    /// use word_filter::codegen::{RepetitionFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    ///
+    /// generator.repetition_flags(RepetitionFlags::IN_WORDS | RepetitionFlags::IN_EXCEPTIONS);
+    /// ```
+    ///
+    /// Note that a [`WordFilter`] will default to having `IN_WORDS`, `IN_EXCEPTIONS`, and
+    /// `IN_SEPARATORS` set.
+    pub struct RepetitionFlags: u8 {
+        /// Allow repetitions on word characters.
+        const IN_WORDS = 0b0000_0001;
+        /// Allow repetitions on exception characters.
+        const IN_EXCEPTIONS = 0b0000_0010;
+        /// Allow repetitions on separator characters.
+        const IN_SEPARATORS = 0b0000_0100;
+    }
+}
+
+impl Default for RepetitionFlags {
     fn default() -> Self {
         Self::all()
     }
@@ -184,6 +231,7 @@ pub struct WordFilterGenerator {
     aliases: Vec<(String, String)>,
     visibility: Visibility,
     separator_flags: SeparatorFlags,
+    repetition_flags: RepetitionFlags,
     doc: String,
 }
 
@@ -393,6 +441,24 @@ impl WordFilterGenerator {
         self
     }
 
+    /// Set repetition flags to be used when generating code.
+    ///
+    /// These flags specify how repetitions should be allowed during parsing. By default, the value
+    /// used will be [`RepetitionFlags::all()`], allowing repetitions on every character.
+    ///
+    /// # Example
+    /// ```
+    /// use word_filter::codegen::{RepetitionFlags, WordFilterGenerator};
+    ///
+    /// let mut generator = WordFilterGenerator::new();
+    /// generator.repetition_flags(RepetitionFlags::IN_WORDS);
+    /// ```
+    #[inline]
+    pub fn repetition_flags(&mut self, repetition_flags: RepetitionFlags) -> &mut Self {
+        self.repetition_flags = repetition_flags;
+        self
+    }
+
     /// Set the doc string of the generated code.
     ///
     /// The generated code will be generated with `doc` as the item-level doc-string.
@@ -459,12 +525,19 @@ impl WordFilterGenerator {
     /// }
     /// ```
     pub fn generate(&self, identifier: &str) -> String {
-        let mut pda = Pda::new();
+        let mut pda = Pda::new(
+            self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
+            self.repetition_flags
+                .contains(RepetitionFlags::IN_EXCEPTIONS),
+            self.repetition_flags
+                .contains(RepetitionFlags::IN_SEPARATORS),
+        );
 
         for word in &self.words {
             pda.add_word(
                 word,
                 self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+                self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
             );
         }
         for exception in &self.exceptions {
@@ -472,10 +545,16 @@ impl WordFilterGenerator {
                 exception,
                 self.separator_flags
                     .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+                self.repetition_flags
+                    .contains(RepetitionFlags::IN_EXCEPTIONS),
             );
         }
         for separator in &self.separators {
-            pda.add_separator(separator);
+            pda.add_separator(
+                separator,
+                self.repetition_flags
+                    .contains(RepetitionFlags::IN_SEPARATORS),
+            );
         }
 
         let mut aliases = self.aliases.clone();
@@ -523,12 +602,15 @@ impl WordFilterGenerator {
         pda.apply_aliases(
             &aliases,
             self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+            self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
             WORD_INDEX,
         );
         pda.apply_aliases(
             &aliases,
             self.separator_flags
                 .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+            self.repetition_flags
+                .contains(RepetitionFlags::IN_EXCEPTIONS),
             EXCEPTION_INDEX,
         );
 

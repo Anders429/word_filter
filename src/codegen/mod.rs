@@ -143,9 +143,9 @@ bitflags! {
     /// set.
     pub struct SeparatorFlags: u8 {
         /// Allow separators when matching words.
-        const BETWEEN_WORDS = 0x0000_0001;
+        const BETWEEN_WORDS = 0b0000_0001;
         /// Allow separators when matching exceptions.
-        const BETWEEN_EXCEPTIONS = 0x0000_0010;
+        const BETWEEN_EXCEPTIONS = 0b0000_0010;
     }
 }
 
@@ -172,7 +172,7 @@ bitflags! {
     ///
     /// generator.repetition_flags(RepetitionFlags::IN_WORDS);
     /// ```
-    /// 
+    ///
     /// As these settings are bitflags, they can be combined by `or`ing them together. For example,
     /// to set repetitions to be allowed in words and exceptions, combine the flags as follows:
     ///
@@ -188,11 +188,11 @@ bitflags! {
     /// `IN_SEPARATORS` set.
     pub struct RepetitionFlags: u8 {
         /// Allow repetitions on word characters.
-        const IN_WORDS = 0x0000_0001;
+        const IN_WORDS = 0b0000_0001;
         /// Allow repetitions on exception characters.
-        const IN_EXCEPTIONS = 0x0000_0010;
+        const IN_EXCEPTIONS = 0b0000_0010;
         /// Allow repetitions on separator characters.
-        const IN_SEPARATORS = 0x0000_0100;
+        const IN_SEPARATORS = 0b0000_0100;
     }
 }
 
@@ -525,12 +525,17 @@ impl WordFilterGenerator {
     /// }
     /// ```
     pub fn generate(&self, identifier: &str) -> String {
-        let mut pda = Pda::new();
+        let mut pda = Pda::new(
+            self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
+            self.repetition_flags
+                .contains(RepetitionFlags::IN_EXCEPTIONS),
+        );
 
         for word in &self.words {
             pda.add_word(
                 word,
                 self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+                self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
             );
         }
         for exception in &self.exceptions {
@@ -538,6 +543,8 @@ impl WordFilterGenerator {
                 exception,
                 self.separator_flags
                     .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+                self.repetition_flags
+                    .contains(RepetitionFlags::IN_EXCEPTIONS),
             );
         }
         for separator in &self.separators {
@@ -589,12 +596,15 @@ impl WordFilterGenerator {
         pda.apply_aliases(
             &aliases,
             self.separator_flags.contains(SeparatorFlags::BETWEEN_WORDS),
+            self.repetition_flags.contains(RepetitionFlags::IN_WORDS),
             WORD_INDEX,
         );
         pda.apply_aliases(
             &aliases,
             self.separator_flags
                 .contains(SeparatorFlags::BETWEEN_EXCEPTIONS),
+            self.repetition_flags
+                .contains(RepetitionFlags::IN_EXCEPTIONS),
             EXCEPTION_INDEX,
         );
 

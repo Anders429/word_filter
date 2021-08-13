@@ -21,17 +21,25 @@ pub(super) struct Pda<'a> {
 
 impl<'a> Pda<'a> {
     /// Create a new push-down automaton code generator.
-    pub(super) fn new() -> Self {
+    pub(super) fn new(word_into_repetition: bool, exception_into_repetition: bool) -> Self {
         Self {
             states: vec![
                 // Word entry state.
                 State {
-                    flags: Flags::INTO_REPETITION,
+                    flags: if word_into_repetition {
+                        Flags::INTO_REPETITION
+                    } else {
+                        Flags::empty()
+                    },
                     ..Default::default()
                 },
                 // Exception entry state.
                 State {
-                    flags: Flags::INTO_REPETITION,
+                    flags: if exception_into_repetition {
+                        Flags::INTO_REPETITION
+                    } else {
+                        Flags::empty()
+                    },
                     ..Default::default()
                 },
                 // Separator entry state.
@@ -51,6 +59,7 @@ impl<'a> Pda<'a> {
         word: Option<&'a str>,
         index: usize,
         into_separator: bool,
+        into_repetition: bool,
     ) {
         let mut graphemes = s.graphemes(true);
         let grapheme = match graphemes.next() {
@@ -68,7 +77,9 @@ impl<'a> Pda<'a> {
             let new_index = self.states.len();
             self.states.push(State::default());
             self.states[index].graphemes.insert(new_index);
-            self.states[new_index].flags.insert(Flags::INTO_REPETITION);
+            if into_repetition {
+                self.states[new_index].flags.insert(Flags::INTO_REPETITION);
+            }
             self.add_grapheme(
                 grapheme,
                 graphemes.as_str(),
@@ -77,6 +88,7 @@ impl<'a> Pda<'a> {
                 new_index,
                 new_index,
                 into_separator,
+                into_repetition,
             );
         } else {
             let mut chars = s.chars();
@@ -96,9 +108,10 @@ impl<'a> Pda<'a> {
                     // Add new state.
                     self.states[index].c_transitions.insert(c, new_index);
                     // Add repetition
-                    self.states[new_index]
-                        .flags
-                        .insert(Flags::INTO_REPETITION | Flags::TAKE_REPETITION);
+                    if into_repetition {
+                        self.states[new_index].flags.insert(Flags::INTO_REPETITION);
+                    }
+                    self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
                     // Add separator transition to new state.
                     if into_separator {
                         self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
@@ -107,7 +120,14 @@ impl<'a> Pda<'a> {
                 }
             };
 
-            self.add_path(chars.as_str(), flags, word, new_index, into_separator)
+            self.add_path(
+                chars.as_str(),
+                flags,
+                word,
+                new_index,
+                into_separator,
+                into_repetition,
+            )
         }
     }
 
@@ -123,6 +143,7 @@ impl<'a> Pda<'a> {
         index: usize,
         return_index: usize,
         into_separator: bool,
+        into_repetition: bool,
     ) {
         let mut chars = g.chars();
         let c = match chars.next() {
@@ -141,7 +162,7 @@ impl<'a> Pda<'a> {
                 self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
             }
             // Continue down normal path.
-            self.add_path(s, flags, word, new_index, into_separator);
+            self.add_path(s, flags, word, new_index, into_separator, into_repetition);
         } else {
             self.add_grapheme(
                 remaining_g,
@@ -151,20 +172,35 @@ impl<'a> Pda<'a> {
                 new_index,
                 return_index,
                 into_separator,
+                into_repetition,
             );
         }
     }
 
     /// Add a word.
     #[inline]
-    pub(super) fn add_word(&mut self, s: &'a str, into_separator: bool) {
-        self.add_path(s, Flags::WORD, Some(s), WORD_INDEX, into_separator)
+    pub(super) fn add_word(&mut self, s: &'a str, into_separator: bool, into_repetition: bool) {
+        self.add_path(
+            s,
+            Flags::WORD,
+            Some(s),
+            WORD_INDEX,
+            into_separator,
+            into_repetition,
+        )
     }
 
     /// Add an exception.
     #[inline]
-    pub(super) fn add_exception(&mut self, s: &str, into_separator: bool) {
-        self.add_path(s, Flags::EXCEPTION, None, EXCEPTION_INDEX, into_separator)
+    pub(super) fn add_exception(&mut self, s: &str, into_separator: bool, into_repetition: bool) {
+        self.add_path(
+            s,
+            Flags::EXCEPTION,
+            None,
+            EXCEPTION_INDEX,
+            into_separator,
+            into_repetition,
+        )
     }
 
     /// Add separator states using input `s`.
@@ -208,8 +244,15 @@ impl<'a> Pda<'a> {
         new_index
     }
 
-    fn add_return(&mut self, index: usize, s: &str, into_separator: bool) {
-        self.add_path(s, Flags::RETURN, None, index, into_separator)
+    fn add_return(&mut self, index: usize, s: &str, into_separator: bool, into_repetition: bool) {
+        self.add_path(
+            s,
+            Flags::RETURN,
+            None,
+            index,
+            into_separator,
+            into_repetition,
+        )
     }
 
     /// Find the return states for defining an alias along the input `s`.
@@ -279,6 +322,7 @@ impl<'a> Pda<'a> {
         &mut self,
         aliases: &[(String, String)],
         into_separator: bool,
+        into_repetition: bool,
         root_index: usize,
     ) {
         let mut alias_indices = HashMap::new();
@@ -286,7 +330,7 @@ impl<'a> Pda<'a> {
             let index = alias_indices
                 .entry(value)
                 .or_insert(self.initialize_alias());
-            self.add_return(*index, &alias, into_separator);
+            self.add_return(*index, &alias, into_separator, into_repetition);
         }
         // Apply aliases on each other.
         for (value, index) in &alias_indices {

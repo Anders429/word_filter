@@ -296,7 +296,15 @@ impl<'a> Pda<'a> {
     /// Add a separator.
     #[inline]
     pub(super) fn add_separator(&mut self, s: &str, into_repetition: bool) {
-        self.add_separator_internal(s, SEPARATOR_INDEX, into_repetition)
+        self.add_separator_internal(
+            s,
+            SEPARATOR_INDEX,
+            if s.graphemes(true).count() > 1 {
+                into_repetition
+            } else {
+                false
+            },
+        )
     }
 
     /// Create a new alias, returning the index of the alias's entry state.

@@ -7,6 +7,16 @@ fn find() {
 }
 
 #[test]
+fn find_raw() {
+    assert_eq!(WORD.find_raw("foo").collect::<Vec<_>>(), vec!["foo"]);
+    assert_eq!(ALIAS.find_raw("fao").collect::<Vec<_>>(), vec!["fao"]);
+    assert_eq!(
+        GRAPHEME_IN_ALIAS.find_raw("bãr").collect::<Vec<_>>(),
+        vec!["bãr"]
+    );
+}
+
+#[test]
 fn check() {
     assert!(WORD.check("foo"));
     assert!(!WORD.check("bar"));
@@ -228,4 +238,33 @@ fn separators_in_match_but_not_in_exception() {
 #[test]
 fn empty() {
     assert_eq!(EMPTY.censor("foo"), "foo");
+}
+
+#[test]
+fn repetition_after_separator_at_end_of_match() {
+    assert_eq!(BAR_SEPARATOR.censor("bar roar"), "*** roar");
+    assert_eq!(SEPARATOR.censor("foo or bar"), "*** or bar");
+}
+
+#[test]
+fn no_repetitions_in_word_when_disabled() {
+    assert_eq!(NO_REPETITIONS.censor("foooo"), "***oo");
+}
+
+#[test]
+fn no_repetitions_in_exception_when_disabled() {
+    assert_eq!(NO_REPETITIONS.censor("foobar"), "foobar");
+    assert_eq!(NO_REPETITIONS.censor("foobbar"), "***bbar");
+}
+
+#[test]
+fn no_repetition_in_separator_when_disabled() {
+    assert_eq!(NO_REPETITIONS.censor("fbazoo"), "******");
+    assert_eq!(NO_REPETITIONS.censor("fbaazoo"), "fbaazoo");
+}
+
+#[test]
+fn repetitions_in_separator() {
+    assert_eq!(SEPARATOR_REPETITIONS.censor("fbazoo"), "******");
+    assert_eq!(SEPARATOR_REPETITIONS.censor("fbaazoo"), "*******");
 }

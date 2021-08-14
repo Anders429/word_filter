@@ -4,7 +4,7 @@ use std::{
     io::{BufWriter, Write},
     path::Path,
 };
-use word_filter_codegen::{SeparatorFlags, Visibility, WordFilterGenerator};
+use word_filter::codegen::{RepetitionFlags, SeparatorFlags, Visibility, WordFilterGenerator};
 
 fn main() {
     let file = Path::new(&env::var("OUT_DIR").unwrap()).join("codegen.rs");
@@ -21,7 +21,7 @@ fn main() {
 
     writeln!(
         &mut file,
-        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
         foo_generator.generate("WORD"),
         foo_generator.clone().word("bar").generate("MULTIPLE_WORDS"),
         foo_generator
@@ -105,6 +105,18 @@ fn main() {
             .word("foo")
             .exception("foobar")
             .generate("NO_SEPARATOR_IN_EXCEPTION"),
+        base_generator
+            .clone()
+            .repetition_flags(RepetitionFlags::empty())
+            .word("foo")
+            .exception("foobar")
+            .separator("baz")
+            .generate("NO_REPETITIONS"),
+        foo_generator
+            .clone()
+            .repetition_flags(RepetitionFlags::IN_SEPARATORS)
+            .separator("baz")
+            .generate("SEPARATOR_REPETITIONS"),
         base_generator.clone().generate("EMPTY"),
     )
     .unwrap();

@@ -55,8 +55,6 @@ bitflags! {
         /// with these flags, as it would set both the `WORD` and `EXCEPTION` bits, which is not
         /// valid for constructing a state.
         const ACCEPTING = Flags::WORD.bits() | Flags::EXCEPTION.bits();
-        /// All flags defining a state type.
-        const STATE_TYPES = Self::WORD.bits() | Self::EXCEPTION.bits() | Self::SEPARATOR.bits() | Self::RETURN.bits();
     }
 }
 

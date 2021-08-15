@@ -74,10 +74,8 @@ impl<'a> Pda<'a> {
             Some(g) => g,
             None => {
                 let mut state = &mut self.states[index];
-                if !state.flags.intersects(Flags::STATE_TYPES) {
-                    state.flags.insert(flags);
-                    state.word = word;
-                }
+                state.flags.insert(flags);
+                state.word = word;
                 return;
             }
         };

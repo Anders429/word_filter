@@ -133,25 +133,25 @@ impl<'a> Attributes<'a> {
 
     /// Returns whether the `EXCEPTION` flag is set.
     #[inline]
-    fn exception(&self) -> bool {
+    fn is_exception(&self) -> bool {
         self.flags.contains(Flags::EXCEPTION)
     }
 
     /// Returns whether the `SEPARATOR` flag is set.
     #[inline]
-    fn separator(&self) -> bool {
+    fn is_separator(&self) -> bool {
         self.flags.contains(Flags::SEPARATOR)
     }
 
     /// Returns whether the `RETURN` flag is set.
     #[inline]
-    fn r#return(&self) -> bool {
+    fn is_return(&self) -> bool {
         self.flags.contains(Flags::RETURN)
     }
 
     /// Returns whether the `INTO_REPETITION` flag is set.
     #[inline]
-    fn into_repetition(&self) -> bool {
+    fn is_into_repetition(&self) -> bool {
         self.flags.contains(Flags::INTO_REPETITION)
     }
 
@@ -162,7 +162,7 @@ impl<'a> Attributes<'a> {
 
     /// Returns whether the `TAKE_REPETITION` flag is set.
     #[inline]
-    fn take_repetition(&self) -> bool {
+    fn is_take_repetition(&self) -> bool {
         self.flags.contains(Flags::TAKE_REPETITION)
     }
 
@@ -173,7 +173,7 @@ impl<'a> Attributes<'a> {
 
     /// Returns whether the `INTO_SEPARATOR` flag is set.
     #[inline]
-    fn into_separator(&self) -> bool {
+    fn is_into_separator(&self) -> bool {
         self.flags.contains(Flags::INTO_SEPARATOR)
     }
 
@@ -262,20 +262,20 @@ pub struct State<'a> {
 impl<'a> State<'a> {
     /// Returns whether the state can be repeated to.
     #[inline]
-    fn into_repetition(&self) -> bool {
-        self.attributes.into_repetition()
+    fn is_into_repetition(&self) -> bool {
+        self.attributes.is_into_repetition()
     }
 
     /// Returns whether the state can process a repetition on the stack.
     #[inline]
-    fn take_repetition(&self) -> bool {
-        self.attributes.take_repetition()
+    fn is_take_repetition(&self) -> bool {
+        self.attributes.is_take_repetition()
     }
 
     /// Returns whether the state can enter a separator.
     #[inline]
-    fn into_separator(&self) -> bool {
-        self.attributes.into_separator()
+    fn is_into_separator(&self) -> bool {
+        self.attributes.is_into_separator()
     }
 
     /// Transition using the given input character `c` with the top-of-stack value `s`.
@@ -294,17 +294,17 @@ impl<'a> State<'a> {
             stack::Value::Repetition(repetition_state) => {
                 match c {
                     Some(c) => {
-                        if !self.take_repetition() {
+                        if !self.is_take_repetition() {
                             if let Some(state) = (self.c_transitions)(c) {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![],
                                     took_repetition: false,
                                 });
-                                if self.into_repetition() {
+                                if self.is_into_repetition() {
                                     if let Some(future_same_c_state) = (state.c_transitions)(c) {
-                                        if !state.into_repetition()
-                                            || !future_same_c_state.take_repetition()
+                                        if !state.is_into_repetition()
+                                            || !future_same_c_state.is_take_repetition()
                                         {
                                             result.push(Transition {
                                                 state,
@@ -330,7 +330,7 @@ impl<'a> State<'a> {
                         }
                     }
                     None => {
-                        if self.into_separator() {
+                        if self.is_into_separator() {
                             result.push(Transition {
                                 state: separator,
                                 stack_manipulations: vec![stack::Manipulation::Push(
@@ -339,7 +339,7 @@ impl<'a> State<'a> {
                                 took_repetition: false,
                             });
                         }
-                        if self.take_repetition() {
+                        if self.is_take_repetition() {
                             // Take the repetition.
                             result.push(Transition {
                                 state: repetition_state,
@@ -358,7 +358,7 @@ impl<'a> State<'a> {
                                     )],
                                     took_repetition: false,
                                 });
-                                if self.into_repetition() {
+                                if self.is_into_repetition() {
                                     result.push(Transition {
                                         state: alias.0,
                                         stack_manipulations: vec![
@@ -387,17 +387,17 @@ impl<'a> State<'a> {
             stack::Value::Target(target_state) => match c {
                 Some(c) => {
                     if let Some(state) = (self.c_transitions)(c) {
-                        if state.take_repetition() {
+                        if state.is_take_repetition() {
                             if ptr::eq(state, target_state) {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Pop],
                                     took_repetition: false,
                                 });
-                                if self.into_repetition() {
+                                if self.is_into_repetition() {
                                     if let Some(future_same_c_state) = (state.c_transitions)(c) {
-                                        if !state.into_repetition()
-                                            || !future_same_c_state.take_repetition()
+                                        if !state.is_into_repetition()
+                                            || !future_same_c_state.is_take_repetition()
                                         {
                                             result.push(Transition {
                                                 state,
@@ -430,7 +430,7 @@ impl<'a> State<'a> {
                                 stack_manipulations: vec![],
                                 took_repetition: false,
                             });
-                            if self.into_repetition() {
+                            if self.is_into_repetition() {
                                 result.push(Transition {
                                     state,
                                     stack_manipulations: vec![stack::Manipulation::Push(
@@ -453,7 +453,7 @@ impl<'a> State<'a> {
                                 ],
                                 took_repetition: false,
                             });
-                            if self.into_repetition() {
+                            if self.is_into_repetition() {
                                 result.push(Transition {
                                     state: alias.0,
                                     stack_manipulations: vec![
@@ -476,10 +476,10 @@ impl<'a> State<'a> {
                             stack_manipulations: vec![],
                             took_repetition: false,
                         });
-                        if self.into_repetition() {
+                        if self.is_into_repetition() {
                             if let Some(future_same_c_state) = (state.c_transitions)(c) {
-                                if !state.into_repetition()
-                                    || !future_same_c_state.take_repetition()
+                                if !state.is_into_repetition()
+                                    || !future_same_c_state.is_take_repetition()
                                 {
                                     result.push(Transition {
                                         state,
@@ -502,7 +502,7 @@ impl<'a> State<'a> {
                     }
                 }
                 None => {
-                    if self.into_separator() {
+                    if self.is_into_separator() {
                         result.push(Transition {
                             state: separator,
                             stack_manipulations: vec![stack::Manipulation::Push(
@@ -519,7 +519,7 @@ impl<'a> State<'a> {
                             )],
                             took_repetition: false,
                         });
-                        if self.into_repetition() {
+                        if self.is_into_repetition() {
                             result.push(Transition {
                                 state: alias.0,
                                 stack_manipulations: vec![
@@ -538,7 +538,7 @@ impl<'a> State<'a> {
                         });
                     }
 
-                    if self.attributes.r#return() {
+                    if self.attributes.is_return() {
                         if let stack::Value::Return(state) = s {
                             result.push(Transition {
                                 state,
@@ -655,7 +655,7 @@ impl<'a> InstantaneousDescription<'a> {
             .iter()
         {
             if !visited.contains(&ByAddress(transition.state))
-                || transition.state.attributes.r#return()
+                || transition.state.attributes.is_return()
             {
                 let mut new_id = self.clone();
                 new_id.state = transition.state;
@@ -705,7 +705,7 @@ impl<'a> InstantaneousDescription<'a> {
             self.separator_grapheme = if self.separator_grapheme && self.took_repetition {
                 true
             } else {
-                self.state.attributes.separator()
+                self.state.attributes.is_separator()
             };
         }
         self.took_repetition = false;
@@ -728,7 +728,7 @@ impl RangeBounds<usize> for InstantaneousDescription<'_> {
     /// which case it is inclusive. This is to ensure that Exceptions take precedence over Words.
     #[inline]
     fn end_bound(&self) -> Bound<&usize> {
-        if self.state.attributes.exception() {
+        if self.state.attributes.is_exception() {
             Bound::Included(&self.end)
         } else {
             Bound::Excluded(&self.end)

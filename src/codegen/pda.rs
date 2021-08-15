@@ -10,6 +10,7 @@ use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
+/// Create `Attributes` to be passed as `state_attributes` to `add_path()`.
 fn create_state_attributes<'a>(
     into_separator: bool,
     into_repetition: bool,
@@ -315,6 +316,7 @@ impl<'a> Pda<'a> {
         }
     }
 
+    /// Apply aliases at the `root_index`.
     pub(super) fn apply_aliases(
         &mut self,
         aliases: &[(String, String)],

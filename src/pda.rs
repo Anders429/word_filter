@@ -102,6 +102,7 @@ impl<'a> Attributes<'a> {
         Self { flags, word }
     }
 
+    /// Merge another `Attributes` into `self`.
     #[inline]
     pub(crate) fn merge(&mut self, other: Attributes<'a>) {
         if self.flags.contains(Flags::WORD) {
@@ -115,11 +116,13 @@ impl<'a> Attributes<'a> {
         self.word = other.word;
     }
 
+    /// Returns the `flag` field.
     #[inline]
     pub(crate) fn flags(&self) -> Flags {
         self.flags
     }
 
+    /// Returns the `word` field.
     #[inline]
     pub(crate) fn word(&self) -> Option<&str> {
         self.word
@@ -155,6 +158,7 @@ impl<'a> Attributes<'a> {
         self.flags.contains(Flags::INTO_REPETITION)
     }
 
+    /// Unsets the `INTO_REPETITION` flag, if set.
     #[inline]
     pub(crate) fn remove_into_repetition(&mut self) {
         self.flags.remove(Flags::INTO_REPETITION)
@@ -166,6 +170,7 @@ impl<'a> Attributes<'a> {
         self.flags.contains(Flags::TAKE_REPETITION)
     }
 
+    /// Unsets the `TAKE_REPETITION` flag, if set.
     #[inline]
     pub(crate) fn remove_take_repetition(&mut self) {
         self.flags.remove(Flags::TAKE_REPETITION)
@@ -177,6 +182,7 @@ impl<'a> Attributes<'a> {
         self.flags.contains(Flags::INTO_SEPARATOR)
     }
 
+    /// Unsets the `INTO_SEPARATOR` flag, if set.
     #[inline]
     pub(crate) fn remove_into_separator(&mut self) {
         self.flags.remove(Flags::INTO_SEPARATOR)

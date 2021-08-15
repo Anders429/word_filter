@@ -173,15 +173,13 @@ impl<'a> Pda<'a> {
         let new_index = self.states.len();
         self.states.push(State::default());
         self.states[index].c_transitions.insert(c, new_index);
+        let mut new_attributes = state_attributes.clone();
+        new_attributes.remove_into_repetition();
         if remaining_g.is_empty() {
-            let mut new_attributes = state_attributes.clone();
-            new_attributes.remove_into_repetition();
             self.states[new_index].attributes = new_attributes;
             // Continue down normal path.
             self.add_path(s, state_attributes, final_attributes, new_index);
         } else {
-            let mut new_attributes = state_attributes.clone();
-            new_attributes.remove_into_repetition();
             new_attributes.remove_take_repetition();
             new_attributes.remove_into_separator();
             self.states[new_index].attributes = new_attributes;

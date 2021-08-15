@@ -327,7 +327,7 @@ impl<'a> Pda<'a> {
             let index = alias_indices
                 .entry(value)
                 .or_insert(self.initialize_alias());
-            self.add_return(*index, &alias, into_separator, into_repetition);
+            self.add_return(*index, alias, into_separator, into_repetition);
         }
         // Apply aliases on each other.
         for (value, index) in &alias_indices {
@@ -340,7 +340,7 @@ impl<'a> Pda<'a> {
         }
         // Apply aliases on root.
         for (value, index) in alias_indices {
-            self.add_alias(&value, index, root_index, &mut BTreeSet::new());
+            self.add_alias(value, index, root_index, &mut BTreeSet::new());
         }
     }
 

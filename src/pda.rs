@@ -58,6 +58,12 @@ bitflags! {
     }
 }
 
+impl Default for Flags {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 /// Attributes of a [`State`].
 ///
 /// Contains binary flags and an optional string containing the `State`'s matched word.
@@ -65,7 +71,7 @@ bitflags! {
 /// Having these attributes stored together ensures that invariants can be upheld on the flags and
 /// the associated word. The `WORD` flag will invariantly be set when the `word` field is not
 /// `None`, and the `WORD` and `EXCEPTION` flags will never be set at the same time.
-#[derive(Debug)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Attributes<'a> {
     /// Flags defining binary attributes.
     flags: Flags,
@@ -96,9 +102,32 @@ impl<'a> Attributes<'a> {
         Self { flags, word }
     }
 
+    #[inline]
+    pub(crate) fn merge(&mut self, other: Attributes<'a>) {
+        if self.flags.contains(Flags::WORD) {
+            assert!(!other.flags.contains(Flags::EXCEPTION));
+            assert!(!other.flags.contains(Flags::WORD) || other.word == self.word);
+        }
+        if self.flags.contains(Flags::EXCEPTION) {
+            assert!(!other.flags.contains(Flags::WORD));
+        }
+        self.flags.insert(other.flags);
+        self.word = other.word;
+    }
+
+    #[inline]
+    pub(crate) fn flags(&self) -> Flags {
+        self.flags
+    }
+
+    #[inline]
+    pub(crate) fn word(&self) -> Option<&str> {
+        self.word
+    }
+
     /// Returns whether the `WORD` flag is set.
     #[inline]
-    fn word(&self) -> bool {
+    fn is_word(&self) -> bool {
         self.flags.contains(Flags::WORD)
     }
 
@@ -126,16 +155,31 @@ impl<'a> Attributes<'a> {
         self.flags.contains(Flags::INTO_REPETITION)
     }
 
+    #[inline]
+    pub(crate) fn remove_into_repetition(&mut self) {
+        self.flags.remove(Flags::INTO_REPETITION)
+    }
+
     /// Returns whether the `TAKE_REPETITION` flag is set.
     #[inline]
     fn take_repetition(&self) -> bool {
         self.flags.contains(Flags::TAKE_REPETITION)
     }
 
+    #[inline]
+    pub(crate) fn remove_take_repetition(&mut self) {
+        self.flags.remove(Flags::TAKE_REPETITION)
+    }
+
     /// Returns whether the `INTO_SEPARATOR` flag is set.
     #[inline]
     fn into_separator(&self) -> bool {
         self.flags.contains(Flags::INTO_SEPARATOR)
+    }
+
+    #[inline]
+    pub(crate) fn remove_into_separator(&mut self) {
+        self.flags.remove(Flags::INTO_SEPARATOR)
     }
 
     /// Returns whether one of the `WORD` or `EXCEPTION` flags are set.
@@ -563,7 +607,7 @@ impl<'a> InstantaneousDescription<'a> {
     /// Return whether the state is a word.
     #[inline]
     pub(crate) fn is_word(&self) -> bool {
-        self.state.attributes.word()
+        self.state.attributes.is_word()
     }
 
     /// Unwrap the word that is contained in the state's type.

@@ -3,12 +3,35 @@
 use super::state::State;
 use crate::{
     constants::{EXCEPTION_INDEX, SEPARATOR_INDEX, WORD_INDEX},
-    pda::Flags,
+    pda::{Attributes, Flags},
 };
 use alloc::{collections::BTreeSet, format, string::String, vec, vec::Vec};
 use debug_unreachable::debug_unreachable;
 use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
+
+fn create_state_attributes<'a>(
+    into_separator: bool,
+    into_repetition: bool,
+    is_separator: bool,
+) -> Attributes<'a> {
+    Attributes::new(
+        if into_separator {
+            Flags::INTO_SEPARATOR
+        } else {
+            Flags::empty()
+        } | if into_repetition {
+            Flags::INTO_REPETITION | Flags::TAKE_REPETITION
+        } else {
+            Flags::empty()
+        } | if is_separator {
+            Flags::SEPARATOR
+        } else {
+            Flags::empty()
+        },
+        None,
+    )
+}
 
 /// Push-down automaton code generator.
 ///
@@ -30,29 +53,38 @@ impl<'a> Pda<'a> {
             states: vec![
                 // Word entry state.
                 State {
-                    flags: if word_into_repetition {
-                        Flags::INTO_REPETITION
-                    } else {
-                        Flags::empty()
-                    },
+                    attributes: Attributes::new(
+                        if word_into_repetition {
+                            Flags::INTO_REPETITION
+                        } else {
+                            Flags::empty()
+                        },
+                        None,
+                    ),
                     ..Default::default()
                 },
                 // Exception entry state.
                 State {
-                    flags: if exception_into_repetition {
-                        Flags::INTO_REPETITION
-                    } else {
-                        Flags::empty()
-                    },
+                    attributes: Attributes::new(
+                        if exception_into_repetition {
+                            Flags::INTO_REPETITION
+                        } else {
+                            Flags::empty()
+                        },
+                        None,
+                    ),
                     ..Default::default()
                 },
                 // Separator entry state.
                 State {
-                    flags: if separator_into_repetition {
-                        Flags::SEPARATOR | Flags::INTO_REPETITION
-                    } else {
-                        Flags::SEPARATOR
-                    },
+                    attributes: Attributes::new(
+                        if separator_into_repetition {
+                            Flags::SEPARATOR | Flags::INTO_REPETITION
+                        } else {
+                            Flags::SEPARATOR
+                        },
+                        None,
+                    ),
                     ..Default::default()
                 },
             ],
@@ -63,19 +95,15 @@ impl<'a> Pda<'a> {
     fn add_path(
         &mut self,
         s: &str,
-        flags: Flags,
-        word: Option<&'a str>,
+        state_attributes: Attributes<'a>,
+        final_attributes: Attributes<'a>,
         index: usize,
-        into_separator: bool,
-        into_repetition: bool,
     ) {
         let mut graphemes = s.graphemes(true);
         let grapheme = match graphemes.next() {
             Some(g) => g,
             None => {
-                let mut state = &mut self.states[index];
-                state.flags.insert(flags);
-                state.word = word;
+                self.states[index].attributes.merge(final_attributes);
                 return;
             }
         };
@@ -83,17 +111,16 @@ impl<'a> Pda<'a> {
             let new_index = self.states.len();
             self.states.push(State::default());
             self.states[index].graphemes.insert(new_index);
-            if into_repetition {
-                self.states[new_index].flags.insert(Flags::INTO_REPETITION);
-            }
+            let mut new_attributes = state_attributes.clone();
+            new_attributes.remove_take_repetition();
+            new_attributes.remove_into_separator();
+            self.states[new_index].attributes = new_attributes;
             self.add_grapheme(
                 grapheme,
                 graphemes.as_str(),
-                flags,
-                word,
+                state_attributes,
+                final_attributes,
                 new_index,
-                into_separator,
-                into_repetition,
             );
         } else {
             let mut chars = s.chars();
@@ -112,26 +139,16 @@ impl<'a> Pda<'a> {
                     self.states.push(State::default());
                     // Add new state.
                     self.states[index].c_transitions.insert(c, new_index);
-                    // Add repetition
-                    if into_repetition {
-                        self.states[new_index].flags.insert(Flags::INTO_REPETITION);
-                    }
-                    self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
-                    // Add separator transition to new state.
-                    if into_separator {
-                        self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
-                    }
+                    self.states[new_index].attributes = state_attributes.clone();
                     new_index
                 }
             };
 
             self.add_path(
                 chars.as_str(),
-                flags,
-                word,
+                state_attributes,
+                final_attributes,
                 new_index,
-                into_separator,
-                into_repetition,
             )
         }
     }
@@ -143,11 +160,9 @@ impl<'a> Pda<'a> {
         &mut self,
         g: &str,
         s: &str,
-        flags: Flags,
-        word: Option<&'a str>,
+        state_attributes: Attributes<'a>,
+        final_attributes: Attributes<'a>,
         index: usize,
-        into_separator: bool,
-        into_repetition: bool,
     ) {
         let mut chars = g.chars();
         let c = match chars.next() {
@@ -159,23 +174,23 @@ impl<'a> Pda<'a> {
         self.states.push(State::default());
         self.states[index].c_transitions.insert(c, new_index);
         if remaining_g.is_empty() {
-            // Make grapheme transition to repetition.
-            self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
-            // Separator.
-            if into_separator {
-                self.states[new_index].flags.insert(Flags::INTO_SEPARATOR);
-            }
+            let mut new_attributes = state_attributes.clone();
+            new_attributes.remove_into_repetition();
+            self.states[new_index].attributes = new_attributes;
             // Continue down normal path.
-            self.add_path(s, flags, word, new_index, into_separator, into_repetition);
+            self.add_path(s, state_attributes, final_attributes, new_index);
         } else {
+            let mut new_attributes = state_attributes.clone();
+            new_attributes.remove_into_repetition();
+            new_attributes.remove_take_repetition();
+            new_attributes.remove_into_separator();
+            self.states[new_index].attributes = new_attributes;
             self.add_grapheme(
                 remaining_g,
                 s,
-                flags,
-                word,
+                state_attributes,
+                final_attributes,
                 new_index,
-                into_separator,
-                into_repetition,
             );
         }
     }
@@ -185,11 +200,9 @@ impl<'a> Pda<'a> {
     pub(super) fn add_word(&mut self, s: &'a str, into_separator: bool, into_repetition: bool) {
         self.add_path(
             s,
-            Flags::WORD,
-            Some(s),
+            create_state_attributes(into_separator, into_repetition, false),
+            Attributes::new(Flags::WORD, Some(s)),
             WORD_INDEX,
-            into_separator,
-            into_repetition,
         )
     }
 
@@ -198,110 +211,28 @@ impl<'a> Pda<'a> {
     pub(super) fn add_exception(&mut self, s: &str, into_separator: bool, into_repetition: bool) {
         self.add_path(
             s,
-            Flags::EXCEPTION,
-            None,
+            create_state_attributes(into_separator, into_repetition, false),
+            Attributes::new(Flags::EXCEPTION, None),
             EXCEPTION_INDEX,
-            into_separator,
-            into_repetition,
         )
-    }
-
-    /// Add separator states using input `s`.
-    fn add_separator_internal(&mut self, s: &str, index: usize, into_repetition: bool) {
-        let mut graphemes = s.graphemes(true);
-        let grapheme = match graphemes.next() {
-            Some(g) => g,
-            None => {
-                self.states[index]
-                    .flags
-                    .insert(Flags::SEPARATOR | Flags::RETURN);
-                return;
-            }
-        };
-
-        if grapheme.chars().count() > 1 {
-            let new_index = self.states.len();
-            self.states.push(State {
-                flags: Flags::SEPARATOR,
-                ..Default::default()
-            });
-            self.states[index].graphemes.insert(new_index);
-            if into_repetition {
-                self.states[new_index].flags.insert(Flags::INTO_REPETITION);
-            }
-            self.add_separator_grapheme_internal(
-                grapheme,
-                graphemes.as_str(),
-                new_index,
-                into_repetition,
-            );
-        } else {
-            let mut chars = s.chars();
-            let c = match chars.next() {
-                Some(c) => c,
-                None => unsafe {
-                    // SAFETY: We saw above that a grapheme was found, which means `s` is not
-                    // empty.
-                    debug_unreachable!()
-                },
-            };
-            let new_index = match self.states[index].c_transitions.get(&c) {
-                Some(new_index) => *new_index,
-                None => {
-                    let new_index = self.states.len();
-                    self.states.push(State {
-                        flags: Flags::SEPARATOR,
-                        ..Default::default()
-                    });
-                    self.states[index].c_transitions.insert(c, new_index);
-                    if into_repetition {
-                        self.states[new_index].flags.insert(Flags::INTO_REPETITION);
-                        self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
-                    }
-                    new_index
-                }
-            };
-            self.add_separator_internal(chars.as_str(), new_index, into_repetition)
-        }
-    }
-
-    fn add_separator_grapheme_internal(
-        &mut self,
-        g: &str,
-        s: &str,
-        index: usize,
-        into_repetition: bool,
-    ) {
-        let mut chars = g.chars();
-        let c = match chars.next() {
-            Some(c) => c,
-            None => return,
-        };
-        let remaining_g = chars.as_str();
-        let new_index = self.states.len();
-        self.states.push(State::default());
-        self.states[index].c_transitions.insert(c, new_index);
-        if remaining_g.is_empty() {
-            // Make grapheme transition to repetition.
-            self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
-            // Continue down normal path.
-            self.add_separator_internal(s, new_index, into_repetition);
-        } else {
-            self.add_separator_grapheme_internal(remaining_g, s, new_index, into_repetition);
-        }
     }
 
     /// Add a separator.
     #[inline]
     pub(super) fn add_separator(&mut self, s: &str, into_repetition: bool) {
-        self.add_separator_internal(
+        self.add_path(
             s,
+            create_state_attributes(
+                false,
+                if s.graphemes(true).count() > 1 {
+                    into_repetition
+                } else {
+                    false
+                },
+                true,
+            ),
+            Attributes::new(Flags::SEPARATOR | Flags::RETURN, None),
             SEPARATOR_INDEX,
-            if s.graphemes(true).count() > 1 {
-                into_repetition
-            } else {
-                false
-            },
         )
     }
 
@@ -309,18 +240,17 @@ impl<'a> Pda<'a> {
     fn initialize_alias(&mut self) -> usize {
         let new_index = self.states.len();
         self.states.push(State::default());
-        self.states[new_index].flags.insert(Flags::INTO_REPETITION);
+        self.states[new_index].attributes = Attributes::new(Flags::INTO_REPETITION, None);
         new_index
     }
 
+    /// Add a return.
     fn add_return(&mut self, index: usize, s: &str, into_separator: bool, into_repetition: bool) {
         self.add_path(
             s,
-            Flags::RETURN,
-            None,
+            create_state_attributes(into_separator, into_repetition, false),
+            Attributes::new(Flags::RETURN, None),
             index,
-            into_separator,
-            into_repetition,
         )
     }
 

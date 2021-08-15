@@ -1,6 +1,6 @@
 //! Code generation logic for a state within the push-down automaton.
 
-use crate::pda::Flags;
+use crate::pda::{Attributes, Flags};
 use alloc::{
     borrow::ToOwned,
     collections::{BTreeMap, BTreeSet},
@@ -19,17 +19,26 @@ impl Flags {
     }
 }
 
-impl Default for Flags {
-    fn default() -> Self {
-        Self::empty()
+impl Attributes<'_> {
+    fn to_definition(&self) -> String {
+        format!(
+            "word_filter::pda::Attributes::new(
+                {},
+                {},
+            )",
+            self.flags().to_definition(),
+            match self.word() {
+                Some(word) => format!("Some(\"{}\")", word),
+                None => "None".to_owned(),
+            }
+        )
     }
 }
 
 /// Push-down automaton state code generator.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub(super) struct State<'a> {
-    pub(super) flags: Flags,
-    pub(super) word: Option<&'a str>,
+    pub(super) attributes: Attributes<'a>,
     pub(super) c_transitions: BTreeMap<char, usize>,
     pub(super) aliases: BTreeSet<(usize, usize)>,
     pub(super) graphemes: BTreeSet<usize>,
@@ -45,29 +54,11 @@ impl State<'_> {
             aliases: {},
             graphemes: {},
         }}",
-            self.define_attributes(),
+            self.attributes.to_definition(),
             self.define_c_transition_function(identifier),
             self.define_aliases(identifier),
             self.define_graphemes(identifier),
         )
-    }
-
-    fn define_attributes(&self) -> String {
-        format!(
-            "word_filter::pda::Attributes::new(
-                {},
-                {},
-            )",
-            self.flags.to_definition(),
-            self.define_word()
-        )
-    }
-
-    fn define_word(&self) -> String {
-        match self.word {
-            Some(word) => format!("Some(\"{}\")", word),
-            None => "None".to_owned(),
-        }
     }
 
     /// Define the transition function for all direct character transitions.

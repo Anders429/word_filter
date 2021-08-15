@@ -258,8 +258,8 @@ impl<'a> Pda<'a> {
                     self.states[index].c_transitions.insert(c, new_index);
                     if into_repetition {
                         self.states[new_index].flags.insert(Flags::INTO_REPETITION);
+                        self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
                     }
-                    self.states[new_index].flags.insert(Flags::TAKE_REPETITION);
                     new_index
                 }
             };

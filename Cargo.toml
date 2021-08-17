@@ -27,4 +27,4 @@ unicode-segmentation = "1.8.0"
 [dev-dependencies]
 indoc = "1.0.3"
 integration_codegen = {path = "tests/integration_codegen"}
-trybuild = "1.0.43"
+trybuild = "1.0.45"
